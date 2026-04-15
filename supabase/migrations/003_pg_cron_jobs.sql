@@ -1,0 +1,4 @@
+-- Schedules are now defined in supabase/config.toml via [functions.<name>.cron]
+-- schedule-crawls: runs every hour       → cron = "0 * * * *"
+-- send-email-alert: runs every 5 minutes → cron = "*/5 * * * *"
+-- pg_cron and pg_net extensions are no longer required.
