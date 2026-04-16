@@ -55,7 +55,7 @@ export function AnalyticsPage() {
   const { user } = useAuth()
   const [days, setDays] = useState(14)
 
-  const { data: changes = [], isLoading } = useQuery({
+  const { data: changes = [], isLoading, isError } = useQuery({
     queryKey: ['analytics_changes', user?.id, days],
     queryFn: async () => {
       const since = subDays(new Date(), days).toISOString()
@@ -111,6 +111,14 @@ export function AnalyticsPage() {
   const topCompetitor = ranking[0]?.name ?? '—'
 
   if (isLoading) return <PageSpinner />
+
+  if (isError) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-3">
+      <BarChart2 size={32} className="text-gray-300" />
+      <p className="text-gray-500 font-medium">Failed to load analytics</p>
+      <p className="text-sm text-gray-400">Please check your connection and try again.</p>
+    </div>
+  )
 
   return (
     <div className="space-y-6 max-w-6xl">

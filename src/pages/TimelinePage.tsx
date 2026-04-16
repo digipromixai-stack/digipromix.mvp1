@@ -20,7 +20,7 @@ const CHANGE_TYPE_OPTIONS = [
 export function TimelinePage() {
   const [changeType, setChangeType] = useState<ChangeType | ''>('')
 
-  const { data: changes = [], isLoading } = useDetectedChanges({
+  const { data: changes = [], isLoading, isError } = useDetectedChanges({
     changeType: changeType || undefined,
     limit: 100,
   })
@@ -43,6 +43,12 @@ export function TimelinePage() {
 
       {isLoading ? (
         <PageSpinner />
+      ) : isError ? (
+        <EmptyState
+          icon={Activity}
+          title="Failed to load changes"
+          description="Please check your connection and try again."
+        />
       ) : changes.length === 0 ? (
         <EmptyState
           icon={Activity}

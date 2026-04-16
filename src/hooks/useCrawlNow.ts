@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 
-const CRAWLER_URL = 'https://backend-vatt.onrender.com/api/trigger'
+const CRAWLER_URL = import.meta.env.VITE_CRAWLER_URL || 'https://backend-vatt.onrender.com/api/trigger'
 
 export function useCrawlNow(competitorId: string) {
   const [loading, setLoading] = useState(false)
