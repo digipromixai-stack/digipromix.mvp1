@@ -66,13 +66,13 @@ function StatCard({
   label: string; value: number; icon: typeof Activity; color: string; sub?: string
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center gap-4">
-      <div className={`flex items-center justify-center w-11 h-11 rounded-xl ${color} shrink-0`}>
-        <Icon size={20} className="text-white" />
+    <div className="bg-white rounded-xl border border-gray-200 px-3 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
+      <div className={`flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${color} shrink-0`}>
+        <Icon size={18} className="text-white" />
       </div>
-      <div>
-        <p className="text-2xl font-bold text-gray-900 leading-none">{value}</p>
-        <p className="text-sm text-gray-500 mt-0.5">{label}</p>
+      <div className="min-w-0">
+        <p className="text-xl sm:text-2xl font-bold text-gray-900 leading-none">{value}</p>
+        <p className="text-xs sm:text-sm text-gray-500 mt-0.5 truncate">{label}</p>
         {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
       </div>
     </div>
@@ -85,44 +85,44 @@ function FeedItem({ change }: { change: DetectedChangeWithCompetitor }) {
   const favicon = faviconUrl(change.competitors?.website_url ?? '')
 
   return (
-    <div className={`flex gap-3 pl-4 border-l-4 ${meta.border} py-0.5`}>
-      {/* icon */}
-      <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${meta.bg} shrink-0 mt-0.5`}>
+    <div className={`flex gap-2 sm:gap-3 pl-3 sm:pl-4 border-l-4 ${meta.border} py-0.5`}>
+      {/* icon — hidden on very small screens */}
+      <div className={`hidden sm:flex items-center justify-center w-9 h-9 rounded-lg ${meta.bg} shrink-0 mt-0.5`}>
         <Icon size={16} className={meta.color} />
       </div>
 
       {/* content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <ChangeTypeBadge type={change.change_type} />
             <SeverityBadge severity={change.severity} />
           </div>
           <span className="text-xs text-gray-400 shrink-0 mt-0.5">{timeAgo(change.detected_at)}</span>
         </div>
 
-        <p className="text-sm font-semibold text-gray-900 mt-1">{change.title}</p>
+        <p className="text-sm font-semibold text-gray-900 mt-1 line-clamp-2">{change.title}</p>
 
         {change.description && (
           <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{change.description}</p>
         )}
 
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <div className="flex items-center gap-1.5 sm:gap-2 mt-2 flex-wrap">
           {favicon && (
             <img src={favicon} alt="" className="w-4 h-4 rounded-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
           )}
           <Link
             to={`/timeline/${change.competitor_id}`}
-            className="text-xs font-medium text-blue-600 hover:underline"
+            className="text-xs font-medium text-blue-600 hover:underline truncate max-w-[120px] sm:max-w-none"
           >
             {change.competitors?.name}
           </Link>
-          <span className="text-gray-300">·</span>
+          <span className="text-gray-300 hidden sm:inline">·</span>
           <a
             href={change.monitored_pages?.url}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-0.5"
+            className="text-xs text-gray-400 hover:text-gray-600 items-center gap-0.5 hidden sm:flex"
           >
             {formatUrl(change.monitored_pages?.url ?? '')}
             <ExternalLink size={10} className="shrink-0 ml-0.5" />
@@ -284,10 +284,10 @@ export function DashboardPage() {
     <div className="space-y-6 max-w-7xl">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{greeting}, {firstName} 👋</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{greeting}, {firstName}</h1>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">
             {hasData
               ? `${stats!.competitors} competitors monitored · ${stats!.changes7d} changes in the last 7 days`
               : 'Load demo data to see what your competitors are launching'}
@@ -297,7 +297,7 @@ export function DashboardPage() {
           <button
             onClick={() => seedDemo.mutate()}
             disabled={seedDemo.isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors self-start"
           >
             <Sparkles size={15} />
             {seedDemo.isPending ? 'Loading…' : 'Load demo data'}
@@ -314,10 +314,10 @@ export function DashboardPage() {
       </div>
 
       {/* ── Main content ── */}
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
 
         {/* ── Intelligence Feed ── */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 w-full">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />
@@ -331,7 +331,7 @@ export function DashboardPage() {
           {changesLoading ? (
             <PageSpinner />
           ) : grouped.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-200 p-12 text-center bg-white">
+            <div className="rounded-xl border border-dashed border-gray-200 p-6 sm:p-12 text-center bg-white">
               <Activity size={32} className="text-gray-300 mx-auto mb-3" />
               <p className="text-sm font-medium text-gray-500">No competitor moves detected yet</p>
               <p className="text-xs text-gray-400 mt-1">
@@ -368,7 +368,7 @@ export function DashboardPage() {
 
         {/* ── Competitor Breakdown ── */}
         {competitors.length > 0 && (
-          <div className="w-64 shrink-0">
+          <div className="w-full lg:w-64 shrink-0">
             <h2 className="text-base font-bold text-gray-900 mb-3">Competitors</h2>
             <div className="space-y-2">
               {competitors.map((c) => (
