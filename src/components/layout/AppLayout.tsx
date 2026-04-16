@@ -10,8 +10,9 @@ export function AppLayout() {
     <div className="min-h-screen bg-gray-50">
       <Sidebar />
       <TopNav />
-      <main className="ml-64 pt-16 min-h-screen">
-        <div className="p-6">
+      {/* No left margin on mobile (sidebar is overlay), ml-64 on desktop */}
+      <main className="lg:ml-64 pt-16 min-h-screen">
+        <div className="p-4 sm:p-6">
           <Outlet />
         </div>
       </main>
