@@ -181,7 +181,7 @@ export function DashboardPage() {
   const qc = useQueryClient()
 
   // Stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useQuery({
     queryKey: ['dashboard_stats', user?.id],
     queryFn: async () => {
       const todayStart = new Date()
@@ -269,6 +269,14 @@ export function DashboardPage() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
   if (statsLoading) return <PageSpinner />
+
+  if (statsError) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-3">
+      <Activity size={32} className="text-gray-300" />
+      <p className="text-gray-500 font-medium">Failed to load dashboard</p>
+      <p className="text-sm text-gray-400">Please check your connection and try again.</p>
+    </div>
+  )
 
   const hasData = (stats?.competitors ?? 0) > 0
 

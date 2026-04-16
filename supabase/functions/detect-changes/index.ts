@@ -79,19 +79,38 @@ serve(async (req) => {
   let classification = classifyChange(beforeHtml, afterHtml, page.url, beforeLines, afterLines)
 
   // Override with Gemini AI Summary if provided by the Python crawler
-  if (body.ai_summary) {
-    classification.title = body.ai_summary.title || classification.title
-    classification.description = body.ai_summary.description || classification.description
-    
+  if (body.ai_summary && typeof body.ai_summary === 'object') {
+    const ai = body.ai_summary
+
+    // Only override title/description if non-empty strings
+    if (typeof ai.title === 'string' && ai.title.trim()) {
+      classification.title = ai.title.trim()
+    }
+    if (typeof ai.description === 'string' && ai.description.trim()) {
+      classification.description = ai.description.trim()
+    }
+
     // Ensure valid enums are passed by Gemini
     const validChangeTypes = ['promotion', 'price_change', 'new_landing_page', 'new_blog_post', 'banner_change', 'content_change']
-    if (validChangeTypes.includes(body.ai_summary.change_type)) {
-      classification.change_type = body.ai_summary.change_type
+    if (validChangeTypes.includes(ai.change_type)) {
+      classification.change_type = ai.change_type
     }
-    
+
     const validSeverities = ['low', 'medium', 'high']
-    if (validSeverities.includes(body.ai_summary.severity)) {
-       classification.severity = body.ai_summary.severity
+    if (validSeverities.includes(ai.severity)) {
+      classification.severity = ai.severity
+    }
+
+    // Sanitise array fields — must be actual arrays of strings
+    for (const f of ['added_content', 'removed_content']) {
+      if (Array.isArray(ai[f])) {
+        ai[f] = ai[f].filter((v: unknown) => typeof v === 'string').slice(0, 10)
+      } else {
+        ai[f] = []
+      }
+    }
+    if (typeof ai.price_change_detail !== 'string') {
+      ai.price_change_detail = ''
     }
   }
 
