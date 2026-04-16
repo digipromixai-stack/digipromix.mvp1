@@ -58,6 +58,8 @@ export interface PageSnapshot {
   normalized_hash: string | null
   prices_json: string | null
   http_status: number | null
+  structured_data: Record<string, unknown> | null
+  crawled_by: string | null
   crawled_at: string
 }
 
@@ -83,6 +85,7 @@ export interface DetectedChange {
   description: string | null
   diff_storage_path: string | null
   metadata: ChangeMetadata | null
+  ai_classified: boolean
   detected_at: string
   is_read: boolean
 }
@@ -93,6 +96,7 @@ export interface Alert {
   change_id: string
   channel: AlertChannel
   status: AlertStatus
+  error_message: string | null
   sent_at: string | null
   created_at: string
 }
