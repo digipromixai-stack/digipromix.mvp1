@@ -121,12 +121,12 @@ export function AnalyticsPage() {
   )
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-5 sm:space-y-6 max-w-6xl">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <BarChart2 size={22} className="text-blue-600" />
             Analytics
           </h1>
@@ -137,9 +137,9 @@ export function AnalyticsPage() {
             <button
               key={d}
               onClick={() => setDays(d)}
-              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+              className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 text-sm rounded-lg font-medium transition-colors ${
                 days === d
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white shadow-soft'
                   : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
               }`}
             >
