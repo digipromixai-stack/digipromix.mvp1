@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { ChangeTypeBadge, SeverityBadge } from '../components/ui/Badge'
+import { ChangeTypeBadge, SeverityBadge, Badge } from '../components/ui/Badge'
 import { PageSpinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { timeAgo } from '../lib/utils'
@@ -46,13 +46,29 @@ export function AlertsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Alerts</h1>
-          <p className="text-gray-500 text-sm mt-1">{unreadCount} unread alert{unreadCount !== 1 ? 's' : ''}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Alerts</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {unreadCount > 0 ? (
+              <>
+                <span className="text-blue-600 font-medium">{unreadCount} unread</span>
+                <span className="mx-1.5 text-gray-300">·</span>
+                <span>{alerts.length} total</span>
+              </>
+            ) : (
+              `${alerts.length} alert${alerts.length !== 1 ? 's' : ''}`
+            )}
+          </p>
         </div>
         {unreadCount > 0 && (
-          <Button variant="secondary" size="sm" onClick={() => markAllRead.mutate()} loading={markAllRead.isPending}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => markAllRead.mutate()}
+            loading={markAllRead.isPending}
+            className="w-full sm:w-auto"
+          >
             <CheckCheck size={16} /> Mark all read
           </Button>
         )}
@@ -61,15 +77,23 @@ export function AlertsPage() {
       {isLoading ? (
         <PageSpinner />
       ) : alerts.length === 0 ? (
-        <EmptyState icon={Bell} title="No alerts yet" description="Alerts will appear here when changes are detected on competitor pages." />
+        <EmptyState
+          icon={Bell}
+          title="No alerts yet"
+          description="Alerts will appear here when changes are detected on competitor pages."
+        />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {alerts.map((alert) => (
-            <Card key={alert.id} className={alert.status === 'pending' ? 'border-blue-200 bg-blue-50/30' : ''}>
-              <CardContent className="py-4">
-                <div className="flex items-start justify-between gap-3">
+            <Card
+              key={alert.id}
+              hover
+              className={alert.status === 'pending' ? 'ring-1 ring-blue-100 bg-blue-50/30' : ''}
+            >
+              <CardContent className="py-3.5 sm:py-4">
+                <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                       {alert.detected_changes?.change_type && (
                         <ChangeTypeBadge type={alert.detected_changes.change_type} />
                       )}
@@ -77,25 +101,25 @@ export function AlertsPage() {
                         <SeverityBadge severity={alert.detected_changes.severity} />
                       )}
                       {alert.status === 'pending' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                          New
-                        </span>
+                        <Badge variant="info" dot>New</Badge>
                       )}
                     </div>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-semibold text-gray-900 leading-snug">
                       {alert.detected_changes?.title ?? 'Change detected'}
                     </p>
                     {alert.detected_changes?.description && (
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{alert.detected_changes.description}</p>
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                        {alert.detected_changes.description}
+                      </p>
                     )}
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <Link
                         to={`/timeline/${alert.detected_changes?.competitor_id}`}
                         className="text-xs font-medium text-blue-600 hover:underline"
                       >
                         {alert.detected_changes?.competitors?.name}
                       </Link>
-                      <span className="text-xs text-gray-400">·</span>
+                      <span className="text-xs text-gray-300">·</span>
                       <span className="text-xs text-gray-400">{timeAgo(alert.created_at)}</span>
                     </div>
                   </div>
