@@ -115,6 +115,111 @@ export function extractJsonLd(html: string): Record<string, unknown>[] {
   return results
 }
 
+// ── Campaign Signal Extraction ─────────────────────────────────────────────
+// Scores 12 distinct signal types (0–150 total) to determine campaign intensity.
+// Used by changeClassifier.ts to decide if a change is a campaign_launch.
+
+export interface CampaignSignals {
+  score: number               // 0–150 total intensity
+  promoKeywords: string[]
+  promoCodes: string[]        // e.g. ["SAVE20", "USE10"]
+  countdownTimers: number
+  newForms: number            // lead capture form count
+  hasOfferSchema: boolean     // JSON-LD @type:Offer detected
+  newTrackingPixels: string[] // e.g. ["facebook", "google"]
+  urgencyScore: number        // count of urgency words matched
+  newCtaButtons: string[]
+  hasPromoStruct: boolean
+  newVideos: number
+  utmLinks: string[]
+}
+
+export function extractCampaignSignals(html: string): CampaignSignals {
+  let score = 0
+  const lower = html.toLowerCase()
+
+  // Promo codes: ALL-CAPS 4-20 char tokens adjacent to "use", "code", "coupon"
+  const promoCodeRe = /(?:use|code|coupon)[:\s]+([A-Z0-9]{4,20})/g
+  const promoCodes: string[] = []
+  let m: RegExpExecArray | null
+  while ((m = promoCodeRe.exec(html)) !== null) {
+    if (!promoCodes.includes(m[1])) promoCodes.push(m[1])
+  }
+  score += promoCodes.length > 0 ? 20 : 0
+
+  // Offer schema (JSON-LD)
+  const hasOfferSchema = /"@type"\s*:\s*"Offer"/i.test(html)
+  score += hasOfferSchema ? 18 : 0
+
+  // Countdown timers
+  const countdownTimers = (html.match(/countdown|timer|time-left|ends-in|sale-ends/gi) ?? []).length
+  score += Math.min(countdownTimers * 5, 15)
+
+  // Tracking pixels
+  const trackingPixels: string[] = []
+  if (/fbq\s*\(|facebook\.com\/tr/i.test(html)) { trackingPixels.push('facebook'); score += 15 }
+  if (/gtag\s*\(|googletagmanager/i.test(html))  { trackingPixels.push('google');   score += 10 }
+  if (/linkedin\.com\/insight/i.test(html))       { trackingPixels.push('linkedin'); score += 10 }
+
+  // Lead capture forms
+  const newForms = (html.match(/<form[^>]+>/gi) ?? []).length
+  score += Math.min(newForms * 6, 12)
+
+  // Urgency words
+  const urgencyWords = [
+    'urgent', 'hurry', 'act now', 'last chance', "don't miss",
+    'expires', 'limited seats', 'selling fast',
+  ]
+  const urgencyScore = urgencyWords.filter((w) => lower.includes(w)).length
+  score += Math.min(urgencyScore * 4, 12)
+
+  // CTA buttons with buying intent
+  const ctaRe = /<(?:button|a)[^>]*>([^<]*(?:buy|shop|claim|get|grab|order|subscribe)[^<]*)<\/(?:button|a)>/gi
+  const newCtaButtons: string[] = []
+  while ((m = ctaRe.exec(html)) !== null) {
+    const label = m[1].trim()
+    if (label && !newCtaButtons.includes(label)) newCtaButtons.push(label)
+  }
+  score += Math.min(newCtaButtons.length * 2, 8)
+
+  // Promo structural patterns (banners, promo-bar classes)
+  const hasPromoStruct = hasPromoStructure(html)
+  score += hasPromoStruct ? 8 : 0
+
+  // Promotion keywords on page text
+  const promoKeywords = detectPromotionKeywords(extractText(html))
+  score += Math.min(promoKeywords.length * 4, 12)
+
+  // UTM-tagged links
+  const utmLinks: string[] = []
+  const utmRe = /href="([^"]*[?&]utm_[^"]*)"/gi
+  while ((m = utmRe.exec(html)) !== null) {
+    if (!utmLinks.includes(m[1])) utmLinks.push(m[1])
+  }
+  score += Math.min(utmLinks.length * 3, 9)
+
+  // Video embeds
+  const newVideos = (html.match(/<video[^>]+>/gi) ?? []).length
+  score += Math.min(newVideos * 3, 9)
+
+  return {
+    score,
+    promoKeywords,
+    promoCodes,
+    countdownTimers,
+    newForms,
+    hasOfferSchema,
+    newTrackingPixels: trackingPixels,
+    urgencyScore,
+    newCtaButtons,
+    hasPromoStruct,
+    newVideos,
+    utmLinks,
+  }
+}
+
+// ── Meta Tags ──────────────────────────────────────────────────────────────
+
 // Extract Open Graph and meta tag key/value pairs.
 // og:title, product:price:amount etc. are stable signals unaffected by layout changes.
 export function extractMetaTags(html: string): Record<string, string> {

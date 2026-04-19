@@ -7,6 +7,7 @@ export type ChangeType =
   | 'new_blog_post'
   | 'banner_change'
   | 'content_change'
+  | 'campaign_launch'
 
 export type Severity = 'low' | 'medium' | 'high'
 export type PlanType = 'free' | 'premium'
@@ -70,6 +71,12 @@ export interface ChangeMetadata {
   added_content?: string[]       // Key new content snippets (from Gemini AI)
   removed_content?: string[]     // Key removed content snippets (from Gemini AI)
   price_change_detail?: string   // Human-readable price change sentence
+  // Campaign fields (v6 — campaign_launch type)
+  campaign_score?: number        // 0–150 signal intensity score
+  promo_codes?: string[]         // e.g. ["SAVE20", "USE10"]
+  action_recommended?: string    // e.g. "Launch counter-campaign"
+  is_coordinated?: boolean       // true = ≥2 pages of same competitor changed within 15 min
+  ai_enhanced?: boolean          // true = Gemini AI analysis was merged in
 }
 
 export interface DetectedChange {

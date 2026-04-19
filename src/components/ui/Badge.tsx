@@ -51,6 +51,7 @@ export function Badge({ children, variant = 'default', size = 'xs', dot, classNa
 }
 
 const changeTypeConfig: Record<ChangeType, { label: string; variant: BadgeProps['variant'] }> = {
+  campaign_launch:  { label: 'Campaign Launch',  variant: 'pink' },
   promotion:        { label: 'Promotion',        variant: 'danger' },
   price_change:     { label: 'Price Change',     variant: 'warning' },
   new_landing_page: { label: 'New Landing Page', variant: 'info' },
