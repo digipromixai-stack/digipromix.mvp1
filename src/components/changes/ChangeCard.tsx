@@ -12,6 +12,7 @@ import {
   ArrowRight,
   PlusCircle,
   MinusCircle,
+  Rocket,
 } from 'lucide-react'
 import { Card, CardContent } from '../ui/Card'
 import { Badge, ChangeTypeBadge, SeverityBadge } from '../ui/Badge'
@@ -27,6 +28,12 @@ const TYPE_CONFIG: Record<ChangeType, {
   iconColor: string
   border: string
 }> = {
+  campaign_launch: {
+    icon: Rocket,
+    iconBg: 'bg-orange-50',
+    iconColor: 'text-orange-500',
+    border: 'border-l-orange-400',
+  },
   promotion: {
     icon: Tag,
     iconBg: 'bg-red-50',
@@ -138,6 +145,37 @@ function ContentDelta({
   )
 }
 
+function CampaignSignals({
+  score,
+  codes,
+  coordinated,
+}: {
+  score?: number
+  codes?: string[]
+  coordinated?: boolean
+}) {
+  if (score === undefined && !codes?.length && !coordinated) return null
+  return (
+    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+      {score !== undefined && (
+        <span className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+          Score {score}/150
+        </span>
+      )}
+      {codes?.slice(0, 3).map((c) => (
+        <span key={c} className="text-xs font-mono bg-pink-50 text-pink-700 px-2 py-0.5 rounded font-semibold">
+          {c}
+        </span>
+      ))}
+      {coordinated && (
+        <span className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-semibold">
+          ⚡ Coordinated launch
+        </span>
+      )}
+    </div>
+  )
+}
+
 // ── Main card ──────────────────────────────────────────────────────────────
 
 export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor }) {
@@ -149,6 +187,7 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
   const addedContent   = meta?.added_content   ?? []
   const removedContent = meta?.removed_content ?? []
   const hasContentDelta = addedContent.length > 0 || removedContent.length > 0
+  const isCampaign = change.change_type === 'campaign_launch'
 
   return (
     <>
@@ -173,6 +212,15 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
               {/* Description */}
               {change.description && (
                 <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{change.description}</p>
+              )}
+
+              {/* Campaign signals (campaign_launch only) */}
+              {isCampaign && (
+                <CampaignSignals
+                  score={meta?.campaign_score}
+                  codes={meta?.promo_codes}
+                  coordinated={meta?.is_coordinated}
+                />
               )}
 
               {/* Price change */}
@@ -226,6 +274,17 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
                     </button>
                   </>
                 )}
+
+                {/* Campaign CTA button */}
+                {isCampaign && (
+                  <button
+                    className="ml-auto text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full font-semibold flex items-center gap-1 transition-colors"
+                    onClick={() => alert('Coming soon: AI counter-campaign generator')}
+                  >
+                    <Rocket size={11} />
+                    Launch Counter Campaign
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -253,6 +312,23 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
               {change.competitors?.name} · {timeAgo(change.detected_at)}
             </span>
           </div>
+
+          {/* Campaign signals in modal */}
+          {isCampaign && (
+            <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-orange-50 border border-orange-100">
+              <Rocket size={14} className="text-orange-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <CampaignSignals
+                  score={meta?.campaign_score}
+                  codes={meta?.promo_codes}
+                  coordinated={meta?.is_coordinated}
+                />
+                {meta?.action_recommended && (
+                  <p className="text-xs text-orange-700 mt-1 font-medium">{meta.action_recommended}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Price detail in modal */}
           {change.change_type === 'price_change' && meta && (
