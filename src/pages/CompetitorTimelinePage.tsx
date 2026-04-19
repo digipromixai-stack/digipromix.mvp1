@@ -28,23 +28,33 @@ export function CompetitorTimelinePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/timeline" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+        <Link
+          to="/timeline"
+          className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+          aria-label="Back to timeline"
+        >
           <ArrowLeft size={18} />
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight truncate">
             {competitor?.name ?? 'Competitor'} Timeline
           </h1>
-          <p className="text-gray-500 text-sm mt-0.5">All changes detected for this competitor</p>
+          <p className="text-gray-500 text-sm mt-0.5">
+            All changes detected for this competitor
+          </p>
         </div>
       </div>
 
       {isLoading ? (
         <PageSpinner />
       ) : changes.length === 0 ? (
-        <EmptyState icon={Activity} title="No changes detected yet" description="This competitor hasn't had any changes detected yet." />
+        <EmptyState
+          icon={Activity}
+          title="No changes detected yet"
+          description="This competitor hasn't had any changes detected yet."
+        />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {changes.map((c) => <ChangeCard key={c.id} change={c} />)}
         </div>
       )}

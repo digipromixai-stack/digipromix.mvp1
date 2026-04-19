@@ -22,11 +22,11 @@ export function CompetitorCard({ competitor }: { competitor: Competitor }) {
 
   return (
     <>
-      <Card className="hover:border-blue-200 transition-colors">
+      <Card hover className="hover:border-blue-200">
         <CardContent className="py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shrink-0">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-brand shadow-soft shrink-0">
                 <Globe size={18} className="text-white" />
               </div>
               <div className="min-w-0">
