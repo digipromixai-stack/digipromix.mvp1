@@ -27,12 +27,16 @@ export function TimelinePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Activity Timeline</h1>
-          <p className="text-gray-500 text-sm mt-1">All detected changes across your competitors</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+            Activity Timeline
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            All detected changes across your competitors
+          </p>
         </div>
-        <div className="w-48">
+        <div className="w-full sm:w-56">
           <Select
             options={CHANGE_TYPE_OPTIONS}
             value={changeType}
@@ -56,7 +60,7 @@ export function TimelinePage() {
           description="Changes will appear here once competitors are being monitored."
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {changes.map((change) => <ChangeCard key={change.id} change={change} />)}
         </div>
       )}
