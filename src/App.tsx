@@ -18,6 +18,7 @@ import { AlertsPage } from './pages/AlertsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { CampaignsPage } from './pages/CampaignsPage'
+import { MetaCallbackPage } from './pages/MetaCallbackPage'
 import { PageSpinner } from './components/ui/Spinner'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
@@ -58,6 +59,7 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/auth/meta/callback" element={<MetaCallbackPage />} />
 
       {/* Protected app routes */}
       <Route
