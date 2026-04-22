@@ -18,6 +18,7 @@ import { Card, CardContent } from '../ui/Card'
 import { Badge, ChangeTypeBadge, SeverityBadge } from '../ui/Badge'
 import { Modal } from '../ui/Modal'
 import { DiffViewer } from './DiffViewer'
+import { CampaignModal } from '../campaigns/CampaignModal'
 import { timeAgo, formatUrl } from '../../lib/utils'
 import type { ChangeType, DetectedChangeWithCompetitor } from '../../types/database.types'
 
@@ -180,6 +181,7 @@ function CampaignSignals({
 
 export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor }) {
   const [showDiff, setShowDiff] = useState(false)
+  const [showCampaign, setShowCampaign] = useState(false)
   const cfg  = TYPE_CONFIG[change.change_type] ?? TYPE_CONFIG.content_change
   const Icon = cfg.icon
   const meta = change.metadata
@@ -187,7 +189,7 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
   const addedContent   = meta?.added_content   ?? []
   const removedContent = meta?.removed_content ?? []
   const hasContentDelta = addedContent.length > 0 || removedContent.length > 0
-  const isCampaign = change.change_type === 'campaign_launch'
+  const isCampaign = change.change_type === 'campaign_launch' || change.change_type === 'promotion'
 
   return (
     <>
@@ -279,7 +281,7 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
                 {isCampaign && (
                   <button
                     className="ml-auto text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full font-semibold flex items-center gap-1 transition-colors"
-                    onClick={() => alert('Coming soon: AI counter-campaign generator')}
+                    onClick={() => setShowCampaign(true)}
                   >
                     <Rocket size={11} />
                     Launch Counter Campaign
@@ -290,6 +292,15 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
           </div>
         </CardContent>
       </Card>
+
+      {/* Campaign modal */}
+      {isCampaign && (
+        <CampaignModal
+          change={change}
+          open={showCampaign}
+          onClose={() => setShowCampaign(false)}
+        />
+      )}
 
       {/* Diff modal */}
       {change.diff_storage_path && (
