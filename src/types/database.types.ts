@@ -164,6 +164,48 @@ interface AlertPreferencesUpdate { email_alerts?: boolean; dashboard_alerts?: bo
 interface CrawlJobInsert { competitor_id: string; monitored_page_id?: string | null; status?: CrawlJobStatus }
 interface CrawlJobUpdate { status?: CrawlJobStatus; error_message?: string | null; started_at?: string | null; completed_at?: string | null }
 
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+
+export interface Campaign {
+  id: string
+  user_id: string
+  change_id: string | null
+  competitor_id: string | null
+  competitor_name: string
+  competitor_event: string | null
+  campaign_name: string
+  headline: string
+  ad_copy: string
+  social_copy: string | null
+  offer: string | null
+  keywords: string[]
+  landing_page_title: string | null
+  landing_page_cta: string | null
+  landing_page_body: string | null
+  industry: string | null
+  channels: string[]
+  status: CampaignStatus
+  created_at: string
+  updated_at: string
+}
+
+interface CampaignInsert {
+  user_id: string; competitor_id?: string | null; change_id?: string | null
+  competitor_name: string; competitor_event?: string | null
+  campaign_name: string; headline: string; ad_copy: string
+  social_copy?: string | null; offer?: string | null
+  keywords?: string[]; landing_page_title?: string | null
+  landing_page_cta?: string | null; landing_page_body?: string | null
+  industry?: string | null; channels?: string[]; status?: CampaignStatus
+}
+
+interface CampaignUpdate {
+  campaign_name?: string; headline?: string; ad_copy?: string
+  social_copy?: string | null; offer?: string | null; keywords?: string[]
+  landing_page_title?: string | null; landing_page_cta?: string | null
+  landing_page_body?: string | null; channels?: string[]; status?: CampaignStatus
+}
+
 // Supabase Database interface for createClient<Database> typing
 export interface Database {
   public: {
@@ -176,6 +218,7 @@ export interface Database {
       alerts: { Row: Alert; Insert: AlertInsert; Update: AlertUpdate }
       alert_preferences: { Row: AlertPreferences; Insert: AlertPreferencesInsert; Update: AlertPreferencesUpdate }
       crawl_jobs: { Row: CrawlJob; Insert: CrawlJobInsert; Update: CrawlJobUpdate }
+      campaigns: { Row: Campaign; Insert: CampaignInsert; Update: CampaignUpdate }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

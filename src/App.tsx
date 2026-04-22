@@ -17,6 +17,7 @@ import { CompetitorTimelinePage } from './pages/CompetitorTimelinePage'
 import { AlertsPage } from './pages/AlertsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
+import { CampaignsPage } from './pages/CampaignsPage'
 import { PageSpinner } from './components/ui/Spinner'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 
@@ -72,6 +73,7 @@ function AppRoutes() {
         <Route path="/timeline" element={<TimelinePage />} />
         <Route path="/timeline/:id" element={<CompetitorTimelinePage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/campaigns" element={<CampaignsPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
