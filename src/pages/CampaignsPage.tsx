@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '../components/ui/Card'
-import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
