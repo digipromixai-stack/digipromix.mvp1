@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Activity, Bell, Settings, TrendingUp, BarChart2, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Building2, Activity, Bell, Settings, TrendingUp, BarChart2, Menu, X, Rocket } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
   { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard'  },
   { to: '/competitors',icon: Building2,       label: 'Competitors'},
   { to: '/timeline',   icon: Activity,        label: 'Timeline'   },
+  { to: '/campaigns',  icon: Rocket,          label: 'Campaigns'  },
   { to: '/analytics',  icon: BarChart2,       label: 'Analytics'  },
   { to: '/alerts',     icon: Bell,            label: 'Alerts'     },
   { to: '/settings',   icon: Settings,        label: 'Settings'   },

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { MetaIntegration } from '../components/settings/MetaIntegration'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -118,6 +119,12 @@ export function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+
+      {/* ── Ad Integrations ─────────────────────────── */}
+      <div>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ad Integrations</h2>
+        <MetaIntegration />
+      </div>
 
       <Card>
         <CardHeader><h2 className="text-sm font-semibold text-gray-900">Profile</h2></CardHeader>
