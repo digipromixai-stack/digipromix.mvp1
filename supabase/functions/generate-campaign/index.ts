@@ -89,8 +89,18 @@ Generate a counter-campaign JSON with these exact fields:
 
 IMPORTANT: Return ONLY valid JSON. No markdown, no explanation. Make it specific to their industry and the exact move they made.`
 
-    const geminiKey = Deno.env.get('GEMINI_API_KEY')
-    if (!geminiKey) return jsonResponse({ error: 'Gemini API key not configured — set GEMINI_API_KEY in Supabase secrets' }, 500)
+    // Try env secret first, fall back to Supabase Vault
+    let geminiKey = Deno.env.get('GEMINI_API_KEY')
+    if (!geminiKey) {
+      const { data: vaultData } = await supabase
+        .schema('vault')
+        .from('decrypted_secrets')
+        .select('decrypted_secret')
+        .eq('name', 'gemini_api_key')
+        .single()
+      geminiKey = vaultData?.decrypted_secret ?? null
+    }
+    if (!geminiKey) return jsonResponse({ error: 'Gemini API key not configured' }, 500)
 
     const aiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
