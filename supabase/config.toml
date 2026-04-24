@@ -62,6 +62,15 @@ verify_jwt = false
 [functions.send-email-alert]
 verify_jwt = false
 
+[functions.generate-campaign]
+verify_jwt = false
+
+[functions.meta-oauth]
+verify_jwt = false
+
+[functions.launch-meta-campaign]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
