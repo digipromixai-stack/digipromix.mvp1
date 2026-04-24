@@ -89,32 +89,35 @@ Generate a counter-campaign JSON with these exact fields:
 
 IMPORTANT: Return ONLY valid JSON. No markdown, no explanation. Make it specific to their industry and the exact move they made.`
 
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiKey) return jsonResponse({ error: 'OpenAI API key not configured' }, 500)
+    const geminiKey = Deno.env.get('GEMINI_API_KEY')
+    if (!geminiKey) return jsonResponse({ error: 'Gemini API key not configured — set GEMINI_API_KEY in Supabase secrets' }, 500)
 
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 800,
-        response_format: { type: 'json_object' },
-      }),
-    })
+    const aiResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.7,
+            maxOutputTokens: 1024,
+          },
+        }),
+      }
+    )
 
     if (!aiResponse.ok) {
-      const err = await aiResponse.text()
-      console.error('OpenAI error:', err)
-      return jsonResponse({ error: 'AI generation failed' }, 500)
+      const errBody = await aiResponse.json().catch(() => ({ error: { message: 'unknown' } }))
+      const errMsg = errBody?.error?.message ?? 'unknown Gemini error'
+      console.error('Gemini error:', aiResponse.status, errMsg)
+      return jsonResponse({ error: `AI generation failed: ${errMsg}` }, 500)
     }
 
     const aiJson = await aiResponse.json()
-    const generated = JSON.parse(aiJson.choices[0].message.content)
+    const rawText = aiJson.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
+    const generated = JSON.parse(rawText)
 
     // Save campaign to DB
     const { data: campaign, error: insertError } = await supabase
