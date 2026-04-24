@@ -18,17 +18,22 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
+
+    // Authenticate via user-scoped client (passes JWT to Auth API)
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+    const { data: { user }, error: authError } = await userClient.auth.getUser()
+    if (authError || !user) return jsonResponse({ error: 'Unauthorized' }, 401)
+
+    // Service-role client for privileged DB operations
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       { auth: { persistSession: false } },
     )
-
-    // Authenticate user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (authError || !user) return jsonResponse({ error: 'Unauthorized' }, 401)
 
     const { change_id } = await req.json()
     if (!change_id) return jsonResponse({ error: 'change_id is required' }, 400)
