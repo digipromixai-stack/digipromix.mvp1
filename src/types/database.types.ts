@@ -164,7 +164,23 @@ interface AlertPreferencesUpdate { email_alerts?: boolean; dashboard_alerts?: bo
 interface CrawlJobInsert { competitor_id: string; monitored_page_id?: string | null; status?: CrawlJobStatus }
 interface CrawlJobUpdate { status?: CrawlJobStatus; error_message?: string | null; started_at?: string | null; completed_at?: string | null }
 
-export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+export type CampaignStatus   = 'draft' | 'active' | 'paused' | 'completed'
+export type LeadStatus       = 'new' | 'contacted' | 'qualified' | 'closed'
+export type LandingTemplate  = 'default' | 'healthcare' | 'real-estate' | 'education' | 'local-services'
+
+// ── Client (multi-tenant / agency) ────────────────────────────────────────────
+export interface Client {
+  id: string
+  user_id: string
+  name: string
+  industry: string | null
+  website: string | null
+  logo_url: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
 
 export interface Campaign {
   id: string
@@ -185,8 +201,46 @@ export interface Campaign {
   industry: string | null
   channels: string[]
   status: CampaignStatus
+  // Landing page
+  slug: string | null
+  published: boolean
+  leads_count: number
+  landing_page_url: string | null
+  // Ad platform IDs
+  meta_campaign_id: string | null
+  meta_adset_id: string | null
+  meta_ad_id: string | null
+  meta_error: string | null
+  google_campaign_id: string | null
+  google_ad_group_id: string | null
+  google_ad_id: string | null
+  google_error: string | null
+  // Enhancements (migration 011)
+  client_id: string | null
+  template: LandingTemplate
+  daily_budget: number | null
   created_at: string
   updated_at: string
+}
+
+export interface Lead {
+  id: string
+  user_id: string
+  campaign_id: string | null
+  competitor_id: string | null
+  name: string | null
+  email: string | null
+  phone: string | null
+  message: string | null
+  source: string
+  score: number
+  status: LeadStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface LeadWithCampaign extends Lead {
+  campaigns: Pick<Campaign, 'campaign_name' | 'competitor_name'> | null
 }
 
 interface CampaignInsert {
