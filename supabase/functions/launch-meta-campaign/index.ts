@@ -39,16 +39,22 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
+
+    // Authenticate via user-scoped client (passes JWT to Auth API)
+    const userClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+    const { data: { user }, error: authErr } = await userClient.auth.getUser()
+    if (authErr || !user) return json({ error: 'Unauthorized' }, 401)
+
+    // Service-role client for privileged DB operations
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       { auth: { persistSession: false } },
     )
-
-    const { data: { user }, error: authErr } = await admin.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (authErr || !user) return json({ error: 'Unauthorized' }, 401)
 
     const { campaign_id, daily_budget_usd = 10, landing_page_url } = await req.json()
     if (!campaign_id) return json({ error: 'campaign_id required' }, 400)

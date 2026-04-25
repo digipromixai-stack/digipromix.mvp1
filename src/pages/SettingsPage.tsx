@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { MetaIntegration } from '../components/settings/MetaIntegration'
+import { GoogleAdsIntegration } from '../components/settings/GoogleAdsIntegration'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -54,6 +55,8 @@ export function SettingsPage() {
   const [emailAlerts, setEmailAlerts] = useState(true)
   const [webhookUrl, setWebhookUrl] = useState('')
   const [webhookEnabled, setWebhookEnabled] = useState(false)
+  const [whatsappNumber, setWhatsappNumber] = useState('')
+  const [whatsappAlerts, setWhatsappAlerts] = useState(false)
 
   useEffect(() => {
     if (prefs) {
@@ -61,6 +64,8 @@ export function SettingsPage() {
       setEmailAlerts(prefs.email_alerts)
       setWebhookUrl((prefs as typeof prefs & { webhook_url?: string }).webhook_url ?? '')
       setWebhookEnabled((prefs as typeof prefs & { webhook_enabled?: boolean }).webhook_enabled ?? false)
+      setWhatsappNumber((prefs as typeof prefs & { whatsapp_number?: string }).whatsapp_number ?? '')
+      setWhatsappAlerts((prefs as typeof prefs & { whatsapp_alerts?: boolean }).whatsapp_alerts ?? false)
     } else {
       setSelectedAlerts(['promotion', 'price_change', 'new_landing_page'])
     }
@@ -93,6 +98,8 @@ export function SettingsPage() {
         alert_on: selectedAlerts,
         webhook_url: webhookUrl.trim() || null,
         webhook_enabled: webhookEnabled && !!webhookUrl.trim(),
+        whatsapp_number: whatsappNumber.trim() || null,
+        whatsapp_alerts: whatsappAlerts && !!whatsappNumber.trim(),
       }
       if (prefs) {
         const { error } = await supabase.from('alert_preferences').update(payload).eq('user_id', user!.id)
@@ -123,7 +130,10 @@ export function SettingsPage() {
       {/* ── Ad Integrations ─────────────────────────── */}
       <div>
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Ad Integrations</h2>
-        <MetaIntegration />
+        <div className="space-y-4">
+          <MetaIntegration />
+          <GoogleAdsIntegration />
+        </div>
       </div>
 
       <Card>
@@ -174,6 +184,40 @@ export function SettingsPage() {
           </div>
           <Button onClick={() => updatePrefs.mutate()} loading={updatePrefs.isPending}>
             Save preferences
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <h2 className="text-sm font-semibold text-gray-900">WhatsApp Lead Alerts</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Get notified on WhatsApp the moment a new lead submits your landing page</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input
+            label="WhatsApp number (international format)"
+            id="whatsapp_number"
+            type="tel"
+            placeholder="+1 555 000 0000"
+            value={whatsappNumber}
+            onChange={(e) => setWhatsappNumber(e.target.value)}
+          />
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300"
+              checked={whatsappAlerts}
+              onChange={(e) => setWhatsappAlerts(e.target.checked)}
+              disabled={!whatsappNumber.trim()}
+            />
+            <span className="text-sm text-gray-700">Enable WhatsApp lead alerts</span>
+          </label>
+          <div className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3 space-y-1">
+            <p className="font-medium text-gray-600">Requires Twilio WhatsApp API:</p>
+            <p>Set <code className="font-mono">TWILIO_ACCOUNT_SID</code>, <code className="font-mono">TWILIO_AUTH_TOKEN</code>, and <code className="font-mono">TWILIO_WHATSAPP_NUMBER</code> in Supabase Vault (as <code className="font-mono">twilio_account_sid</code> etc.) or Edge Function secrets.</p>
+          </div>
+          <Button onClick={() => updatePrefs.mutate()} loading={updatePrefs.isPending}>
+            Save WhatsApp settings
           </Button>
         </CardContent>
       </Card>

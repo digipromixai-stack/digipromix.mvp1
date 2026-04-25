@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Activity, Bell, Settings, TrendingUp, BarChart2, Menu, X, Rocket } from 'lucide-react'
+import { LayoutDashboard, Building2, Activity, Bell, Settings, TrendingUp, BarChart2, Menu, X, Rocket, Zap, Users, Briefcase } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
-  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard'  },
-  { to: '/competitors',icon: Building2,       label: 'Competitors'},
-  { to: '/timeline',   icon: Activity,        label: 'Timeline'   },
-  { to: '/campaigns',  icon: Rocket,          label: 'Campaigns'  },
-  { to: '/analytics',  icon: BarChart2,       label: 'Analytics'  },
-  { to: '/alerts',     icon: Bell,            label: 'Alerts'     },
-  { to: '/settings',   icon: Settings,        label: 'Settings'   },
+  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard'   },
+  { to: '/interception', icon: Zap,             label: 'Interception', highlight: true },
+  { to: '/competitors',  icon: Building2,       label: 'Competitors' },
+  { to: '/timeline',     icon: Activity,        label: 'Timeline'    },
+  { to: '/campaigns',    icon: Rocket,          label: 'Campaigns'   },
+  { to: '/leads',        icon: Users,           label: 'Leads'       },
+  { to: '/clients',      icon: Briefcase,       label: 'Clients'     },
+  { to: '/analytics',    icon: BarChart2,       label: 'Analytics'   },
+  { to: '/alerts',       icon: Bell,            label: 'Alerts'      },
+  { to: '/settings',     icon: Settings,        label: 'Settings'    },
 ]
 
 export function Sidebar() {
@@ -65,7 +68,7 @@ export function Sidebar() {
 
         {/* Nav items */}
         <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {navItems.map(({ to, icon: Icon, label, highlight }) => (
             <NavLink
               key={to}
               to={to}
@@ -75,7 +78,9 @@ export function Sidebar() {
                   'group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
                   isActive
                     ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-soft-md'
-                    : 'text-gray-400 hover:bg-white/5 hover:text-white',
+                    : highlight
+                      ? 'text-orange-300 hover:bg-orange-500/10 hover:text-orange-200'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white',
                 )
               }
             >

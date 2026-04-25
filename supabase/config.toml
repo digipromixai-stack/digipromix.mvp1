@@ -1,6 +1,3 @@
-[project]
-id = "digipromix"
-
 [api]
 enabled = true
 port = 54321
@@ -64,7 +61,27 @@ verify_jwt = false
 
 [functions.send-email-alert]
 verify_jwt = false
-cron = "*/5 * * * *"
+
+[functions.generate-campaign]
+verify_jwt = false
+
+[functions.meta-oauth]
+verify_jwt = false
+
+[functions.launch-meta-campaign]
+verify_jwt = false
+
+[functions.google-ads-oauth]
+verify_jwt = false
+
+[functions.launch-google-ads-campaign]
+verify_jwt = false
+
+[functions.submit-lead]
+verify_jwt = false
+
+[functions.send-webhook]
+verify_jwt = false
 
 [analytics]
 enabled = true
