@@ -71,6 +71,18 @@ verify_jwt = false
 [functions.launch-meta-campaign]
 verify_jwt = false
 
+[functions.google-ads-oauth]
+verify_jwt = false
+
+[functions.launch-google-ads-campaign]
+verify_jwt = false
+
+[functions.submit-lead]
+verify_jwt = false
+
+[functions.send-webhook]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

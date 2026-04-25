@@ -56,38 +56,60 @@ Deno.serve(async (req) => {
     const competitor = change.competitors as { name: string; website_url: string; industry: string | null }
     const meta = change.metadata as Record<string, unknown> | null
 
-    const promoCodes = (meta?.promo_codes as string[] | undefined)?.join(', ') ?? 'none'
+    const promoCodes    = (meta?.promo_codes    as string[] | undefined)?.join(', ') ?? 'none'
     const promoKeywords = (meta?.promo_keywords as string[] | undefined)?.join(', ') ?? ''
+    const addedContent  = (meta?.added_content  as string[] | undefined)?.slice(0, 3).join(' | ') ?? ''
     const campaignScore = meta?.campaign_score ?? 0
+    const industry      = competitor.industry?.toLowerCase() ?? 'general'
 
-    const prompt = `You are an expert digital marketing strategist. A competitor just made a significant move. Generate an aggressive, highly specific counter-campaign.
+    // Map industry to best landing page template
+    const templateMap: Record<string, string> = {
+      healthcare: 'healthcare', medical: 'healthcare', dental: 'healthcare', pharmacy: 'healthcare',
+      'real estate': 'real-estate', property: 'real-estate', realty: 'real-estate',
+      education: 'education', school: 'education', training: 'education', tutoring: 'education',
+      'local services': 'local-services', plumbing: 'local-services', electrician: 'local-services',
+      cleaning: 'local-services', repair: 'local-services', restaurant: 'local-services',
+    }
+    const suggestedTemplate = Object.entries(templateMap).find(([k]) => industry.includes(k))?.[1] ?? 'default'
 
-COMPETITOR CONTEXT:
-- Name: ${competitor.name}
-- Website: ${competitor.website_url}
-- Industry: ${competitor.industry ?? 'general'}
-- What they did: ${change.title}
-- Details: ${change.description ?? 'N/A'}
-- Type of move: ${change.change_type}
-- Urgency level: ${change.severity}
-- Campaign intensity score: ${campaignScore}/150
-- Promo codes they used: ${promoCodes}
-- Keywords detected: ${promoKeywords}
+    const prompt = `You are an elite digital marketing strategist specialising in competitive intelligence. A competitor just made a move. Your job: create a ruthlessly effective counter-campaign that steals their customers.
 
-Generate a counter-campaign JSON with these exact fields:
+═══ COMPETITOR INTELLIGENCE ═══
+Company: ${competitor.name}
+Website: ${competitor.website_url}
+Industry: ${industry}
+What they did: ${change.title}
+Details: ${change.description ?? 'N/A'}
+New content detected: ${addedContent || 'N/A'}
+Move type: ${change.change_type}
+Urgency: ${change.severity}
+Campaign intensity score: ${campaignScore}/150
+Their promo codes: ${promoCodes}
+Their keywords: ${promoKeywords}
+
+═══ YOUR STRATEGY ═══
+1. ANALYSE their offer — what benefit are they promising? Extract it from the details.
+2. OUTBID that offer — counter with something MORE compelling (higher %, extra bonus, better terms, free add-on).
+3. CREATE urgency — limited time, limited availability, exclusive.
+4. TARGET their search traffic — bid on keywords people use to find ${competitor.name} or their offer.
+
+Generate a JSON object with EXACTLY these fields:
 {
-  "campaign_name": "short memorable name for this campaign (max 50 chars)",
-  "headline": "primary ad headline that directly counters competitor's offer (max 90 chars, no punctuation at end)",
-  "ad_copy": "2 sentences of compelling ad description that highlights why we are better (max 180 chars total)",
-  "social_copy": "3-4 sentence Instagram/Facebook post with 2-3 relevant emojis and a strong CTA, referencing competitor's move implicitly",
-  "offer": "specific counter-offer that beats competitor (be concrete, e.g. '15% off + free consultation this week only')",
-  "keywords": ["5 to 8 high-intent search keywords to bid on, targeting people searching for competitor's offer"],
-  "landing_page_title": "hero headline for the landing page (max 70 chars)",
-  "landing_page_cta": "call-to-action button text (max 25 chars, action verb first)",
-  "landing_page_body": "2-3 sentences that explain the offer and create urgency for the landing page"
+  "campaign_name": "memorable internal campaign name (max 50 chars)",
+  "competitor_offer_extracted": "in 1 sentence: what is the competitor actually offering?",
+  "headline": "Google Search headline that counters their offer directly — start with a benefit, max 90 chars",
+  "ad_copy": "2 punchy sentences: (1) name their weakness / your advantage, (2) CTA with urgency. Max 180 chars total.",
+  "social_copy": "3-4 sentence Instagram/Facebook post. Open with a hook, reference competitor's move implicitly, include 2-3 emojis, end with strong CTA.",
+  "offer": "your specific counter-offer — be very concrete, e.g. '20% off + free onsite assessment, this week only'. Must beat their offer.",
+  "offer_justification": "1 sentence: why YOUR offer is better than ${competitor.name}'s",
+  "keywords": ["8 to 12 high-intent keywords — include competitor brand name variants, their offer terms, and generic category terms"],
+  "landing_page_title": "hero headline for landing page (max 70 chars) — lead with the benefit",
+  "landing_page_cta": "CTA button text (max 25 chars, action verb first, e.g. 'Claim My Discount')",
+  "landing_page_body": "2-3 sentences that explain the offer, create urgency, and differentiate from competitor",
+  "suggested_template": "${suggestedTemplate}"
 }
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no explanation. Make it specific to their industry and the exact move they made.`
+CRITICAL: Return ONLY valid JSON. No markdown fences, no explanation text. Make every field hyper-specific to ${competitor.name}'s industry (${industry}) and the exact move they made.`
 
     // Try env secret first, fall back to Supabase Vault via RPC
     let geminiKey = Deno.env.get('GEMINI_API_KEY')
@@ -100,7 +122,7 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no explanation. Make it specific
     if (!geminiKey) return jsonResponse({ error: 'Gemini API key not configured' }, 500)
 
     const aiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,27 +148,45 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no explanation. Make it specific
     const rawText = aiJson.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
     const generated = JSON.parse(rawText)
 
+    // Generate a unique URL-safe slug from campaign name
+    function makeSlug(name: string): string {
+      return name.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 48) + '-' + Math.random().toString(36).slice(2, 7)
+    }
+    const slug = makeSlug(generated.campaign_name ?? 'campaign')
+
+    // Use AI's template suggestion if available
+    const template = generated.suggested_template ?? suggestedTemplate
+
     // Save campaign to DB
     const { data: campaign, error: insertError } = await supabase
       .from('campaigns')
       .insert({
-        user_id: user.id,
-        change_id: change_id,
-        competitor_id: change.competitor_id,
-        competitor_name: competitor.name,
-        competitor_event: change.title,
-        industry: competitor.industry,
-        campaign_name: generated.campaign_name,
-        headline: generated.headline,
-        ad_copy: generated.ad_copy,
-        social_copy: generated.social_copy ?? null,
-        offer: generated.offer ?? null,
-        keywords: generated.keywords ?? [],
+        user_id:            user.id,
+        change_id:          change_id,
+        competitor_id:      change.competitor_id,
+        competitor_name:    competitor.name,
+        competitor_event:   change.title,
+        industry:           competitor.industry,
+        campaign_name:      generated.campaign_name,
+        headline:           generated.headline,
+        ad_copy:            generated.ad_copy,
+        social_copy:        generated.social_copy        ?? null,
+        offer:              generated.offer              ?? null,
+        keywords:           generated.keywords           ?? [],
         landing_page_title: generated.landing_page_title ?? null,
-        landing_page_cta: generated.landing_page_cta ?? null,
-        landing_page_body: generated.landing_page_body ?? null,
-        status: 'draft',
-        channels: [],
+        landing_page_cta:   generated.landing_page_cta   ?? null,
+        landing_page_body:  generated.landing_page_body  ?? null,
+        status:             'draft',
+        channels:           [],
+        slug,
+        published:          false,
+        leads_count:        0,
+        template,
       })
       .select()
       .single()
@@ -156,7 +196,14 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no explanation. Make it specific
       return jsonResponse({ error: 'Failed to save campaign' }, 500)
     }
 
-    return jsonResponse({ campaign })
+    return jsonResponse({
+      campaign,
+      insights: {
+        competitor_offer: generated.competitor_offer_extracted ?? null,
+        offer_justification: generated.offer_justification ?? null,
+        suggested_template: template,
+      },
+    })
   } catch (err) {
     console.error('Unexpected error:', err)
     return jsonResponse({ error: 'Internal server error' }, 500)
