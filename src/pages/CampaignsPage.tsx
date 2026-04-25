@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Rocket, Search, Globe, Share2, Trash2, Play, Pause,
-  CheckCircle2, FileEdit, TrendingUp, Plus,
+  CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '../components/ui/Card'
@@ -83,6 +83,22 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
               </div>
             )}
 
+            {/* Landing page link */}
+            {campaign.slug && campaign.published && (
+              <div className="flex items-center gap-2 mt-2">
+                <Link2 size={11} className="text-indigo-400 shrink-0" />
+                <code className="text-xs text-indigo-600 truncate flex-1">/lp/{campaign.slug}</code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lp/${campaign.slug}`)}
+                  className="p-1 rounded text-indigo-400 hover:bg-indigo-50"
+                  title="Copy landing page link"
+                ><Copy size={11} /></button>
+                <a href={`/lp/${campaign.slug}`} target="_blank" rel="noreferrer"
+                  className="p-1 rounded text-indigo-400 hover:bg-indigo-50"
+                ><ExternalLink size={11} /></a>
+              </div>
+            )}
+
             <div className="flex items-center gap-3 mt-3 flex-wrap">
               {/* Channels */}
               {campaign.channels.length > 0 && (
@@ -91,6 +107,13 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                     const Icon = CHANNEL_ICONS[ch] ?? Globe
                     return <Icon key={ch} size={13} className="text-gray-400" />
                   })}
+                </div>
+              )}
+              {/* Leads count */}
+              {campaign.leads_count > 0 && (
+                <div className="flex items-center gap-1 text-xs text-green-600 font-semibold">
+                  <Users size={12} />
+                  {campaign.leads_count} lead{campaign.leads_count !== 1 ? 's' : ''}
                 </div>
               )}
               <span className="text-xs text-gray-400">{timeAgo(campaign.created_at)}</span>
