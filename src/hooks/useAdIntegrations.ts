@@ -37,6 +37,14 @@ export function useMetaIntegration() {
   }
 }
 
+export function useGoogleAdsIntegration() {
+  const { data: integrations = [], ...rest } = useAdIntegrations()
+  return {
+    ...rest,
+    googleIntegration: integrations.find(i => i.platform === 'google') ?? null,
+  }
+}
+
 export function useInvalidateIntegrations() {
   const qc = useQueryClient()
   return () => qc.invalidateQueries({ queryKey: ['ad_integrations'] })
