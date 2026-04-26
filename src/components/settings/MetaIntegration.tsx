@@ -129,7 +129,11 @@ export function MetaIntegration() {
             {!appId && (
               <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-700">
                 <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                <span><code className="font-mono">VITE_META_APP_ID</code> is not set. Add it to your <code>.env.local</code> to enable Meta connection.</span>
+                <span>
+                  <strong>Setup required:</strong> Add <code className="font-mono">VITE_META_APP_ID</code> to your{' '}
+                  <a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" className="underline font-semibold">Vercel Environment Variables</a>
+                  {' '}then redeploy. <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer" className="underline">Create a Facebook App</a> to get your App ID.
+                </span>
               </div>
             )}
 

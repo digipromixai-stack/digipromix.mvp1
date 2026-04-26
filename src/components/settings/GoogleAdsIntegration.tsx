@@ -109,7 +109,11 @@ export function GoogleAdsIntegration() {
             {!clientId && (
               <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-700">
                 <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                <span><code className="font-mono">VITE_GOOGLE_ADS_CLIENT_ID</code> is not set. Add it to your <code>.env.local</code> to enable Google Ads connection.</span>
+                <span>
+                  <strong>Setup required:</strong> Add <code className="font-mono">VITE_GOOGLE_ADS_CLIENT_ID</code> to your{' '}
+                  <a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" className="underline font-semibold">Vercel Environment Variables</a>
+                  {' '}then redeploy. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="underline">Create an OAuth Client</a> in Google Cloud Console to get your Client ID.
+                </span>
               </div>
             )}
 
