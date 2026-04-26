@@ -1,7 +1,5 @@
 -- Migration 006: Add campaign_launch change type
--- The detect-changes Edge Function (v6) emits campaign_launch when
--- multi-signal scoring detects a coordinated promotional campaign.
--- We need to widen the CHECK constraint to allow this new value.
+-- Widens the CHECK constraint on detected_changes.change_type to include campaign_launch
 
 ALTER TABLE detected_changes
   DROP CONSTRAINT IF EXISTS detected_changes_change_type_check;
