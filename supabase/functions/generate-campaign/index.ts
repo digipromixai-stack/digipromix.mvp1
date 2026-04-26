@@ -131,7 +131,7 @@ CRITICAL: Return ONLY valid JSON. No markdown fences, no explanation text. Make 
           generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.7,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 2048,
           },
         }),
       }
@@ -145,8 +145,21 @@ CRITICAL: Return ONLY valid JSON. No markdown fences, no explanation text. Make 
     }
 
     const aiJson = await aiResponse.json()
-    const rawText = aiJson.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
-    const generated = JSON.parse(rawText)
+    const rawText: string = aiJson.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
+
+    // Strip markdown code fences that some Gemini versions add despite responseMimeType
+    const cleaned = rawText
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```\s*$/, '')
+      .trim()
+
+    let generated: Record<string, unknown>
+    try {
+      generated = JSON.parse(cleaned)
+    } catch (parseErr) {
+      console.error('JSON parse failed. Raw text (first 600 chars):', rawText.slice(0, 600))
+      return jsonResponse({ error: 'AI returned malformed JSON — please retry' }, 500)
+    }
 
     // Generate a unique URL-safe slug from campaign name
     function makeSlug(name: string): string {
