@@ -3,8 +3,8 @@
  * Shows competitor signals, metrics, AI recommendation, and active campaigns.
  */
 import { useState, useMemo } from 'react'
-import { Zap, TrendingUp, Users, Rocket, AlertTriangle, ExternalLink, Percent, Target } from 'lucide-react'
-import { Card, CardContent, CardHeader } from '../components/ui/Card'
+import { Zap, Users, Rocket, AlertTriangle, ExternalLink, Percent, Target } from 'lucide-react'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -57,7 +57,7 @@ function SignalCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <SeverityBadge severity={change.severity} />
-            <ChangeTypeBadge changeType={change.change_type} />
+            <ChangeTypeBadge type={change.change_type} />
             {hasCampaign && (
               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
                 ✓ Intercepted
