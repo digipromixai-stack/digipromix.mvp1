@@ -15,8 +15,24 @@ export async function invokeFunction<T = unknown>(
 ): Promise<{ data: T | null; error: Error | null }> {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token ?? supabaseAnonKey
-  return supabase.functions.invoke<T>(name, {
+  const result = await supabase.functions.invoke<T>(name, {
     headers: { Authorization: `Bearer ${token}` },
     body,
   })
+
+  // Supabase's FunctionsHttpError has a generic message. Try to extract
+  // the actual error detail from the response body so the UI shows it.
+  if (result.error) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ctx = (result.error as any).context as Response | undefined
+      if (ctx?.json) {
+        const errBody = await ctx.json() as { error?: string; detail?: string }
+        const msg = errBody?.detail || errBody?.error
+        if (msg) result.error = new Error(msg)
+      }
+    } catch { /* ignore — keep original error */ }
+  }
+
+  return result
 }
