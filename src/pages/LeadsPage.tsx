@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { Users, Mail, Phone, MessageSquare, Trash2, Star, ExternalLink } from 'lucide-react'
+import { Users, Mail, Phone, MessageSquare, Trash2, Star } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useLeads, useUpdateLeadStatus, useDeleteLead, useLeadStats } from '../hooks/useLeads'
@@ -29,7 +28,6 @@ function LeadCard({ lead }: { lead: LeadWithCampaign }) {
   const { mutate: updateStatus, isPending: updating } = useUpdateLeadStatus()
   const { mutate: deleteLead, isPending: deleting } = useDeleteLead()
   const cfg = STATUS_CONFIG[lead.status]
-  const originUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
   return (
     <Card className="hover:shadow-md transition-shadow">
