@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import type { Lead, LeadWithCampaign, LeadStatus } from '../types/database.types'
+import type { LeadWithCampaign, LeadStatus } from '../types/database.types'
 
 export function useLeads(status?: LeadStatus) {
   return useQuery<LeadWithCampaign[]>({
