@@ -129,6 +129,43 @@ export interface CrawlJob {
   created_at: string
 }
 
+export type AdPlatform = 'google_ads' | 'meta_ads'
+export type AdCampaignStatus = 'draft' | 'creating' | 'paused' | 'active' | 'error'
+
+export interface AdIntegration {
+  id: string
+  user_id: string
+  platform: AdPlatform
+  access_token: string | null
+  refresh_token: string
+  token_expires_at: string | null
+  account_id: string | null
+  account_name: string | null
+  is_active: boolean
+  last_error: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AdCampaign {
+  id: string
+  user_id: string
+  competitor_id: string | null
+  change_id: string | null
+  platform: AdPlatform
+  external_campaign_id: string | null
+  external_ad_group_id: string | null
+  campaign_name: string
+  headline: string | null
+  description: string | null
+  final_url: string | null
+  daily_budget_usd: number | null
+  status: AdCampaignStatus
+  error_message: string | null
+  created_at: string
+  updated_at: string
+}
+
 // Joined types used by the UI
 export interface DetectedChangeWithCompetitor extends DetectedChange {
   competitors: Pick<Competitor, 'id' | 'name' | 'website_url' | 'industry'>
@@ -164,6 +201,12 @@ interface AlertPreferencesUpdate { email_alerts?: boolean; dashboard_alerts?: bo
 interface CrawlJobInsert { competitor_id: string; monitored_page_id?: string | null; status?: CrawlJobStatus }
 interface CrawlJobUpdate { status?: CrawlJobStatus; error_message?: string | null; started_at?: string | null; completed_at?: string | null }
 
+interface AdIntegrationInsert { user_id: string; platform: AdPlatform; refresh_token: string; access_token?: string | null; token_expires_at?: string | null; account_id?: string | null; account_name?: string | null; is_active?: boolean }
+interface AdIntegrationUpdate { access_token?: string | null; refresh_token?: string; token_expires_at?: string | null; account_id?: string | null; account_name?: string | null; is_active?: boolean; last_error?: string | null }
+
+interface AdCampaignInsert { user_id: string; platform: AdPlatform; campaign_name: string; competitor_id?: string | null; change_id?: string | null; headline?: string | null; description?: string | null; final_url?: string | null; daily_budget_usd?: number | null; status?: AdCampaignStatus }
+interface AdCampaignUpdate { external_campaign_id?: string | null; external_ad_group_id?: string | null; status?: AdCampaignStatus; error_message?: string | null }
+
 // Supabase Database interface for createClient<Database> typing
 export interface Database {
   public: {
@@ -176,6 +219,8 @@ export interface Database {
       alerts: { Row: Alert; Insert: AlertInsert; Update: AlertUpdate }
       alert_preferences: { Row: AlertPreferences; Insert: AlertPreferencesInsert; Update: AlertPreferencesUpdate }
       crawl_jobs: { Row: CrawlJob; Insert: CrawlJobInsert; Update: CrawlJobUpdate }
+      ad_integrations: { Row: AdIntegration; Insert: AdIntegrationInsert; Update: AdIntegrationUpdate }
+      ad_campaigns: { Row: AdCampaign; Insert: AdCampaignInsert; Update: AdCampaignUpdate }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
