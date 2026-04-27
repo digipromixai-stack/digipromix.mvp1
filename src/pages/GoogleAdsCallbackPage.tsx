@@ -25,6 +25,7 @@ export function GoogleAdsCallbackPage() {
   const [accounts, setAccounts]   = useState<GoogleAdsAccount[]>([])
   const [selected, setSelected]   = useState<GoogleAdsAccount | null>(null)
   const [managerId, setManagerId] = useState('')
+  const [manualId, setManualId]   = useState('')
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -58,15 +59,16 @@ export function GoogleAdsCallbackPage() {
   }, [])
 
   const save = async () => {
-    if (!selected) return
+    const accountId = selected?.id || manualId.trim().replace(/-/g, '')
+    if (!accountId) return
     setStep('saving')
     const { error: fnErr } = await invokeFunction('google-ads-oauth', {
       action:            'save',
       access_token:      accessToken,
       refresh_token:     refreshToken,
       expires_at:        expiresAt,
-      account_id:        selected.id,
-      account_name:      selected.descriptive_name ?? selected.id,
+      account_id:        accountId,
+      account_name:      selected?.descriptive_name ?? accountId,
       login_customer_id: managerId.trim() || null,
     })
     if (fnErr) { setError((fnErr as Error).message); setStep('error'); return }
@@ -110,9 +112,19 @@ export function GoogleAdsCallbackPage() {
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
               {accounts.length === 0 && (
-                <p className="text-xs text-yellow-600 mt-1">
-                  No accessible Google Ads accounts. Make sure the developer token is approved and this Google account has Google Ads access.
-                </p>
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-yellow-600">
+                    No accounts returned automatically (common with TEST developer tokens). Enter your Customer ID manually:
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="e.g. 162-391-6756 or 1623916756"
+                    value={manualId}
+                    onChange={e => setManualId(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  <p className="text-xs text-gray-400">Find your Customer ID in Google Ads → top-right corner.</p>
+                </div>
               )}
             </div>
 
@@ -130,7 +142,7 @@ export function GoogleAdsCallbackPage() {
               <p className="text-xs text-gray-400 mt-1">Leave blank if the account above is accessed directly (not via MCC).</p>
             </div>
 
-            <Button onClick={save} disabled={!selected} className="w-full">
+            <Button onClick={save} disabled={!selected && !manualId.trim()} className="w-full">
               Connect Account
             </Button>
           </div>
