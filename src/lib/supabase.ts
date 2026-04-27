@@ -26,10 +26,13 @@ export async function invokeFunction<T = unknown>(
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ctx = (result.error as any).context as Response | undefined
-      if (ctx?.json) {
-        const errBody = await ctx.json() as { error?: string; detail?: string }
-        const msg = errBody?.detail || errBody?.error
-        if (msg) result.error = new Error(msg)
+      if (ctx?.text) {
+        const raw = await ctx.text()
+        try {
+          const errBody = JSON.parse(raw) as { error?: string; detail?: string }
+          const msg = errBody?.detail || errBody?.error
+          if (msg) result.error = new Error(msg)
+        } catch { /* non-JSON body (HTML error page) — keep original error */ }
       }
     } catch { /* ignore — keep original error */ }
   }
