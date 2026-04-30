@@ -129,43 +129,6 @@ export interface CrawlJob {
   created_at: string
 }
 
-export type AdPlatform = 'google_ads' | 'meta_ads'
-export type AdCampaignStatus = 'draft' | 'creating' | 'paused' | 'active' | 'error'
-
-export interface AdIntegration {
-  id: string
-  user_id: string
-  platform: AdPlatform
-  access_token: string | null
-  refresh_token: string
-  token_expires_at: string | null
-  account_id: string | null
-  account_name: string | null
-  is_active: boolean
-  last_error: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface AdCampaign {
-  id: string
-  user_id: string
-  competitor_id: string | null
-  change_id: string | null
-  platform: AdPlatform
-  external_campaign_id: string | null
-  external_ad_group_id: string | null
-  campaign_name: string
-  headline: string | null
-  description: string | null
-  final_url: string | null
-  daily_budget_usd: number | null
-  status: AdCampaignStatus
-  error_message: string | null
-  created_at: string
-  updated_at: string
-}
-
 // Joined types used by the UI
 export interface DetectedChangeWithCompetitor extends DetectedChange {
   competitors: Pick<Competitor, 'id' | 'name' | 'website_url' | 'industry'>
@@ -201,11 +164,101 @@ interface AlertPreferencesUpdate { email_alerts?: boolean; dashboard_alerts?: bo
 interface CrawlJobInsert { competitor_id: string; monitored_page_id?: string | null; status?: CrawlJobStatus }
 interface CrawlJobUpdate { status?: CrawlJobStatus; error_message?: string | null; started_at?: string | null; completed_at?: string | null }
 
-interface AdIntegrationInsert { user_id: string; platform: AdPlatform; refresh_token: string; access_token?: string | null; token_expires_at?: string | null; account_id?: string | null; account_name?: string | null; is_active?: boolean }
-interface AdIntegrationUpdate { access_token?: string | null; refresh_token?: string; token_expires_at?: string | null; account_id?: string | null; account_name?: string | null; is_active?: boolean; last_error?: string | null }
+export type CampaignStatus   = 'draft' | 'active' | 'paused' | 'completed'
+export type LeadStatus       = 'new' | 'contacted' | 'qualified' | 'closed'
+export type LandingTemplate  = 'default' | 'healthcare' | 'real-estate' | 'education' | 'local-services'
 
-interface AdCampaignInsert { user_id: string; platform: AdPlatform; campaign_name: string; competitor_id?: string | null; change_id?: string | null; headline?: string | null; description?: string | null; final_url?: string | null; daily_budget_usd?: number | null; status?: AdCampaignStatus }
-interface AdCampaignUpdate { external_campaign_id?: string | null; external_ad_group_id?: string | null; status?: AdCampaignStatus; error_message?: string | null }
+// ── Client (multi-tenant / agency) ────────────────────────────────────────────
+export interface Client {
+  id: string
+  user_id: string
+  name: string
+  industry: string | null
+  website: string | null
+  logo_url: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Campaign {
+  id: string
+  user_id: string
+  change_id: string | null
+  competitor_id: string | null
+  competitor_name: string
+  competitor_event: string | null
+  campaign_name: string
+  headline: string
+  ad_copy: string
+  social_copy: string | null
+  offer: string | null
+  keywords: string[]
+  landing_page_title: string | null
+  landing_page_cta: string | null
+  landing_page_body: string | null
+  industry: string | null
+  channels: string[]
+  status: CampaignStatus
+  // Landing page
+  slug: string | null
+  published: boolean
+  leads_count: number
+  landing_page_url: string | null
+  // Ad platform IDs
+  meta_campaign_id: string | null
+  meta_adset_id: string | null
+  meta_ad_id: string | null
+  meta_error: string | null
+  google_campaign_id: string | null
+  google_ad_group_id: string | null
+  google_ad_id: string | null
+  google_error: string | null
+  // Enhancements (migration 011)
+  client_id: string | null
+  template: LandingTemplate
+  daily_budget: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Lead {
+  id: string
+  user_id: string
+  campaign_id: string | null
+  competitor_id: string | null
+  name: string | null
+  email: string | null
+  phone: string | null
+  message: string | null
+  source: string
+  score: number
+  status: LeadStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface LeadWithCampaign extends Lead {
+  campaigns: Pick<Campaign, 'campaign_name' | 'competitor_name'> | null
+}
+
+interface CampaignInsert {
+  user_id: string; competitor_id?: string | null; change_id?: string | null
+  competitor_name: string; competitor_event?: string | null
+  campaign_name: string; headline: string; ad_copy: string
+  social_copy?: string | null; offer?: string | null
+  keywords?: string[]; landing_page_title?: string | null
+  landing_page_cta?: string | null; landing_page_body?: string | null
+  industry?: string | null; channels?: string[]; status?: CampaignStatus
+}
+
+interface CampaignUpdate {
+  campaign_name?: string; headline?: string; ad_copy?: string
+  social_copy?: string | null; offer?: string | null; keywords?: string[]
+  landing_page_title?: string | null; landing_page_cta?: string | null
+  landing_page_body?: string | null; channels?: string[]; status?: CampaignStatus
+}
 
 // Supabase Database interface for createClient<Database> typing
 export interface Database {
@@ -219,8 +272,7 @@ export interface Database {
       alerts: { Row: Alert; Insert: AlertInsert; Update: AlertUpdate }
       alert_preferences: { Row: AlertPreferences; Insert: AlertPreferencesInsert; Update: AlertPreferencesUpdate }
       crawl_jobs: { Row: CrawlJob; Insert: CrawlJobInsert; Update: CrawlJobUpdate }
-      ad_integrations: { Row: AdIntegration; Insert: AdIntegrationInsert; Update: AdIntegrationUpdate }
-      ad_campaigns: { Row: AdCampaign; Insert: AdCampaignInsert; Update: AdCampaignUpdate }
+      campaigns: { Row: Campaign; Insert: CampaignInsert; Update: CampaignUpdate }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

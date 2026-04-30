@@ -1,185 +1,274 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ExternalLink,
-  GitCompare,
-  Tag,
-  DollarSign,
-  FileText,
-  BookOpen,
-  Megaphone,
-  Edit3,
-  ArrowRight,
-  PlusCircle,
-  MinusCircle,
-  Rocket,
+  ExternalLink, GitCompare, Tag, DollarSign, FileText, BookOpen,
+  Megaphone, Edit3, ArrowRight, PlusCircle, MinusCircle, Rocket,
+  TrendingDown, TrendingUp, Zap, Eye, ChevronRight,
 } from 'lucide-react'
 import { Card, CardContent } from '../ui/Card'
 import { Badge, ChangeTypeBadge, SeverityBadge } from '../ui/Badge'
 import { Modal } from '../ui/Modal'
 import { DiffViewer } from './DiffViewer'
+import { CampaignModal } from '../campaigns/CampaignModal'
 import { timeAgo, formatUrl } from '../../lib/utils'
 import type { ChangeType, DetectedChangeWithCompetitor } from '../../types/database.types'
 
-// Per-type visual config
+// ── Per-type visual config ─────────────────────────────────────────────────
 const TYPE_CONFIG: Record<ChangeType, {
   icon: React.ElementType
   iconBg: string
   iconColor: string
   border: string
+  accent: string
+  label: string
 }> = {
-  campaign_launch: {
-    icon: Rocket,
-    iconBg: 'bg-orange-50',
-    iconColor: 'text-orange-500',
-    border: 'border-l-orange-400',
-  },
-  promotion: {
-    icon: Tag,
-    iconBg: 'bg-red-50',
-    iconColor: 'text-red-500',
-    border: 'border-l-red-400',
-  },
-  price_change: {
-    icon: DollarSign,
-    iconBg: 'bg-yellow-50',
-    iconColor: 'text-yellow-600',
-    border: 'border-l-yellow-400',
-  },
-  new_landing_page: {
-    icon: FileText,
-    iconBg: 'bg-blue-50',
-    iconColor: 'text-blue-500',
-    border: 'border-l-blue-400',
-  },
-  new_blog_post: {
-    icon: BookOpen,
-    iconBg: 'bg-green-50',
-    iconColor: 'text-green-600',
-    border: 'border-l-green-400',
-  },
-  banner_change: {
-    icon: Megaphone,
-    iconBg: 'bg-purple-50',
-    iconColor: 'text-purple-500',
-    border: 'border-l-purple-400',
-  },
-  content_change: {
-    icon: Edit3,
-    iconBg: 'bg-gray-50',
-    iconColor: 'text-gray-400',
-    border: 'border-l-gray-300',
-  },
+  campaign_launch: { icon: Rocket,    iconBg: 'bg-orange-50', iconColor: 'text-orange-500', border: 'border-l-orange-400', accent: 'bg-orange-50 border-orange-200', label: 'Campaign Launch' },
+  promotion:       { icon: Tag,       iconBg: 'bg-red-50',    iconColor: 'text-red-500',    border: 'border-l-red-400',    accent: 'bg-red-50 border-red-200',    label: 'Promotion' },
+  price_change:    { icon: DollarSign,iconBg: 'bg-yellow-50', iconColor: 'text-yellow-600', border: 'border-l-yellow-400', accent: 'bg-yellow-50 border-yellow-200',label: 'Price Change' },
+  new_landing_page:{ icon: FileText,  iconBg: 'bg-blue-50',   iconColor: 'text-blue-500',   border: 'border-l-blue-400',   accent: 'bg-blue-50 border-blue-200',   label: 'New Landing Page' },
+  new_blog_post:   { icon: BookOpen,  iconBg: 'bg-green-50',  iconColor: 'text-green-600',  border: 'border-l-green-400',  accent: 'bg-green-50 border-green-200', label: 'New Blog Post' },
+  banner_change:   { icon: Megaphone, iconBg: 'bg-purple-50', iconColor: 'text-purple-500', border: 'border-l-purple-400', accent: 'bg-purple-50 border-purple-200',label: 'Banner Change' },
+  content_change:  { icon: Edit3,     iconBg: 'bg-gray-100',  iconColor: 'text-gray-500',   border: 'border-l-gray-300',   accent: 'bg-gray-50 border-gray-200',   label: 'Content Change' },
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
+// ── What-Changed detail sections ───────────────────────────────────────────
 
-function PriceChange({ before, after, detail }: { before: string[]; after: string[]; detail?: string }) {
-  if (!before.length && !after.length && !detail) return null
+function PriceChangeDetail({ before, after, detail }: { before: string[]; after: string[]; detail?: string }) {
+  const hasBoth = before.length > 0 && after.length > 0
+  const isIncrease = hasBoth && parseFloat(after[0].replace(/[^0-9.]/g,'')) > parseFloat(before[0].replace(/[^0-9.]/g,''))
+
   return (
-    <div className="mt-1.5 space-y-1">
-      {(before.length > 0 || after.length > 0) && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {before.slice(0, 3).map((p) => (
-            <span key={p} className="inline-flex items-center px-2 py-0.5 rounded bg-red-50 text-red-600 text-xs font-mono line-through">
-              {p}
-            </span>
-          ))}
-          {before.length > 0 && after.length > 0 && (
-            <ArrowRight size={12} className="text-gray-400 shrink-0" />
-          )}
-          {after.slice(0, 3).map((p) => (
-            <span key={p} className="inline-flex items-center px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-mono font-semibold">
-              {p}
-            </span>
-          ))}
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <DollarSign size={13} />
+        Price Changed
+      </div>
+
+      {hasBoth ? (
+        <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-gray-200">
+          {/* Before */}
+          <div className="text-center flex-1">
+            <p className="text-xs text-gray-400 mb-1 font-medium uppercase tracking-wide">Before</p>
+            <div className="space-y-1">
+              {before.slice(0,3).map(p => (
+                <p key={p} className="text-xl font-bold text-red-500 line-through font-mono">{p}</p>
+              ))}
+            </div>
+          </div>
+          {/* Arrow */}
+          <div className="flex flex-col items-center gap-1">
+            <ArrowRight size={20} className="text-gray-400" />
+            {isIncrease
+              ? <span className="text-xs text-red-600 font-semibold flex items-center gap-0.5"><TrendingUp size={11}/>Up</span>
+              : <span className="text-xs text-green-600 font-semibold flex items-center gap-0.5"><TrendingDown size={11}/>Down</span>
+            }
+          </div>
+          {/* After */}
+          <div className="text-center flex-1">
+            <p className="text-xs text-gray-400 mb-1 font-medium uppercase tracking-wide">After</p>
+            <div className="space-y-1">
+              {after.slice(0,3).map(p => (
+                <p key={p} className={`text-xl font-bold font-mono ${isIncrease ? 'text-red-600' : 'text-green-600'}`}>{p}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2 flex-wrap">
+          {before.map(p => <span key={p} className="px-3 py-1 rounded-lg bg-red-50 text-red-600 text-sm font-mono font-semibold line-through">{p}</span>)}
+          {after.map(p => <span key={p} className="px-3 py-1 rounded-lg bg-green-50 text-green-700 text-sm font-mono font-semibold">{p}</span>)}
         </div>
       )}
+
       {detail && (
-        <p className="text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded">{detail}</p>
+        <p className="text-sm text-yellow-800 bg-yellow-50 border border-yellow-200 px-3 py-2 rounded-lg">{detail}</p>
       )}
     </div>
   )
 }
 
-function PromoKeywords({ keywords }: { keywords: string[] }) {
-  if (!keywords.length) return null
+function PromoDetail({ keywords, codes }: { keywords: string[]; codes?: string[] }) {
   return (
-    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-      {keywords.slice(0, 4).map((kw) => (
-        <Badge key={kw} variant="danger" className="text-xs capitalize">
-          {kw}
-        </Badge>
-      ))}
+    <div className="space-y-3">
+      {codes && codes.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Tag size={12}/>Promo Codes Detected</p>
+          <div className="flex flex-wrap gap-2">
+            {codes.map(c => (
+              <span key={c} className="px-3 py-1.5 rounded-lg bg-pink-100 text-pink-800 text-sm font-mono font-bold border border-pink-200 tracking-wider">
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {keywords.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Zap size={12}/>Promotion Keywords</p>
+          <div className="flex flex-wrap gap-1.5">
+            {keywords.map(kw => (
+              <Badge key={kw} variant="danger" className="capitalize">{kw}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function ContentDelta({
-  added,
-  removed,
-  compact = false,
-}: {
-  added: string[]
-  removed: string[]
-  compact?: boolean
-}) {
+function ContentDeltaDetail({ added, removed }: { added: string[]; removed: string[] }) {
   if (!added.length && !removed.length) return null
-  const maxItems = compact ? 2 : 4
-
   return (
-    <div className={`space-y-1 ${compact ? 'mt-1.5' : 'mt-2'}`}>
-      {removed.slice(0, maxItems).map((item, i) => (
-        <div key={`rm-${i}`} className="flex items-start gap-1.5">
-          <MinusCircle size={11} className="text-red-400 shrink-0 mt-0.5" />
-          <span className="text-xs text-red-600 line-through leading-snug">{item}</span>
+    <div className="space-y-3">
+      {removed.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <MinusCircle size={12}/>Removed Content
+          </p>
+          <div className="space-y-1.5">
+            {removed.map((item, i) => (
+              <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 border border-red-100">
+                <MinusCircle size={13} className="text-red-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700 line-through leading-snug">{item}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      ))}
-      {added.slice(0, maxItems).map((item, i) => (
-        <div key={`add-${i}`} className="flex items-start gap-1.5">
-          <PlusCircle size={11} className="text-green-500 shrink-0 mt-0.5" />
-          <span className="text-xs text-green-700 leading-snug">{item}</span>
+      )}
+      {added.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <PlusCircle size={12}/>Added Content
+          </p>
+          <div className="space-y-1.5">
+            {added.map((item, i) => (
+              <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-green-50 border border-green-100">
+                <PlusCircle size={13} className="text-green-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-green-800 leading-snug">{item}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      ))}
+      )}
     </div>
   )
 }
 
-function CampaignSignals({
-  score,
-  codes,
-  coordinated,
-}: {
-  score?: number
-  codes?: string[]
-  coordinated?: boolean
-}) {
-  if (score === undefined && !codes?.length && !coordinated) return null
+function CampaignDetail({ score, codes, coordinated, action }: { score?: number; codes?: string[]; coordinated?: boolean; action?: string }) {
+  const intensity = score === undefined ? 0 : Math.min(100, Math.round((score / 150) * 100))
+  const intensityColor = intensity >= 70 ? 'bg-red-500' : intensity >= 40 ? 'bg-orange-400' : 'bg-yellow-400'
   return (
-    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+    <div className="space-y-3">
       {score !== undefined && (
-        <span className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full font-medium">
-          Score {score}/150
-        </span>
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Campaign Intensity</p>
+            <span className="text-sm font-bold text-orange-700">{score} / 150</span>
+          </div>
+          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className={`h-full ${intensityColor} rounded-full transition-all`} style={{ width: `${intensity}%` }} />
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            {intensity >= 70 ? '🔴 High urgency — counter now' : intensity >= 40 ? '🟡 Medium signal — monitor closely' : '🟢 Low signal'}
+          </p>
+        </div>
       )}
-      {codes?.slice(0, 3).map((c) => (
-        <span key={c} className="text-xs font-mono bg-pink-50 text-pink-700 px-2 py-0.5 rounded font-semibold">
-          {c}
-        </span>
-      ))}
+      {codes && codes.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Tag size={12}/>Promo Codes</p>
+          <div className="flex flex-wrap gap-2">
+            {codes.map(c => (
+              <span key={c} className="px-3 py-1.5 rounded-lg bg-pink-100 text-pink-800 text-sm font-mono font-bold border border-pink-200">{c}</span>
+            ))}
+          </div>
+        </div>
+      )}
       {coordinated && (
-        <span className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-semibold">
-          ⚡ Coordinated launch
-        </span>
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
+          <Zap size={14} className="text-red-500 shrink-0" />
+          <p className="text-sm text-red-700 font-semibold">Coordinated launch — multiple pages changed simultaneously</p>
+        </div>
+      )}
+      {action && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-50 border border-orange-200">
+          <Rocket size={14} className="text-orange-500 shrink-0" />
+          <p className="text-sm text-orange-800 font-medium">{action}</p>
+        </div>
       )}
     </div>
   )
+}
+
+// Compact inline preview shown directly on the card
+function CardPreview({ change }: { change: DetectedChangeWithCompetitor }) {
+  const meta = change.metadata
+  const type = change.change_type
+
+  if (type === 'price_change' && meta) {
+    const before = meta.price_before ?? []
+    const after  = meta.price_after  ?? []
+    if (before.length || after.length) {
+      return (
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+          {before.slice(0,2).map(p => <span key={p} className="text-xs font-mono px-1.5 py-0.5 rounded bg-red-50 text-red-500 line-through">{p}</span>)}
+          {before.length > 0 && after.length > 0 && <ArrowRight size={11} className="text-gray-400 shrink-0" />}
+          {after.slice(0,2).map(p => <span key={p} className="text-xs font-mono px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-semibold">{p}</span>)}
+          {meta.price_change_detail && <span className="text-xs text-yellow-700 bg-yellow-50 px-1.5 py-0.5 rounded">{meta.price_change_detail}</span>}
+        </div>
+      )
+    }
+  }
+
+  if ((type === 'promotion' || type === 'campaign_launch') && meta) {
+    return (
+      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+        {meta.promo_codes?.slice(0,2).map(c => (
+          <span key={c} className="text-xs font-mono px-2 py-0.5 rounded bg-pink-50 text-pink-700 font-bold border border-pink-100">{c}</span>
+        ))}
+        {meta.promo_keywords?.slice(0,3).map(kw => (
+          <Badge key={kw} variant="danger" className="text-xs capitalize">{kw}</Badge>
+        ))}
+        {meta.campaign_score !== undefined && (
+          <span className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full font-semibold">Score {meta.campaign_score}/150</span>
+        )}
+      </div>
+    )
+  }
+
+  const added   = meta?.added_content   ?? []
+  const removed = meta?.removed_content ?? []
+  if (added.length || removed.length) {
+    return (
+      <div className="mt-1.5 space-y-0.5">
+        {removed.slice(0,1).map((item, i) => (
+          <div key={i} className="flex items-start gap-1.5">
+            <MinusCircle size={11} className="text-red-400 shrink-0 mt-0.5" />
+            <span className="text-xs text-red-600 line-through line-clamp-1">{item}</span>
+          </div>
+        ))}
+        {added.slice(0,2).map((item, i) => (
+          <div key={i} className="flex items-start gap-1.5">
+            <PlusCircle size={11} className="text-green-500 shrink-0 mt-0.5" />
+            <span className="text-xs text-green-700 line-clamp-1">{item}</span>
+          </div>
+        ))}
+        {(added.length + removed.length) > 3 && (
+          <p className="text-xs text-gray-400 ml-4">+{added.length + removed.length - 3} more changes</p>
+        )}
+      </div>
+    )
+  }
+
+  return null
 }
 
 // ── Main card ──────────────────────────────────────────────────────────────
 
 export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor }) {
-  const [showDiff, setShowDiff] = useState(false)
+  const [showDetail, setShowDetail] = useState(false)
+  const [showDiff,   setShowDiff]   = useState(false)
+  const [showCampaign, setShowCampaign] = useState(false)
+
   const cfg  = TYPE_CONFIG[change.change_type] ?? TYPE_CONFIG.content_change
   const Icon = cfg.icon
   const meta = change.metadata
@@ -187,65 +276,52 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
   const addedContent   = meta?.added_content   ?? []
   const removedContent = meta?.removed_content ?? []
   const hasContentDelta = addedContent.length > 0 || removedContent.length > 0
-  const isCampaign = change.change_type === 'campaign_launch'
+  const hasDetail = hasContentDelta
+    || (change.change_type === 'price_change' && meta)
+    || (change.change_type === 'promotion' && (meta?.promo_keywords?.length || meta?.promo_codes?.length))
+    || (change.change_type === 'campaign_launch')
+    || change.diff_storage_path
 
   return (
     <>
-      <Card className={`border-l-4 ${cfg.border} hover:shadow-md transition-shadow`}>
+      {/* ── Card ── */}
+      <Card
+        className={`border-l-4 ${cfg.border} hover:shadow-md transition-all cursor-pointer group`}
+        onClick={() => setShowDetail(true)}
+      >
         <CardContent className="py-4">
           <div className="flex items-start gap-3">
-            {/* Type icon */}
+            {/* Icon */}
             <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 mt-0.5 ${cfg.iconBg}`}>
               <Icon size={15} className={cfg.iconColor} />
             </div>
 
             <div className="flex-1 min-w-0">
-              {/* Badges */}
+              {/* Badges row */}
               <div className="flex items-center gap-1.5 flex-wrap mb-1">
                 <ChangeTypeBadge type={change.change_type} />
                 <SeverityBadge severity={change.severity} />
+                {!change.is_read && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" title="Unread" />
+                )}
               </div>
 
               {/* Title */}
               <p className="text-sm font-semibold text-gray-900 leading-snug">{change.title}</p>
 
-              {/* Description */}
-              {change.description && (
+              {/* Inline preview of what changed */}
+              <CardPreview change={change} />
+
+              {/* Description (fallback if no preview) */}
+              {!hasContentDelta && change.description && (
                 <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{change.description}</p>
-              )}
-
-              {/* Campaign signals (campaign_launch only) */}
-              {isCampaign && (
-                <CampaignSignals
-                  score={meta?.campaign_score}
-                  codes={meta?.promo_codes}
-                  coordinated={meta?.is_coordinated}
-                />
-              )}
-
-              {/* Price change */}
-              {change.change_type === 'price_change' && meta && (
-                <PriceChange
-                  before={meta.price_before ?? []}
-                  after={meta.price_after ?? []}
-                  detail={meta.price_change_detail}
-                />
-              )}
-
-              {/* Promo keywords */}
-              {change.change_type === 'promotion' && meta?.promo_keywords?.length ? (
-                <PromoKeywords keywords={meta.promo_keywords} />
-              ) : null}
-
-              {/* Added / removed content (compact — 2 items each) */}
-              {hasContentDelta && change.change_type !== 'price_change' && (
-                <ContentDelta added={addedContent} removed={removedContent} compact />
               )}
 
               {/* Footer */}
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <Link
                   to={`/timeline/${change.competitor_id}`}
+                  onClick={e => e.stopPropagation()}
                   className="text-xs font-medium text-blue-600 hover:underline"
                 >
                   {change.competitors?.name}
@@ -255,6 +331,7 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
                   href={change.monitored_pages?.url}
                   target="_blank"
                   rel="noreferrer"
+                  onClick={e => e.stopPropagation()}
                   className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-0.5"
                 >
                   {formatUrl(change.monitored_pages?.url ?? '')}
@@ -262,28 +339,13 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
                 </a>
                 <span className="text-gray-200 text-xs">·</span>
                 <span className="text-xs text-gray-400">{timeAgo(change.detected_at)}</span>
-                {change.diff_storage_path && (
-                  <>
-                    <span className="text-gray-200 text-xs">·</span>
-                    <button
-                      onClick={() => setShowDiff(true)}
-                      className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-0.5 hover:underline"
-                    >
-                      <GitCompare size={11} />
-                      View diff
-                    </button>
-                  </>
-                )}
 
-                {/* Campaign CTA button */}
-                {isCampaign && (
-                  <button
-                    className="ml-auto text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-full font-semibold flex items-center gap-1 transition-colors"
-                    onClick={() => alert('Coming soon: AI counter-campaign generator')}
-                  >
-                    <Rocket size={11} />
-                    Launch Counter Campaign
-                  </button>
+                {/* "See details" hint */}
+                {hasDetail && (
+                  <span className="ml-auto text-xs text-gray-400 group-hover:text-blue-500 flex items-center gap-0.5 transition-colors">
+                    <Eye size={11} />See details
+                    <ChevronRight size={11} />
+                  </span>
                 )}
               </div>
             </div>
@@ -291,7 +353,127 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
         </CardContent>
       </Card>
 
-      {/* Diff modal */}
+      {/* ── Detail Modal ── */}
+      <Modal
+        open={showDetail}
+        onClose={() => setShowDetail(false)}
+        title={cfg.label}
+        size="lg"
+      >
+        {/* Header: competitor + page + time */}
+        <div className={`flex items-center gap-3 p-3 rounded-xl border mb-5 ${cfg.accent}`}>
+          <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${cfg.iconBg} shrink-0`}>
+            <Icon size={15} className={cfg.iconColor} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 leading-snug">{change.title}</p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <ChangeTypeBadge type={change.change_type} />
+              <SeverityBadge severity={change.severity} />
+              <span className="text-xs text-gray-400">{timeAgo(change.detected_at)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Competitor + page link */}
+        <div className="flex items-center gap-2 mb-5 text-xs text-gray-500">
+          <span className="font-medium text-gray-700">{change.competitors?.name}</span>
+          <span className="text-gray-300">·</span>
+          <a
+            href={change.monitored_pages?.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-500 hover:underline flex items-center gap-0.5 truncate"
+          >
+            {change.monitored_pages?.url}
+            <ExternalLink size={10} className="shrink-0 ml-0.5" />
+          </a>
+        </div>
+
+        {/* ── Type-specific "What Changed" ── */}
+        <div className="space-y-5">
+
+          {/* Price change */}
+          {change.change_type === 'price_change' && meta && (
+            <div className="p-4 rounded-xl bg-yellow-50 border border-yellow-200">
+              <PriceChangeDetail
+                before={meta.price_before ?? []}
+                after={meta.price_after  ?? []}
+                detail={meta.price_change_detail}
+              />
+            </div>
+          )}
+
+          {/* Promotion */}
+          {change.change_type === 'promotion' && meta && (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+              <PromoDetail
+                keywords={meta.promo_keywords ?? []}
+                codes={meta.promo_codes}
+              />
+            </div>
+          )}
+
+          {/* Campaign launch */}
+          {change.change_type === 'campaign_launch' && meta && (
+            <div className="p-4 rounded-xl bg-orange-50 border border-orange-200">
+              <CampaignDetail
+                score={meta.campaign_score}
+                codes={meta.promo_codes}
+                coordinated={meta.is_coordinated}
+                action={meta.action_recommended}
+              />
+            </div>
+          )}
+
+          {/* Added / removed content */}
+          {hasContentDelta && (
+            <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                <Edit3 size={12} />What Changed on the Page
+              </p>
+              <ContentDeltaDetail added={addedContent} removed={removedContent} />
+            </div>
+          )}
+
+          {/* AI Summary */}
+          {change.description && (
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100">
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1.5">AI Summary</p>
+              <p className="text-sm text-blue-900 leading-relaxed">{change.description}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 mt-6 pt-4 border-t border-gray-100">
+          <button
+            onClick={() => { setShowDetail(false); setShowCampaign(true) }}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            <Rocket size={14} />
+            Generate Counter-Campaign
+          </button>
+          {change.diff_storage_path && (
+            <button
+              onClick={() => { setShowDetail(false); setShowDiff(true) }}
+              className="flex items-center gap-1.5 py-2.5 px-4 border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-medium rounded-xl transition-colors"
+            >
+              <GitCompare size={13} />
+              View Diff
+            </button>
+          )}
+        </div>
+      </Modal>
+
+      {/* ── Campaign Modal ── */}
+      <CampaignModal
+        change={change}
+        open={showCampaign}
+        onClose={() => setShowCampaign(false)}
+      />
+
+      {/* ── Diff Modal ── */}
       {change.diff_storage_path && (
         <Modal
           open={showDiff}
@@ -299,84 +481,16 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
           title="Page Diff"
           size="xl"
         >
-          {/* Modal header */}
           <div className="flex items-center gap-2 flex-wrap mb-4">
             <div className={`flex items-center justify-center w-7 h-7 rounded-lg ${cfg.iconBg}`}>
               <Icon size={13} className={cfg.iconColor} />
             </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <ChangeTypeBadge type={change.change_type} />
-              <SeverityBadge severity={change.severity} />
-            </div>
+            <ChangeTypeBadge type={change.change_type} />
+            <SeverityBadge severity={change.severity} />
             <span className="text-xs text-gray-400 ml-auto">
               {change.competitors?.name} · {timeAgo(change.detected_at)}
             </span>
           </div>
-
-          {/* Campaign signals in modal */}
-          {isCampaign && (
-            <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-orange-50 border border-orange-100">
-              <Rocket size={14} className="text-orange-500 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <CampaignSignals
-                  score={meta?.campaign_score}
-                  codes={meta?.promo_codes}
-                  coordinated={meta?.is_coordinated}
-                />
-                {meta?.action_recommended && (
-                  <p className="text-xs text-orange-700 mt-1 font-medium">{meta.action_recommended}</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Price detail in modal */}
-          {change.change_type === 'price_change' && meta && (
-            <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-100 text-sm">
-              <DollarSign size={14} className="text-yellow-600 shrink-0" />
-              <PriceChange
-                before={meta.price_before ?? []}
-                after={meta.price_after ?? []}
-                detail={meta.price_change_detail}
-              />
-            </div>
-          )}
-
-          {/* Promo keywords in modal */}
-          {change.change_type === 'promotion' && meta?.promo_keywords?.length ? (
-            <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-red-50 border border-red-100">
-              <Tag size={14} className="text-red-500 shrink-0 mt-0.5" />
-              <PromoKeywords keywords={meta.promo_keywords} />
-            </div>
-          ) : null}
-
-          {/* Full added/removed list in modal */}
-          {hasContentDelta && (
-            <div className="mb-4 p-3 rounded-lg bg-gray-50 border border-gray-100">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">What changed</p>
-              <ContentDelta added={addedContent} removed={removedContent} compact={false} />
-            </div>
-          )}
-
-          {/* AI description */}
-          {change.description && (
-            <p className="text-sm text-gray-600 mb-4">{change.description}</p>
-          )}
-
-          {/* Page URL */}
-          <div className="flex items-center gap-1.5 mb-3">
-            <span className="text-xs text-gray-400">Page:</span>
-            <a
-              href={change.monitored_pages?.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
-            >
-              {change.monitored_pages?.url}
-              <ExternalLink size={9} />
-            </a>
-          </div>
-
           <DiffViewer diffStoragePath={change.diff_storage_path} />
         </Modal>
       )}
