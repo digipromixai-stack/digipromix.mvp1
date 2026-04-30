@@ -158,7 +158,7 @@ const TESTIMONIALS = [
   },
 ]
 
-export function LandingPage() {
+export function MarketingPage() {
   return (
     <div className="min-h-screen bg-white font-sans">
 
