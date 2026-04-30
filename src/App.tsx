@@ -17,6 +17,13 @@ import { CompetitorTimelinePage } from './pages/CompetitorTimelinePage'
 import { AlertsPage } from './pages/AlertsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
+import { CampaignsPage } from './pages/CampaignsPage'
+import { MetaCallbackPage } from './pages/MetaCallbackPage'
+import { GoogleAdsCallbackPage } from './pages/GoogleAdsCallbackPage'
+import { LandingPage } from './pages/LandingPage'
+import { LeadsPage } from './pages/LeadsPage'
+import { InterceptionPage } from './pages/InterceptionPage'
+import { ClientsPage } from './pages/ClientsPage'
 import { PageSpinner } from './components/ui/Spinner'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { MarketingPage } from './pages/MarketingPage'
@@ -58,6 +65,10 @@ function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/auth/meta/callback" element={<MetaCallbackPage />} />
+      <Route path="/auth/google-ads/callback" element={<GoogleAdsCallbackPage />} />
+      {/* Public landing page — no auth */}
+      <Route path="/lp/:slug" element={<LandingPage />} />
 
       {/* Protected app routes */}
       <Route
@@ -73,6 +84,10 @@ function AppRoutes() {
         <Route path="/timeline" element={<TimelinePage />} />
         <Route path="/timeline/:id" element={<CompetitorTimelinePage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/campaigns" element={<CampaignsPage />} />
+        <Route path="/interception" element={<InterceptionPage />} />
+        <Route path="/leads" element={<LeadsPage />} />
+        <Route path="/clients" element={<ClientsPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
