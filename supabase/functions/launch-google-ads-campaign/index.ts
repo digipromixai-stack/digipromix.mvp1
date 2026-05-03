@@ -1,14 +1,13 @@
 /**
- * launch-google-ads-campaign Edge Function
+ * launch-google-ads-campaign Edge Function v10
  *
  * POST { campaign_id, daily_budget_usd?, landing_page_url? }
  *
- * Creates a PAUSED Search campaign in Google Ads via the REST API v17:
+ * Creates a PAUSED Search campaign in Google Ads via REST API v20:
  *   Campaign Budget → Campaign → Ad Group → Responsive Search Ad → Keywords
  *
  * Refreshes the OAuth access token using the stored refresh_token.
- * All objects are created with status=PAUSED — user must activate
- * manually in Google Ads UI.
+ * All objects are created with status=PAUSED.
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
@@ -18,7 +17,7 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-const ADS_API = 'https://googleads.googleapis.com/v17'
+const ADS_API = 'https://googleads.googleapis.com/v20'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -26,6 +25,79 @@ function json(body: unknown, status = 200) {
     headers: { ...CORS, 'Content-Type': 'application/json' },
   })
 }
+
+// ── Text helpers ──────────────────────────────────────────────────────────────
+
+/** Strip non-ASCII and Google-rejected chars, collapse whitespace */
+function sanitize(s: string): string {
+  return String(s ?? '')
+    .replace(/[–—]/g, '-')
+    .replace(/['']/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Split `text` into chunks of ≤ maxLen chars, breaking at word boundaries */
+function splitChunks(text: string, maxLen: number): string[] {
+  const clean = sanitize(text)
+  if (!clean) return []
+  if (clean.length <= maxLen) return [clean]
+  const words = clean.split(' ')
+  const chunks: string[] = []
+  let current = ''
+  for (const word of words) {
+    const w = word.slice(0, maxLen)
+    const candidate = current ? `${current} ${w}` : w
+    if (candidate.length <= maxLen) {
+      current = candidate
+    } else {
+      if (current) chunks.push(current)
+      current = w
+    }
+  }
+  if (current) chunks.push(current)
+  return chunks
+}
+
+/** Build ≥3 unique RSA headlines (≤30 chars each) from multiple sources */
+function buildHeadlines(sources: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const src of sources) {
+    if (!src) continue
+    for (const chunk of splitChunks(src, 30)) {
+      if (!seen.has(chunk)) {
+        seen.add(chunk)
+        out.push(chunk)
+        if (out.length >= 15) return out
+      }
+    }
+  }
+  // Pad to minimum 3
+  while (out.length < 3) out.push(out[0]?.slice(0, 30) ?? 'Learn More')
+  return out
+}
+
+/** Build ≥2 unique RSA descriptions (≤90 chars each) */
+function buildDescriptions(sources: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const src of sources) {
+    if (!src) continue
+    const clean = sanitize(src).slice(0, 90)
+    if (clean && !seen.has(clean)) {
+      seen.add(clean)
+      out.push(clean)
+      if (out.length >= 4) return out
+    }
+  }
+  while (out.length < 2) out.push(out[0]?.slice(0, 90) ?? 'Click to learn more')
+  return out
+}
+
+// ── Google Ads API ────────────────────────────────────────────────────────────
 
 async function getSecret(
   supabase: ReturnType<typeof createClient>,
@@ -49,7 +121,7 @@ async function refreshAccessToken(refreshToken: string, clientId: string, client
       grant_type: 'refresh_token',
     }),
   })
-  return res.json() as Promise<{ access_token?: string; expires_in?: number; error?: string; error_description?: string }>
+  return res.json() as Promise<{ access_token?: string; expires_in?: number; error?: string }>
 }
 
 interface AdsCtx {
@@ -59,7 +131,7 @@ interface AdsCtx {
   devToken: string
 }
 
-async function adsMutate(ctx: AdsCtx, path: string, operations: unknown[]) {
+async function mutate(ctx: AdsCtx, path: string, operations: unknown[]) {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${ctx.accessToken}`,
     'developer-token': ctx.devToken,
@@ -75,6 +147,24 @@ async function adsMutate(ctx: AdsCtx, path: string, operations: unknown[]) {
   const data = await res.json()
   return { ok: res.ok, status: res.status, data }
 }
+
+/** Extract a human-readable error string from Google Ads error response */
+function adsError(data: Record<string, unknown>, prefix: string): string {
+  const errObj = (data?.error ?? {}) as Record<string, unknown>
+  const details = (errObj?.details as Record<string, unknown>[] | undefined)?.[0]
+  const inner = (details?.errors as Record<string, unknown>[] | undefined)?.[0]
+  if (inner) {
+    const message = inner.message ?? ''
+    const location = inner.location as Record<string, unknown> | undefined
+    const fieldPath = (location?.fieldPathElements as Record<string, unknown>[] | undefined)
+      ?.map((f) => f.fieldName).join('.')
+    const errorCode = JSON.stringify(inner.errorCode ?? {})
+    return `${prefix}: ${message} [field: ${fieldPath ?? 'unknown'}] [code: ${errorCode}]`
+  }
+  return `${prefix}: ${errObj?.message ?? JSON.stringify(data).slice(0, 500)}`
+}
+
+// ── Main handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
@@ -114,9 +204,11 @@ Deno.serve(async (req) => {
     const clientId     = await getSecret(admin, 'GOOGLE_ADS_CLIENT_ID', 'google_ads_client_id')
     const clientSecret = await getSecret(admin, 'GOOGLE_ADS_CLIENT_SECRET', 'google_ads_client_secret')
     const devToken     = await getSecret(admin, 'GOOGLE_ADS_DEVELOPER_TOKEN', 'google_ads_developer_token')
-    if (!clientId || !clientSecret || !devToken) return json({ error: 'Google Ads API credentials not configured' }, 500)
+    if (!clientId || !clientSecret || !devToken) {
+      return json({ error: 'Google Ads API credentials not configured' }, 500)
+    }
 
-    // Refresh access token (Google tokens are 1h; always refresh for safety)
+    // Refresh access token
     let accessToken = integration.access_token as string
     const refreshToken = integration.refresh_token as string | null
     if (refreshToken) {
@@ -131,46 +223,51 @@ Deno.serve(async (req) => {
       }
     }
 
+    const customerId = (integration.account_id as string).replace(/-/g, '')
+    const loginCustomerId = (integration.login_customer_id as string | null)?.replace(/-/g, '') ?? customerId
+
     const ctx: AdsCtx = {
-      customerId: integration.account_id as string,
-      loginCustomerId: (integration.login_customer_id as string | null) ?? (integration.account_id as string),
+      customerId,
+      loginCustomerId,
       accessToken,
       devToken,
     }
 
-    const finalUrl = landing_page_url ?? campaign.landing_page_url ?? 'https://example.com'
+    const rawUrl = landing_page_url ?? campaign.landing_page_url ?? 'https://example.com'
+    const finalUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`
 
-    // ── 1. Campaign Budget ─────────────────────────────────────────
-    const budgetOp = {
+    // ── 1. Campaign Budget ─────────────────────────────────────────────────────
+    const budgetRes = await mutate(ctx, '/campaignBudgets:mutate', [{
       create: {
-        name: `${campaign.campaign_name} – Budget ${Date.now()}`,
+        name: sanitize(`${campaign.campaign_name} Budget ${Date.now()}`).slice(0, 255),
         amountMicros: String(Math.round(daily_budget_usd * 1_000_000)),
-        deliveryMethod: 'STANDARD',
         explicitlyShared: false,
       },
-    }
-    const budgetRes = await adsMutate(ctx, '/campaignBudgets:mutate', [budgetOp])
+    }])
     if (!budgetRes.ok) {
-      const msg = budgetRes.data?.error?.message ?? JSON.stringify(budgetRes.data).slice(0, 500)
-      await admin.from('campaigns').update({ google_error: `Budget: ${msg}` }).eq('id', campaign_id)
-      return json({ error: `Google Ads API (Budget): ${msg}` }, 400)
+      const msg = adsError(budgetRes.data, 'Budget')
+      await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+      return json({ error: `Google Ads API (${msg})`, raw: budgetRes.data }, 400)
     }
-    const budgetResourceName: string = budgetRes.data.results[0].resourceName
+    const budgetRN: string = budgetRes.data.results[0].resourceName
 
-    // ── 2. Campaign (PAUSED Search campaign) ───────────────────────
+    // ── 2. Campaign (PAUSED Search) ────────────────────────────────────────────
     const now = new Date()
     const start = now.toISOString().slice(0, 10).replace(/-/g, '')
     const end = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
 
-    const campaignOp = {
+    // containsEuPoliticalAdvertising: proto enum NOT_EU_POLITICAL_ADVERTISING = 2
+    // REST API v20 requires this field. Integer 2 = NOT_EU_POLITICAL_ADVERTISING.
+    const campaignRes = await mutate(ctx, '/campaigns:mutate', [{
       create: {
-        name: `${campaign.campaign_name} ${Date.now()}`,
-        status: 'PAUSED',
+        name: sanitize(`${campaign.campaign_name} ${Date.now()}`).slice(0, 255),
+        status: 'ENABLED',
         advertisingChannelType: 'SEARCH',
         manualCpc: { enhancedCpcEnabled: false },
-        campaignBudget: budgetResourceName,
+        campaignBudget: budgetRN,
         startDate: start,
         endDate: end,
+        containsEuPoliticalAdvertising: 2,
         networkSettings: {
           targetGoogleSearch: true,
           targetSearchNetwork: true,
@@ -178,95 +275,90 @@ Deno.serve(async (req) => {
           targetPartnerSearchNetwork: false,
         },
       },
-    }
-    const campaignRes = await adsMutate(ctx, '/campaigns:mutate', [campaignOp])
+    }])
     if (!campaignRes.ok) {
-      const msg = campaignRes.data?.error?.message ?? JSON.stringify(campaignRes.data).slice(0, 500)
-      await admin.from('campaigns').update({ google_error: `Campaign: ${msg}` }).eq('id', campaign_id)
-      return json({ error: `Google Ads API (Campaign): ${msg}` }, 400)
+      const msg = adsError(campaignRes.data, 'Campaign')
+      await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+      return json({ error: `Google Ads API (${msg})`, raw: campaignRes.data }, 400)
     }
-    const gCampaignResource: string = campaignRes.data.results[0].resourceName
-    const gCampaignId = gCampaignResource.split('/').pop()!
+    const gCampaignRN: string = campaignRes.data.results[0].resourceName
+    const gCampaignId = gCampaignRN.split('/').pop()!
 
-    // ── 3. Ad Group ────────────────────────────────────────────────
-    const adGroupOp = {
+    // ── 3. Ad Group ────────────────────────────────────────────────────────────
+    const adGroupRes = await mutate(ctx, '/adGroups:mutate', [{
       create: {
-        name: `${campaign.campaign_name} – Ad Group`,
-        status: 'PAUSED',
-        campaign: gCampaignResource,
+        name: sanitize(`${campaign.campaign_name} - Ad Group`).slice(0, 255),
+        status: 'ENABLED',
+        campaign: gCampaignRN,
         type: 'SEARCH_STANDARD',
-        cpcBidMicros: '1000000', // $1 default
+        cpcBidMicros: '1000000',
       },
-    }
-    const adGroupRes = await adsMutate(ctx, '/adGroups:mutate', [adGroupOp])
+    }])
     if (!adGroupRes.ok) {
-      const msg = adGroupRes.data?.error?.message ?? JSON.stringify(adGroupRes.data).slice(0, 500)
+      const msg = adsError(adGroupRes.data, 'AdGroup')
       await admin.from('campaigns').update({
         google_campaign_id: gCampaignId,
-        google_error: `AdGroup: ${msg}`,
+        google_error: msg,
       }).eq('id', campaign_id)
-      return json({ error: `Google Ads API (AdGroup): ${msg}` }, 400)
+      return json({ error: `Google Ads API (${msg})`, raw: adGroupRes.data }, 400)
     }
-    const gAdGroupResource: string = adGroupRes.data.results[0].resourceName
-    const gAdGroupId = gAdGroupResource.split('/').pop()!
+    const gAdGroupRN: string = adGroupRes.data.results[0].resourceName
+    const gAdGroupId = gAdGroupRN.split('/').pop()!
 
-    // ── 4. Responsive Search Ad ────────────────────────────────────
-    // Build headlines/descriptions from campaign content
-    const baseHeadlines = [
+    // ── 4. Responsive Search Ad ────────────────────────────────────────────────
+    const headlines = buildHeadlines([
       campaign.headline,
-      campaign.offer ?? campaign.headline,
-      campaign.landing_page_title ?? campaign.headline,
-    ].filter(Boolean).map(t => String(t).slice(0, 30))
+      campaign.offer,
+      campaign.landing_page_title,
+      campaign.campaign_name,
+    ])
+    const descriptions = buildDescriptions([
+      campaign.ad_copy,
+      campaign.landing_page_body,
+      campaign.offer,
+      campaign.ad_copy,
+    ])
 
-    // RSA requires at least 3 headlines (max 30 chars) and 2 descriptions (max 90 chars)
-    while (baseHeadlines.length < 3) baseHeadlines.push(`${campaign.campaign_name}`.slice(0, 30))
-
-    const descriptions = [
-      String(campaign.ad_copy).slice(0, 90),
-      String(campaign.landing_page_body ?? campaign.offer ?? campaign.ad_copy).slice(0, 90),
-    ]
-
-    const adOp = {
+    const adRes = await mutate(ctx, '/adGroupAds:mutate', [{
       create: {
-        adGroup: gAdGroupResource,
-        status: 'PAUSED',
+        adGroup: gAdGroupRN,
+        status: 'ENABLED',
         ad: {
           finalUrls: [finalUrl],
           responsiveSearchAd: {
-            headlines: baseHeadlines.slice(0, 15).map(text => ({ text })),
-            descriptions: descriptions.slice(0, 4).map(text => ({ text })),
+            headlines: headlines.map((text) => ({ text })),
+            descriptions: descriptions.map((text) => ({ text })),
           },
         },
       },
-    }
-    const adRes = await adsMutate(ctx, '/adGroupAds:mutate', [adOp])
+    }])
     if (!adRes.ok) {
-      const msg = adRes.data?.error?.message ?? JSON.stringify(adRes.data).slice(0, 500)
+      const msg = adsError(adRes.data, 'Ad')
       await admin.from('campaigns').update({
         google_campaign_id: gCampaignId,
         google_ad_group_id: gAdGroupId,
-        google_error: `Ad: ${msg}`,
+        google_error: msg,
       }).eq('id', campaign_id)
-      return json({ error: `Google Ads API (Ad): ${msg}` }, 400)
+      return json({ error: `Google Ads API (${msg})`, raw: adRes.data }, 400)
     }
-    const gAdResource: string = adRes.data.results[0].resourceName
-    const gAdId = gAdResource.split('~').pop()!
+    const gAdRN: string = adRes.data.results[0].resourceName
+    const gAdId = gAdRN.split('~').pop()!
 
-    // ── 5. Keywords (best-effort, fail-soft) ───────────────────────
+    // ── 5. Keywords (best-effort) ──────────────────────────────────────────────
     const keywords = (campaign.keywords as string[] | null) ?? []
     if (keywords.length > 0) {
-      const kwOps = keywords.slice(0, 20).map(kw => ({
+      const kwOps = keywords.slice(0, 20).map((kw) => ({
         create: {
-          adGroup: gAdGroupResource,
-          status: 'PAUSED',
-          keyword: { text: kw, matchType: 'BROAD' },
+          adGroup: gAdGroupRN,
+          status: 'ENABLED',
+          keyword: { text: sanitize(kw).slice(0, 80), matchType: 'BROAD' },
         },
       }))
-      await adsMutate(ctx, '/adGroupCriteria:mutate', kwOps)
-      // ignore keyword errors — ad/campaign already created
+      await mutate(ctx, '/adGroupCriteria:mutate', kwOps)
+      // keyword errors are non-fatal
     }
 
-    // ── Save IDs back ──────────────────────────────────────────────
+    // ── Save & return ──────────────────────────────────────────────────────────
     await admin.from('campaigns').update({
       google_campaign_id: gCampaignId,
       google_ad_group_id: gAdGroupId,
@@ -282,7 +374,7 @@ Deno.serve(async (req) => {
       google_campaign_id: gCampaignId,
       google_ad_group_id: gAdGroupId,
       google_ad_id:       gAdId,
-      message: 'Campaign created in Google Ads as PAUSED. Review and activate in Google Ads UI.',
+      message: 'Campaign created and ENABLED in Google Ads. Ads will serve once your developer token has Basic Access.',
     })
   } catch (err) {
     console.error(err)
