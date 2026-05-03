@@ -1,29 +1,66 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 160" fill="none">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1e40af;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    <linearGradient id="brainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="arcGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
     </linearGradient>
   </defs>
-  <!-- Hexagon background -->
-  <polygon points="100,15 175,57.5 175,142.5 100,185 25,142.5 25,57.5" fill="url(#grad)" />
-  <!-- Circuit brain pattern -->
-  <circle cx="100" cy="100" r="30" fill="none" stroke="white" stroke-width="3"/>
-  <line x1="100" y1="70" x2="100" y2="50" stroke="white" stroke-width="2.5"/>
-  <line x1="130" y1="85" x2="148" y2="75" stroke="white" stroke-width="2.5"/>
-  <line x1="130" y1="115" x2="148" y2="125" stroke="white" stroke-width="2.5"/>
-  <line x1="100" y1="130" x2="100" y2="150" stroke="white" stroke-width="2.5"/>
-  <line x1="70" y1="115" x2="52" y2="125" stroke="white" stroke-width="2.5"/>
-  <line x1="70" y1="85" x2="52" y2="75" stroke="white" stroke-width="2.5"/>
-  <!-- Nodes -->
-  <circle cx="100" cy="48" r="5" fill="white"/>
-  <circle cx="150" cy="73" r="5" fill="white"/>
-  <circle cx="150" cy="127" r="5" fill="white"/>
-  <circle cx="100" cy="152" r="5" fill="white"/>
-  <circle cx="50" cy="127" r="5" fill="white"/>
-  <circle cx="50" cy="73" r="5" fill="white"/>
-  <!-- Inner dots -->
-  <circle cx="100" cy="88" r="4" fill="white" opacity="0.8"/>
-  <circle cx="112" cy="108" r="4" fill="white" opacity="0.8"/>
-  <circle cx="88" cy="108" r="4" fill="white" opacity="0.8"/>
+
+  <!-- Swoosh arc around the brain -->
+  <path d="M 28 130 Q 0 80 30 28 Q 60 -10 110 10" stroke="url(#arcGrad)" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+
+  <!-- Hexagonal circuit brain icon -->
+  <!-- Outer hex outline (rotated flat-top) -->
+  <polygon points="80,20 116,40 116,80 80,100 44,80 44,40" fill="none" stroke="url(#brainGrad)" stroke-width="2" opacity="0.3"/>
+
+  <!-- Circuit node dots at hex corners -->
+  <circle cx="80"  cy="20" r="4.5" fill="#3b82f6"/>
+  <circle cx="116" cy="40" r="4.5" fill="#3b82f6"/>
+  <circle cx="116" cy="80" r="4.5" fill="#3b82f6"/>
+  <circle cx="80"  cy="100" r="4.5" fill="#3b82f6"/>
+  <circle cx="44"  cy="80" r="4.5" fill="#3b82f6"/>
+  <circle cx="44"  cy="40" r="4.5" fill="#3b82f6"/>
+
+  <!-- Inner brain circuit lines -->
+  <!-- Center cluster -->
+  <circle cx="80" cy="60" r="6" fill="#1e40af"/>
+
+  <!-- Brain left lobe -->
+  <path d="M 80 60 Q 68 50 60 54 Q 52 58 54 68 Q 56 76 64 74 Q 72 72 76 66" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Brain right lobe -->
+  <path d="M 80 60 Q 92 50 100 54 Q 108 58 106 68 Q 104 76 96 74 Q 88 72 84 66" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Brain bottom stem -->
+  <path d="M 76 66 Q 74 72 78 76 Q 82 80 86 76 Q 88 72 84 66" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <!-- Brain top split -->
+  <line x1="80" y1="54" x2="80" y2="46" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Circuit traces from brain to nodes -->
+  <line x1="80"  y1="46" x2="80"  y2="24" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <line x1="95"  y1="56" x2="112" y2="44" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <line x1="95"  y1="67" x2="112" y2="77" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <line x1="80"  y1="74" x2="80"  y2="97" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <line x1="65"  y1="67" x2="48"  y2="77" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+  <line x1="65"  y1="56" x2="48"  y2="44" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Small junction dots on traces -->
+  <circle cx="80"  cy="38" r="2.5" fill="#60a5fa"/>
+  <circle cx="104" cy="48" r="2.5" fill="#60a5fa"/>
+  <circle cx="104" cy="73" r="2.5" fill="#60a5fa"/>
+  <circle cx="80"  cy="88" r="2.5" fill="#60a5fa"/>
+  <circle cx="56"  cy="73" r="2.5" fill="#60a5fa"/>
+  <circle cx="56"  cy="48" r="2.5" fill="#60a5fa"/>
+
+  <!-- "DigiPromix" text -->
+  <text x="148" y="72" font-family="'Segoe UI', Arial, sans-serif" font-size="46" font-weight="800" fill="#1e3a8a" letter-spacing="-1">DigiPromix</text>
+
+  <!-- "AI" badge -->
+  <rect x="149" y="82" width="36" height="18" rx="3" fill="#3b82f6"/>
+  <text x="167" y="95" font-family="'Segoe UI', Arial, sans-serif" font-size="13" font-weight="700" fill="white" text-anchor="middle" letter-spacing="1">AI</text>
+
+  <!-- Underline accent below AI badge -->
+  <line x1="149" y1="102" x2="380" y2="102" stroke="#3b82f6" stroke-width="2" opacity="0.3"/>
 </svg>
