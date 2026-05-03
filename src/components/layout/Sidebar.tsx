@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Activity, Bell, Settings, TrendingUp, BarChart2, Menu, X, Rocket, Zap, Users, Briefcase } from 'lucide-react'
+import { LayoutDashboard, Building2, Activity, Bell, Settings, BarChart2, Menu, X, Rocket, Zap, Users, Briefcase } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
@@ -52,10 +52,8 @@ export function Sidebar() {
         {/* Brand area */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-white/5">
           <div className="flex items-center gap-2.5">
-            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-brand shadow-soft-md">
-              <TrendingUp size={18} className="text-white" strokeWidth={2.25} />
-            </span>
-            <span className="text-lg font-bold tracking-tight">Digipromix</span>
+            <img src="/logo.svg" alt="DigiPromix AI" className="w-8 h-8 rounded-lg object-contain" />
+            <span className="text-lg font-bold tracking-tight">DigiPromix <span className="text-blue-400">AI</span></span>
           </div>
           <button
             onClick={() => setOpen(false)}

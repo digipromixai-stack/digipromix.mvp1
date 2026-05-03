@@ -27,6 +27,7 @@ import { ClientsPage } from './pages/ClientsPage'
 import { PageSpinner } from './components/ui/Spinner'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { MarketingPage } from './pages/MarketingPage'
+import { DocsPage } from './pages/DocsPage'
 
 // Handles Supabase email confirmation redirect:
 // Supabase sends the user to /auth/callback#access_token=...
@@ -58,6 +59,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <MarketingPage />} />
+      <Route path="/docs" element={<DocsPage />} />
 
       {/* Auth routes */}
       <Route path="/login" element={<LoginPage />} />
