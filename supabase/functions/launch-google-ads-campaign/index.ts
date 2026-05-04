@@ -208,11 +208,16 @@ Deno.serve(async (req) => {
       return json({ error: 'Google Ads API credentials not configured' }, 500)
     }
 
-    // Refresh access token
+    // Refresh access token — always refresh to ensure freshness
     let accessToken = integration.access_token as string
     const refreshToken = integration.refresh_token as string | null
     if (refreshToken) {
       const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret)
+      if (refreshed.error) {
+        // Token is revoked or expired — user must reconnect
+        await admin.from('ad_integrations').update({ is_active: false }).eq('id', integration.id)
+        return json({ error: 'Google Ads token expired or revoked. Please reconnect your Google Ads account in Settings.' }, 401)
+      }
       if (refreshed.access_token) {
         accessToken = refreshed.access_token
         const newExpiry = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
@@ -345,15 +350,16 @@ Deno.serve(async (req) => {
     const gAdId = gAdRN.split('~').pop()!
 
     // ── 5. Keywords (best-effort) ──────────────────────────────────────────────
+    // Mix BROAD + EXACT match types for better targeting coverage.
+    // BROAD catches long-tail variants; EXACT captures high-intent exact searches.
     const keywords = (campaign.keywords as string[] | null) ?? []
     if (keywords.length > 0) {
-      const kwOps = keywords.slice(0, 20).map((kw) => ({
-        create: {
-          adGroup: gAdGroupRN,
-          status: 'ENABLED',
-          keyword: { text: sanitize(kw).slice(0, 80), matchType: 'BROAD' },
-        },
-      }))
+      const kwOps: unknown[] = []
+      keywords.slice(0, 10).forEach((kw) => {
+        const text = sanitize(kw).slice(0, 80)
+        kwOps.push({ create: { adGroup: gAdGroupRN, status: 'ENABLED', keyword: { text, matchType: 'BROAD' } } })
+        kwOps.push({ create: { adGroup: gAdGroupRN, status: 'ENABLED', keyword: { text, matchType: 'EXACT' } } })
+      })
       await mutate(ctx, '/adGroupCriteria:mutate', kwOps)
       // keyword errors are non-fatal
     }

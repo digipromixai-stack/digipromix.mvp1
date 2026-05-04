@@ -25,13 +25,23 @@ function json(body: unknown, status = 200) {
 }
 
 async function metaPost(path: string, token: string, payload: Record<string, unknown>) {
-  const params = new URLSearchParams({ access_token: token })
-  const res = await fetch(`${GRAPH}${path}?${params}`, {
+  const res = await fetch(`${GRAPH}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
     body: JSON.stringify(payload),
   })
   return res.json()
+}
+
+function metaError(err: { code?: number; message?: string }): { msg: string; tokenExpired: boolean } {
+  const tokenExpired = err.code === 190 || err.code === 102
+  const msg = tokenExpired
+    ? 'Meta access token expired. Please reconnect your Meta account in Settings.'
+    : (err.message ?? 'Unknown Meta error')
+  return { msg, tokenExpired }
 }
 
 Deno.serve(async (req) => {
@@ -97,8 +107,10 @@ Deno.serve(async (req) => {
     })
 
     if (metaCampaign.error) {
-      await admin.from('campaigns').update({ meta_error: metaCampaign.error.message }).eq('id', campaign_id)
-      return json({ error: `Meta API: ${metaCampaign.error.message}` }, 400)
+      const { msg, tokenExpired } = metaError(metaCampaign.error)
+      if (tokenExpired) await admin.from('ad_integrations').update({ is_active: false }).eq('user_id', user.id).eq('platform', 'meta')
+      await admin.from('campaigns').update({ meta_error: msg }).eq('id', campaign_id)
+      return json({ error: msg }, tokenExpired ? 401 : 400)
     }
 
     const metaCampaignId: string = metaCampaign.id
@@ -119,8 +131,10 @@ Deno.serve(async (req) => {
     })
 
     if (adSet.error) {
-      await admin.from('campaigns').update({ meta_campaign_id: metaCampaignId, meta_error: adSet.error.message }).eq('id', campaign_id)
-      return json({ error: `Meta API (AdSet): ${adSet.error.message}` }, 400)
+      const { msg, tokenExpired } = metaError(adSet.error)
+      if (tokenExpired) await admin.from('ad_integrations').update({ is_active: false }).eq('user_id', user.id).eq('platform', 'meta')
+      await admin.from('campaigns').update({ meta_campaign_id: metaCampaignId, meta_error: msg }).eq('id', campaign_id)
+      return json({ error: msg }, tokenExpired ? 401 : 400)
     }
 
     const adSetId: string = adSet.id
@@ -144,12 +158,10 @@ Deno.serve(async (req) => {
     })
 
     if (creative.error) {
-      await admin.from('campaigns').update({
-        meta_campaign_id: metaCampaignId,
-        meta_adset_id: adSetId,
-        meta_error: creative.error.message,
-      }).eq('id', campaign_id)
-      return json({ error: `Meta API (Creative): ${creative.error.message}` }, 400)
+      const { msg, tokenExpired } = metaError(creative.error)
+      if (tokenExpired) await admin.from('ad_integrations').update({ is_active: false }).eq('user_id', user.id).eq('platform', 'meta')
+      await admin.from('campaigns').update({ meta_campaign_id: metaCampaignId, meta_adset_id: adSetId, meta_error: msg }).eq('id', campaign_id)
+      return json({ error: msg }, tokenExpired ? 401 : 400)
     }
 
     // ── 4. Create Ad ───────────────────────────────────────────────
@@ -161,12 +173,10 @@ Deno.serve(async (req) => {
     })
 
     if (ad.error) {
-      await admin.from('campaigns').update({
-        meta_campaign_id: metaCampaignId,
-        meta_adset_id: adSetId,
-        meta_error: ad.error.message,
-      }).eq('id', campaign_id)
-      return json({ error: `Meta API (Ad): ${ad.error.message}` }, 400)
+      const { msg, tokenExpired } = metaError(ad.error)
+      if (tokenExpired) await admin.from('ad_integrations').update({ is_active: false }).eq('user_id', user.id).eq('platform', 'meta')
+      await admin.from('campaigns').update({ meta_campaign_id: metaCampaignId, meta_adset_id: adSetId, meta_error: msg }).eq('id', campaign_id)
+      return json({ error: msg }, tokenExpired ? 401 : 400)
     }
 
     // ── Save IDs back to our DB ────────────────────────────────────

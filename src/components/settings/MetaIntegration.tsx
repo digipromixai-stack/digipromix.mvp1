@@ -26,8 +26,10 @@ export function MetaIntegration() {
       toast('VITE_META_APP_ID is not set in your environment', 'error')
       return
     }
+    const state = crypto.randomUUID()
+    sessionStorage.setItem('meta_oauth_state', state)
     const redirectUri = encodeURIComponent(`${window.location.origin}/auth/meta/callback`)
-    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${META_SCOPES}&response_type=code`
+    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${META_SCOPES}&response_type=code&state=${encodeURIComponent(state)}`
     window.location.href = url
   }
 

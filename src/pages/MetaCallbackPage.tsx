@@ -29,11 +29,21 @@ export function MetaCallbackPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const code   = params.get('code')
-    const errParam = params.get('error_description')
+    const code       = params.get('code')
+    const stateParam = params.get('state')
+    const errParam   = params.get('error_description')
 
     if (errParam) { setError(errParam); setStep('error'); return }
     if (!code)    { setError('No authorization code received from Meta.'); setStep('error'); return }
+
+    // CSRF protection — verify state matches what we stored before redirect
+    const savedState = sessionStorage.getItem('meta_oauth_state')
+    sessionStorage.removeItem('meta_oauth_state')
+    if (savedState && stateParam !== savedState) {
+      setError('Invalid state parameter. Please try connecting again.')
+      setStep('error')
+      return
+    }
 
     const redirectUri = `${window.location.origin}/auth/meta/callback`
 

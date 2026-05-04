@@ -16,49 +16,50 @@ export function useCampaigns() {
   })
 }
 
-/** Call the manage-google-ads-campaign edge function */
-async function callManageGoogleAds(campaignId: string, action: 'pause' | 'enable' | 'delete') {
+async function callEdgeFunction(fnName: string, body: Record<string, unknown>) {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token
   if (!token) throw new Error('Not authenticated')
-
   const res = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-google-ads-campaign`,
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${fnName}`,
     {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ campaign_id: campaignId, action }),
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     }
   )
-  const json = await res.json()
-  if (!res.ok && !json.success) throw new Error(json.error ?? json.message ?? 'Google Ads update failed')
-  return json
+  const data = await res.json()
+  if (!res.ok && !data.success) throw new Error(data.error ?? data.message ?? `${fnName} failed`)
+  return data
 }
 
 export function useUpdateCampaignStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, status, googleCampaignId }: {
+    mutationFn: async ({ id, status, googleCampaignId, metaCampaignId }: {
       id: string
       status: CampaignStatus
       googleCampaignId?: string | null
+      metaCampaignId?: string | null
     }) => {
-      // If campaign is linked to Google Ads, sync via edge function
-      if (googleCampaignId && (status === 'paused' || status === 'active')) {
-        const action = status === 'paused' ? 'pause' : 'enable'
-        await callManageGoogleAds(id, action)
-        // Edge function already updates DB status — done
-        return
+      const action = status === 'paused' ? 'pause' : 'enable'
+
+      if ((status === 'paused' || status === 'active')) {
+        // Sync to Google Ads if linked
+        if (googleCampaignId) {
+          await callEdgeFunction('manage-google-ads-campaign', { campaign_id: id, action })
+          // Edge function updates DB — skip DB-only update below unless Meta also needs sync
+          if (!metaCampaignId) return
+        }
+        // Sync to Meta if linked
+        if (metaCampaignId) {
+          await callEdgeFunction('manage-meta-campaign', { campaign_id: id, action })
+          return
+        }
       }
 
-      // Otherwise just update DB
-      const { error } = await supabase
-        .from('campaigns')
-        .update({ status })
-        .eq('id', id)
+      // No ad platform linked — just update DB
+      const { error } = await supabase.from('campaigns').update({ status }).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['campaigns'] }),
@@ -68,16 +69,19 @@ export function useUpdateCampaignStatus() {
 export function useDeleteCampaign() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, googleCampaignId }: {
+    mutationFn: async ({ id, googleCampaignId, metaCampaignId }: {
       id: string
       googleCampaignId?: string | null
+      metaCampaignId?: string | null
     }) => {
       if (googleCampaignId) {
-        // Delete from Google Ads + DB via edge function
-        await callManageGoogleAds(id, 'delete')
+        await callEdgeFunction('manage-google-ads-campaign', { campaign_id: id, action: 'delete' })
         return
       }
-      // No Google Ads link — just delete from DB
+      if (metaCampaignId) {
+        await callEdgeFunction('manage-meta-campaign', { campaign_id: id, action: 'delete' })
+        return
+      }
       const { error } = await supabase.from('campaigns').delete().eq('id', id)
       if (error) throw error
     },

@@ -29,7 +29,9 @@ function json(body: unknown, status = 200) {
 }
 
 async function graphGet(path: string, token: string) {
-  const res = await fetch(`${GRAPH}${path}&access_token=${token}`)
+  const res = await fetch(`${GRAPH}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
   return res.json()
 }
 

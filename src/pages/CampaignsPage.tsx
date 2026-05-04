@@ -126,6 +126,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                       id: campaign.id,
                       status: 'paused',
                       googleCampaignId: campaign.google_campaign_id,
+                      metaCampaignId: campaign.meta_campaign_id,
                     })}
                     disabled={updatingStatus}
                     className="text-xs px-2.5 py-1 rounded-lg border border-yellow-200 text-yellow-700 hover:bg-yellow-50 transition-colors disabled:opacity-50"
@@ -139,6 +140,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                       id: campaign.id,
                       status: 'active',
                       googleCampaignId: campaign.google_campaign_id,
+                      metaCampaignId: campaign.meta_campaign_id,
                     })}
                     disabled={updatingStatus}
                     className="text-xs px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
@@ -152,6 +154,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                       id: campaign.id,
                       status: 'completed',
                       googleCampaignId: campaign.google_campaign_id,
+                      metaCampaignId: campaign.meta_campaign_id,
                     })}
                     disabled={updatingStatus}
                     className="text-xs px-2.5 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-50"
@@ -162,12 +165,15 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                 <button
                   onClick={() => {
                     const hasGoogle = !!campaign.google_campaign_id
-                    const msg = hasGoogle
-                      ? 'Delete this campaign from the app AND Google Ads?'
+                    const hasMeta   = !!campaign.meta_campaign_id
+                    const platforms = [hasGoogle && 'Google Ads', hasMeta && 'Meta'].filter(Boolean).join(' & ')
+                    const msg = platforms
+                      ? `Delete this campaign from the app AND ${platforms}?`
                       : 'Delete this campaign?'
                     if (confirm(msg)) deleteCampaign({
                       id: campaign.id,
                       googleCampaignId: campaign.google_campaign_id,
+                      metaCampaignId: campaign.meta_campaign_id,
                     })
                   }}
                   disabled={deleting}

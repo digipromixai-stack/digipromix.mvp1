@@ -150,6 +150,10 @@ Deno.serve(async (req) => {
     const refreshToken = integration.refresh_token as string | null
     if (refreshToken) {
       const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret)
+      if (refreshed.error) {
+        await admin.from('ad_integrations').update({ is_active: false }).eq('id', integration.id)
+        return json({ error: 'Google Ads token expired or revoked. Please reconnect in Settings.' }, 401)
+      }
       if (refreshed.access_token) {
         accessToken = refreshed.access_token
         await admin.from('ad_integrations').update({
@@ -231,12 +235,13 @@ Deno.serve(async (req) => {
       if (!adRes.ok) errors.push(`Ad: ${JSON.stringify(adRes.data).slice(0, 200)}`)
     }
 
-    // Update DB status
-    await admin.from('campaigns').update({ status: dbStatus }).eq('id', campaign_id)
-
     if (errors.length > 0) {
-      return json({ success: false, errors, message: `Some Google Ads updates failed` }, 400)
+      // Do NOT update DB — keep it in sync with actual Google Ads state
+      return json({ success: false, errors, message: 'Google Ads update failed — status unchanged.' }, 400)
     }
+
+    // Only update DB after all Google Ads calls succeed
+    await admin.from('campaigns').update({ status: dbStatus }).eq('id', campaign_id)
 
     return json({
       success: true,
