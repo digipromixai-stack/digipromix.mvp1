@@ -122,39 +122,58 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
               <div className="flex items-center gap-1.5 ml-auto">
                 {campaign.status === 'active' && (
                   <button
-                    onClick={() => updateStatus({ id: campaign.id, status: 'paused' })}
+                    onClick={() => updateStatus({
+                      id: campaign.id,
+                      status: 'paused',
+                      googleCampaignId: campaign.google_campaign_id,
+                    })}
                     disabled={updatingStatus}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-yellow-200 text-yellow-700 hover:bg-yellow-50 transition-colors"
+                    className="text-xs px-2.5 py-1 rounded-lg border border-yellow-200 text-yellow-700 hover:bg-yellow-50 transition-colors disabled:opacity-50"
                   >
-                    Pause
+                    {updatingStatus ? '...' : 'Pause'}
                   </button>
                 )}
                 {(campaign.status === 'draft' || campaign.status === 'paused') && (
                   <button
-                    onClick={() => updateStatus({ id: campaign.id, status: 'active' })}
+                    onClick={() => updateStatus({
+                      id: campaign.id,
+                      status: 'active',
+                      googleCampaignId: campaign.google_campaign_id,
+                    })}
                     disabled={updatingStatus}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors"
+                    className="text-xs px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
                   >
-                    {campaign.status === 'draft' ? 'Activate' : 'Resume'}
+                    {updatingStatus ? '...' : campaign.status === 'draft' ? 'Activate' : 'Resume'}
                   </button>
                 )}
                 {campaign.status === 'active' && (
                   <button
-                    onClick={() => updateStatus({ id: campaign.id, status: 'completed' })}
+                    onClick={() => updateStatus({
+                      id: campaign.id,
+                      status: 'completed',
+                      googleCampaignId: campaign.google_campaign_id,
+                    })}
                     disabled={updatingStatus}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+                    className="text-xs px-2.5 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-50"
                   >
                     Complete
                   </button>
                 )}
                 <button
                   onClick={() => {
-                    if (confirm('Delete this campaign?')) deleteCampaign(campaign.id)
+                    const hasGoogle = !!campaign.google_campaign_id
+                    const msg = hasGoogle
+                      ? 'Delete this campaign from the app AND Google Ads?'
+                      : 'Delete this campaign?'
+                    if (confirm(msg)) deleteCampaign({
+                      id: campaign.id,
+                      googleCampaignId: campaign.google_campaign_id,
+                    })
                   }}
                   disabled={deleting}
-                  className="text-xs p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  className="text-xs p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
                 >
-                  <Trash2 size={13} />
+                  {deleting ? '...' : <Trash2 size={13} />}
                 </button>
               </div>
             </div>

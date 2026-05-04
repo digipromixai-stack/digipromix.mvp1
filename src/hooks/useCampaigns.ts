@@ -16,10 +16,45 @@ export function useCampaigns() {
   })
 }
 
+/** Call the manage-google-ads-campaign edge function */
+async function callManageGoogleAds(campaignId: string, action: 'pause' | 'enable' | 'delete') {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-google-ads-campaign`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ campaign_id: campaignId, action }),
+    }
+  )
+  const json = await res.json()
+  if (!res.ok && !json.success) throw new Error(json.error ?? json.message ?? 'Google Ads update failed')
+  return json
+}
+
 export function useUpdateCampaignStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: CampaignStatus }) => {
+    mutationFn: async ({ id, status, googleCampaignId }: {
+      id: string
+      status: CampaignStatus
+      googleCampaignId?: string | null
+    }) => {
+      // If campaign is linked to Google Ads, sync via edge function
+      if (googleCampaignId && (status === 'paused' || status === 'active')) {
+        const action = status === 'paused' ? 'pause' : 'enable'
+        await callManageGoogleAds(id, action)
+        // Edge function already updates DB status — done
+        return
+      }
+
+      // Otherwise just update DB
       const { error } = await supabase
         .from('campaigns')
         .update({ status })
@@ -33,7 +68,16 @@ export function useUpdateCampaignStatus() {
 export function useDeleteCampaign() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, googleCampaignId }: {
+      id: string
+      googleCampaignId?: string | null
+    }) => {
+      if (googleCampaignId) {
+        // Delete from Google Ads + DB via edge function
+        await callManageGoogleAds(id, 'delete')
+        return
+      }
+      // No Google Ads link — just delete from DB
       const { error } = await supabase.from('campaigns').delete().eq('id', id)
       if (error) throw error
     },
