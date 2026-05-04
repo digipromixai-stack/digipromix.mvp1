@@ -23,6 +23,8 @@ export function GoogleAdsIntegration() {
       toast('VITE_GOOGLE_ADS_CLIENT_ID is not set in your environment', 'error')
       return
     }
+    const state = crypto.randomUUID()
+    sessionStorage.setItem('google_ads_oauth_state', state)
     const redirectUri = `${window.location.origin}/auth/google-ads/callback`
     const params = new URLSearchParams({
       client_id: clientId,
@@ -32,6 +34,7 @@ export function GoogleAdsIntegration() {
       access_type: 'offline',
       prompt: 'consent',
       include_granted_scopes: 'true',
+      state,
     })
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
   }

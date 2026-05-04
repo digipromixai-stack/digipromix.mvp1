@@ -29,11 +29,21 @@ export function GoogleAdsCallbackPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const code   = params.get('code')
-    const errParam = params.get('error_description') ?? params.get('error')
+    const code      = params.get('code')
+    const stateParam = params.get('state')
+    const errParam  = params.get('error_description') ?? params.get('error')
 
     if (errParam) { setError(errParam); setStep('error'); return }
     if (!code)    { setError('No authorization code received from Google.'); setStep('error'); return }
+
+    // CSRF protection — verify state matches what we stored before redirect
+    const savedState = sessionStorage.getItem('google_ads_oauth_state')
+    sessionStorage.removeItem('google_ads_oauth_state')
+    if (savedState && stateParam !== savedState) {
+      setError('Invalid state parameter. Please try connecting again.')
+      setStep('error')
+      return
+    }
 
     const redirectUri = `${window.location.origin}/auth/google-ads/callback`
 
