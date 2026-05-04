@@ -13,15 +13,18 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-// Free-tier Gemini models in priority order — automatically falls back on 429
+// Gemini models in priority order.
+// gemini-1.5-flash was removed from v1beta by Google — do NOT add it back.
+// Falls back automatically on 429 (quota) or 404 (model removed).
 const GEMINI_MODELS = [
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash',
   'gemini-1.5-flash-8b',
+  'gemini-1.5-pro',
 ]
 
 async function callGemini(apiKey: string, prompt: string): Promise<string> {
+  let lastError = ''
   for (const model of GEMINI_MODELS) {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -39,9 +42,10 @@ async function callGemini(apiKey: string, prompt: string): Promise<string> {
       }
     )
 
-    // Rate/quota exceeded — try next model
-    if (res.status === 429) {
-      console.warn(`Model ${model} quota exceeded, trying next...`)
+    // Quota exceeded or model unavailable/removed — try next
+    if (res.status === 429 || res.status === 404) {
+      lastError = `Model ${model} unavailable (HTTP ${res.status})`
+      console.warn(lastError + ', trying next...')
       continue
     }
 
@@ -59,7 +63,7 @@ async function callGemini(apiKey: string, prompt: string): Promise<string> {
     console.log(`Generated with model: ${model}`)
     return text
   }
-  throw new Error('All Gemini free-tier models quota exceeded. Try again later or add billing to your Google AI key.')
+  throw new Error(`All Gemini models failed. Last error: ${lastError}. Try again later or add billing to your Google AI key.`)
 }
 
 Deno.serve(async (req) => {

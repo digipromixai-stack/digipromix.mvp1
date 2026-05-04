@@ -1,224 +1,247 @@
 /**
  * Public landing page — /lp/:slug
- * No authentication required.
- * Supports 5 visual templates: default | healthcare | real-estate | education | local-services
+ * Premium, conversion-optimised design with 5 industry templates.
+ * Layout: two-column (hero left · sticky form right) on desktop, stacked on mobile.
  */
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Loader2, CheckCircle2, AlertTriangle, Zap, Heart, Home, GraduationCap, Wrench } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { invokeFunction } from '../lib/supabase'
+import {
+  Loader2, CheckCircle2, AlertTriangle, Zap, Heart, Home,
+  GraduationCap, Wrench, Shield, Lock, Clock, ArrowRight,
+  User, Mail, Phone, MessageSquare,
+} from 'lucide-react'
+import { supabase, invokeFunction } from '../lib/supabase'
 import type { Campaign, LandingTemplate } from '../types/database.types'
 
-type PageState = 'loading' | 'ready' | 'submitting' | 'success' | 'error' | 'not_found'
+type PageState = 'loading' | 'ready' | 'submitting' | 'success' | 'not_found'
 
-// ── Template config ────────────────────────────────────────────────────────────
-
-interface TemplateConfig {
-  bg: string
-  surface: string
-  surfaceBorder: string
-  text: string
-  subtext: string
-  accent: string
-  accentText: string
-  inputBg: string
-  inputBorder: string
-  inputText: string
-  inputPlaceholder: string
-  btnGradient: string
-  badgeBg: string
-  badgeText: string
-  offerGradient: string
-  icon: React.ElementType
+// ── Per-template visual config ─────────────────────────────────────────────────
+interface Theme {
+  page:         string
+  glow1:        string
+  glow2:        string
+  headline:     string
+  body:         string
+  badgeBg:      string
+  badgeBorder:  string
+  badgeText:    string
+  offerGrad:    string
+  bulletDot:    string
+  cardBg:       string
+  cardBorder:   string
+  cardShadow:   string
+  cardTitle:    string
+  cardSub:      string
+  divider:      string
+  label:        string
+  inputBg:      string
+  inputBorder:  string
+  inputFocus:   string
+  inputText:    string
+  inputPh:      string
+  iconColor:    string
+  btn:          string
+  btnShadow:    string
+  trustText:    string
+  trustBg:      string
+  trustBorder:  string
+  avatarBorder: string
+  Icon:         React.ElementType
+  iconAccent:   string
 }
 
-const TEMPLATES: Record<LandingTemplate, TemplateConfig> = {
+const THEMES: Record<LandingTemplate, Theme> = {
   'default': {
-    bg:              'bg-slate-950',
-    surface:         'bg-white/5',
-    surfaceBorder:   'border-white/10',
-    text:            'text-white',
-    subtext:         'text-gray-300',
-    accent:          'text-blue-400',
-    accentText:      'text-blue-400',
-    inputBg:         'bg-white/10',
-    inputBorder:     'border-white/10',
-    inputText:       'text-white',
-    inputPlaceholder:'placeholder-gray-500',
-    btnGradient:     'from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500',
-    badgeBg:         'bg-white/5 border-white/10',
-    badgeText:       'text-gray-300',
-    offerGradient:   'from-green-500 to-emerald-600',
-    icon:            Zap,
+    page:         'bg-[#030914]',
+    glow1:        'absolute -top-40 -right-40 w-[700px] h-[700px] bg-blue-600/20 rounded-full blur-[130px] pointer-events-none',
+    glow2:        'absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-purple-700/15 rounded-full blur-[110px] pointer-events-none',
+    headline:     'text-white',
+    body:         'text-slate-400',
+    badgeBg:      'bg-blue-500/10',
+    badgeBorder:  'border-blue-500/20',
+    badgeText:    'text-blue-300',
+    offerGrad:    'from-blue-500 via-indigo-500 to-purple-600',
+    bulletDot:    'bg-blue-500',
+    cardBg:       'bg-white/[0.04] backdrop-blur-2xl',
+    cardBorder:   'border-white/10',
+    cardShadow:   'shadow-2xl',
+    cardTitle:    'text-white',
+    cardSub:      'text-slate-400',
+    divider:      'border-white/8',
+    label:        'text-slate-400',
+    inputBg:      'bg-white/5',
+    inputBorder:  'border-white/10',
+    inputFocus:   'focus:border-blue-500 focus:ring-blue-500/10',
+    inputText:    'text-white',
+    inputPh:      'placeholder-slate-600',
+    iconColor:    'text-slate-600',
+    btn:          'from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500',
+    btnShadow:    'shadow-blue-500/30',
+    trustText:    'text-slate-600',
+    trustBg:      'bg-white/5',
+    trustBorder:  'border-white/8',
+    avatarBorder: 'border-[#030914]',
+    Icon:         Zap,
+    iconAccent:   'text-blue-400',
   },
   'healthcare': {
-    bg:              'bg-blue-50',
-    surface:         'bg-white',
-    surfaceBorder:   'border-blue-100',
-    text:            'text-blue-900',
-    subtext:         'text-blue-700',
-    accent:          'text-blue-600',
-    accentText:      'text-blue-600',
-    inputBg:         'bg-blue-50',
-    inputBorder:     'border-blue-200',
-    inputText:       'text-blue-900',
-    inputPlaceholder:'placeholder-blue-300',
-    btnGradient:     'from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500',
-    badgeBg:         'bg-blue-100 border-blue-200',
-    badgeText:       'text-blue-700',
-    offerGradient:   'from-cyan-500 to-blue-600',
-    icon:            Heart,
+    page:         'bg-gradient-to-br from-sky-50 via-white to-blue-50',
+    glow1:        'absolute -top-40 -right-40 w-[700px] h-[700px] bg-blue-200/60 rounded-full blur-[130px] pointer-events-none',
+    glow2:        'absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-cyan-200/50 rounded-full blur-[110px] pointer-events-none',
+    headline:     'text-blue-950',
+    body:         'text-blue-700/70',
+    badgeBg:      'bg-blue-50',
+    badgeBorder:  'border-blue-200',
+    badgeText:    'text-blue-600',
+    offerGrad:    'from-blue-500 to-cyan-500',
+    bulletDot:    'bg-blue-500',
+    cardBg:       'bg-white',
+    cardBorder:   'border-blue-100',
+    cardShadow:   'shadow-2xl shadow-blue-100',
+    cardTitle:    'text-blue-950',
+    cardSub:      'text-blue-400',
+    divider:      'border-blue-100',
+    label:        'text-blue-700',
+    inputBg:      'bg-blue-50/70',
+    inputBorder:  'border-blue-200',
+    inputFocus:   'focus:border-blue-500 focus:ring-blue-500/10',
+    inputText:    'text-blue-950',
+    inputPh:      'placeholder-blue-300',
+    iconColor:    'text-blue-300',
+    btn:          'from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400',
+    btnShadow:    'shadow-blue-300/50',
+    trustText:    'text-blue-400',
+    trustBg:      'bg-blue-50',
+    trustBorder:  'border-blue-100',
+    avatarBorder: 'border-white',
+    Icon:         Heart,
+    iconAccent:   'text-blue-500',
   },
   'real-estate': {
-    bg:              'bg-amber-50',
-    surface:         'bg-white',
-    surfaceBorder:   'border-amber-100',
-    text:            'text-amber-900',
-    subtext:         'text-amber-800',
-    accent:          'text-amber-600',
-    accentText:      'text-amber-700',
-    inputBg:         'bg-amber-50',
-    inputBorder:     'border-amber-200',
-    inputText:       'text-amber-900',
-    inputPlaceholder:'placeholder-amber-400',
-    btnGradient:     'from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500',
-    badgeBg:         'bg-amber-100 border-amber-200',
-    badgeText:       'text-amber-700',
-    offerGradient:   'from-amber-500 to-orange-600',
-    icon:            Home,
+    page:         'bg-gradient-to-br from-amber-50 via-white to-orange-50',
+    glow1:        'absolute -top-40 -right-40 w-[700px] h-[700px] bg-amber-200/60 rounded-full blur-[130px] pointer-events-none',
+    glow2:        'absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-orange-200/50 rounded-full blur-[110px] pointer-events-none',
+    headline:     'text-stone-900',
+    body:         'text-stone-500',
+    badgeBg:      'bg-amber-50',
+    badgeBorder:  'border-amber-200',
+    badgeText:    'text-amber-700',
+    offerGrad:    'from-amber-500 to-orange-500',
+    bulletDot:    'bg-amber-500',
+    cardBg:       'bg-white',
+    cardBorder:   'border-amber-100',
+    cardShadow:   'shadow-2xl shadow-amber-100',
+    cardTitle:    'text-stone-900',
+    cardSub:      'text-stone-400',
+    divider:      'border-amber-100',
+    label:        'text-stone-600',
+    inputBg:      'bg-amber-50/70',
+    inputBorder:  'border-amber-200',
+    inputFocus:   'focus:border-amber-500 focus:ring-amber-500/10',
+    inputText:    'text-stone-900',
+    inputPh:      'placeholder-amber-300',
+    iconColor:    'text-amber-300',
+    btn:          'from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400',
+    btnShadow:    'shadow-amber-300/50',
+    trustText:    'text-stone-400',
+    trustBg:      'bg-amber-50',
+    trustBorder:  'border-amber-100',
+    avatarBorder: 'border-white',
+    Icon:         Home,
+    iconAccent:   'text-amber-500',
   },
   'education': {
-    bg:              'bg-violet-50',
-    surface:         'bg-white',
-    surfaceBorder:   'border-violet-100',
-    text:            'text-violet-900',
-    subtext:         'text-violet-700',
-    accent:          'text-violet-600',
-    accentText:      'text-violet-700',
-    inputBg:         'bg-violet-50',
-    inputBorder:     'border-violet-200',
-    inputText:       'text-violet-900',
-    inputPlaceholder:'placeholder-violet-400',
-    btnGradient:     'from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500',
-    badgeBg:         'bg-violet-100 border-violet-200',
-    badgeText:       'text-violet-700',
-    offerGradient:   'from-violet-500 to-purple-600',
-    icon:            GraduationCap,
+    page:         'bg-gradient-to-br from-violet-50 via-white to-purple-50',
+    glow1:        'absolute -top-40 -right-40 w-[700px] h-[700px] bg-violet-200/60 rounded-full blur-[130px] pointer-events-none',
+    glow2:        'absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-purple-200/50 rounded-full blur-[110px] pointer-events-none',
+    headline:     'text-violet-950',
+    body:         'text-violet-600/80',
+    badgeBg:      'bg-violet-50',
+    badgeBorder:  'border-violet-200',
+    badgeText:    'text-violet-600',
+    offerGrad:    'from-violet-500 to-purple-600',
+    bulletDot:    'bg-violet-500',
+    cardBg:       'bg-white',
+    cardBorder:   'border-violet-100',
+    cardShadow:   'shadow-2xl shadow-violet-100',
+    cardTitle:    'text-violet-950',
+    cardSub:      'text-violet-400',
+    divider:      'border-violet-100',
+    label:        'text-violet-700',
+    inputBg:      'bg-violet-50/70',
+    inputBorder:  'border-violet-200',
+    inputFocus:   'focus:border-violet-500 focus:ring-violet-500/10',
+    inputText:    'text-violet-950',
+    inputPh:      'placeholder-violet-300',
+    iconColor:    'text-violet-300',
+    btn:          'from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500',
+    btnShadow:    'shadow-violet-300/50',
+    trustText:    'text-violet-400',
+    trustBg:      'bg-violet-50',
+    trustBorder:  'border-violet-100',
+    avatarBorder: 'border-white',
+    Icon:         GraduationCap,
+    iconAccent:   'text-violet-500',
   },
   'local-services': {
-    bg:              'bg-orange-50',
-    surface:         'bg-white',
-    surfaceBorder:   'border-orange-100',
-    text:            'text-orange-900',
-    subtext:         'text-orange-800',
-    accent:          'text-orange-600',
-    accentText:      'text-orange-700',
-    inputBg:         'bg-orange-50',
-    inputBorder:     'border-orange-200',
-    inputText:       'text-orange-900',
-    inputPlaceholder:'placeholder-orange-400',
-    btnGradient:     'from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400',
-    badgeBg:         'bg-orange-100 border-orange-200',
-    badgeText:       'text-orange-700',
-    offerGradient:   'from-orange-500 to-red-500',
-    icon:            Wrench,
+    page:         'bg-gradient-to-br from-orange-50 via-white to-red-50',
+    glow1:        'absolute -top-40 -right-40 w-[700px] h-[700px] bg-orange-200/60 rounded-full blur-[130px] pointer-events-none',
+    glow2:        'absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-red-200/50 rounded-full blur-[110px] pointer-events-none',
+    headline:     'text-gray-900',
+    body:         'text-gray-500',
+    badgeBg:      'bg-orange-50',
+    badgeBorder:  'border-orange-200',
+    badgeText:    'text-orange-700',
+    offerGrad:    'from-orange-500 to-red-500',
+    bulletDot:    'bg-orange-500',
+    cardBg:       'bg-white',
+    cardBorder:   'border-orange-100',
+    cardShadow:   'shadow-2xl shadow-orange-100',
+    cardTitle:    'text-gray-900',
+    cardSub:      'text-gray-400',
+    divider:      'border-orange-100',
+    label:        'text-gray-600',
+    inputBg:      'bg-orange-50/70',
+    inputBorder:  'border-orange-200',
+    inputFocus:   'focus:border-orange-500 focus:ring-orange-500/10',
+    inputText:    'text-gray-900',
+    inputPh:      'placeholder-orange-300',
+    iconColor:    'text-orange-300',
+    btn:          'from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400',
+    btnShadow:    'shadow-orange-300/50',
+    trustText:    'text-gray-400',
+    trustBg:      'bg-orange-50',
+    trustBorder:  'border-orange-100',
+    avatarBorder: 'border-white',
+    Icon:         Wrench,
+    iconAccent:   'text-orange-500',
   },
 }
 
-// ── Lead form ─────────────────────────────────────────────────────────────────
-
-interface LeadFormProps {
-  t: TemplateConfig
-  cta: string
-  state: PageState
-  onSubmit: (e: React.FormEvent) => void
-  name: string; setName: (v: string) => void
-  email: string; setEmail: (v: string) => void
-  phone: string; setPhone: (v: string) => void
-  message: string; setMessage: (v: string) => void
-  formError: string | null
-}
-
-function LeadForm({ t, cta, state, onSubmit, name, setName, email, setEmail, phone, setPhone, message, setMessage, formError }: LeadFormProps) {
-  const baseInput = `w-full ${t.inputBg} border ${t.inputBorder} rounded-lg px-3 py-2.5 text-sm ${t.inputText} ${t.inputPlaceholder} focus:outline-none focus:ring-2 focus:ring-current`
-
-  return (
-    <form onSubmit={onSubmit} className={`${t.surface} border ${t.surfaceBorder} rounded-2xl p-8 space-y-4 shadow-xl`}>
-      <h2 className={`text-lg font-bold text-center mb-2 ${t.text}`}>{cta}</h2>
-
-      <div>
-        <label className={`block text-xs font-medium mb-1 ${t.subtext}`}>Full name</label>
-        <input type="text" value={name} onChange={e => setName(e.target.value)}
-          placeholder="Your name" className={baseInput} />
-      </div>
-
-      <div>
-        <label className={`block text-xs font-medium mb-1 ${t.subtext}`}>Email</label>
-        <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-          placeholder="you@example.com" className={baseInput} />
-      </div>
-
-      <div>
-        <label className={`block text-xs font-medium mb-1 ${t.subtext}`}>Phone / WhatsApp</label>
-        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-          placeholder="+1 555 000 0000" className={baseInput} />
-      </div>
-
-      <div>
-        <label className={`block text-xs font-medium mb-1 ${t.subtext}`}>
-          Message <span className="opacity-50">(optional)</span>
-        </label>
-        <textarea value={message} onChange={e => setMessage(e.target.value)}
-          placeholder="Tell us about your needs…" rows={3}
-          className={`${baseInput} resize-none`} />
-      </div>
-
-      {formError && (
-        <p className="text-xs text-red-500 flex items-center gap-1">
-          <AlertTriangle size={12} />{formError}
-        </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={state === 'submitting'}
-        className={`w-full py-3 rounded-xl bg-gradient-to-r ${t.btnGradient} text-white font-bold text-sm transition-all disabled:opacity-60 flex items-center justify-center gap-2`}
-      >
-        {state === 'submitting'
-          ? <><Loader2 size={16} className="animate-spin" />Sending…</>
-          : cta
-        }
-      </button>
-
-      <p className={`text-xs text-center opacity-40 ${t.text}`}>
-        By submitting you agree to be contacted. No spam.
-      </p>
-    </form>
-  )
+// Template-specific default benefit bullets (shown when no keywords available)
+const TEMPLATE_BENEFITS: Record<LandingTemplate, string[]> = {
+  'default':        ['No long-term contracts required', 'Results delivered within 48 hours', 'Dedicated account manager included'],
+  'healthcare':     ['HIPAA-compliant secure process', 'Same-day appointments available', 'All major insurance plans accepted'],
+  'real-estate':    ['Free property valuation included', 'Expert local market knowledge', 'Zero upfront fees or hidden costs'],
+  'education':      ['Flexible learning schedule options', 'Certified expert instructors', 'Free trial session available'],
+  'local-services': ['Same-day service appointments', 'Fully licensed and insured team', 'Free on-site estimate included'],
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
-
 export function LandingPage() {
   const { slug } = useParams<{ slug: string }>()
-  const [state, setState]       = useState<PageState>('loading')
-  const [campaign, setCampaign] = useState<Campaign | null>(null)
-
-  const [name,    setName]    = useState('')
-  const [email,   setEmail]   = useState('')
-  const [phone,   setPhone]   = useState('')
-  const [message, setMessage] = useState('')
+  const [state,     setState]     = useState<PageState>('loading')
+  const [campaign,  setCampaign]  = useState<Campaign | null>(null)
+  const [name,      setName]      = useState('')
+  const [email,     setEmail]     = useState('')
+  const [phone,     setPhone]     = useState('')
+  const [message,   setMessage]   = useState('')
   const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!slug) { setState('not_found'); return }
     supabase
-      .from('campaigns')
-      .select('*')
-      .eq('slug', slug)
-      .eq('published', true)
-      .single()
+      .from('campaigns').select('*').eq('slug', slug).eq('published', true).single()
       .then(({ data, error }) => {
         if (error || !data) { setState('not_found'); return }
         setCampaign(data as Campaign)
@@ -234,7 +257,6 @@ export function LandingPage() {
     }
     setFormError(null)
     setState('submitting')
-
     const { error } = await invokeFunction('submit-lead', {
       slug,
       name:    name.trim()    || null,
@@ -242,92 +264,279 @@ export function LandingPage() {
       phone:   phone.trim()   || null,
       message: message.trim() || null,
     })
-
-    if (error) {
-      setFormError('Something went wrong. Please try again.')
-      setState('ready')
-      return
-    }
+    if (error) { setFormError('Something went wrong. Please try again.'); setState('ready'); return }
     setState('success')
   }
 
-  const templateKey: LandingTemplate = (campaign?.template as LandingTemplate) ?? 'default'
-  const t = TEMPLATES[templateKey] ?? TEMPLATES['default']
-  const Icon = t.icon
-  const cta = campaign?.landing_page_cta ?? 'Get My Free Offer'
+  const tpl     = (campaign?.template as LandingTemplate) ?? 'default'
+  const t       = THEMES[tpl] ?? THEMES['default']
+  const { Icon } = t
+  const cta     = campaign?.landing_page_cta ?? 'Get My Free Offer'
 
+  // Derive 3 benefit bullets from keywords, or fall back to template defaults
+  const benefits = (() => {
+    const kws = (campaign?.keywords as string[] | null) ?? []
+    if (kws.length >= 2) return kws.slice(0, 3).map(k => k.charAt(0).toUpperCase() + k.slice(1))
+    return TEMPLATE_BENEFITS[tpl] ?? TEMPLATE_BENEFITS['default']
+  })()
+
+  const inputBase = `w-full ${t.inputBg} border ${t.inputBorder} ${t.inputFocus} rounded-xl px-4 py-3 pl-9 text-sm ${t.inputText} ${t.inputPh} focus:outline-none focus:ring-2 transition-colors duration-150`
+
+  // ── Loading ──────────────────────────────────────────────────────────────────
   if (state === 'loading') {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${TEMPLATES['default'].bg}`}>
-        <Loader2 size={32} className="text-blue-400 animate-spin" />
+      <div className={`min-h-screen flex items-center justify-center ${THEMES['default'].page}`}>
+        <Loader2 size={36} className="text-blue-400 animate-spin" />
       </div>
     )
   }
 
+  // ── Not found ─────────────────────────────────────────────────────────────────
   if (state === 'not_found') {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${TEMPLATES['default'].bg} p-6`}>
-        <div className="text-center">
-          <AlertTriangle size={40} className="text-yellow-400 mx-auto mb-3" />
-          <p className="text-white font-semibold text-lg">Page not found</p>
-          <p className="text-gray-400 text-sm mt-1">This landing page doesn't exist or is no longer active.</p>
+      <div className={`min-h-screen flex items-center justify-center ${THEMES['default'].page} px-6`}>
+        <div className="text-center space-y-3">
+          <AlertTriangle size={48} className="text-yellow-400 mx-auto" />
+          <p className="text-white font-bold text-xl">Page not found</p>
+          <p className="text-slate-400 text-sm max-w-xs mx-auto">
+            This offer is no longer active or the link may be incorrect.
+          </p>
         </div>
       </div>
     )
   }
 
+  // ── Page ──────────────────────────────────────────────────────────────────────
   return (
-    <div className={`min-h-screen ${t.bg}`}>
-      {/* Hero */}
-      <div className="max-w-2xl mx-auto px-6 pt-16 pb-10 text-center">
-        {/* Badge */}
-        <div className={`inline-flex items-center gap-2 mb-8 px-3 py-1.5 rounded-full ${t.badgeBg} border`}>
-          <Icon size={13} className={t.accentText} />
-          <span className={`text-xs font-medium ${t.badgeText}`}>
-            {campaign?.competitor_name
-              ? `${campaign.competitor_name} competitor offer detected`
-              : 'Exclusive offer'
-            }
-          </span>
-        </div>
+    <div className={`min-h-screen ${t.page} relative overflow-hidden`}>
+      {/* Decorative glow blobs */}
+      <div className={t.glow1} />
+      <div className={t.glow2} />
 
-        <h1 className={`text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight mb-5 ${t.text}`}>
-          {campaign?.landing_page_title ?? campaign?.headline ?? 'Exclusive Offer'}
-        </h1>
+      <div className="relative z-10 flex flex-col min-h-screen">
 
-        {campaign?.landing_page_body && (
-          <p className={`text-lg leading-relaxed mb-6 ${t.subtext}`}>
-            {campaign.landing_page_body}
-          </p>
-        )}
-
-        {campaign?.offer && (
-          <div className={`inline-block bg-gradient-to-r ${t.offerGradient} text-white font-bold px-6 py-2.5 rounded-full text-sm shadow-lg mb-8`}>
-            🎯 {campaign.offer}
+        {/* ── Header ── */}
+        <header className={`border-b ${t.divider} px-6 py-4`}>
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`w-7 h-7 rounded-xl ${t.badgeBg} border ${t.badgeBorder} flex items-center justify-center`}>
+                <Icon size={13} className={t.iconAccent} />
+              </div>
+              <span className={`text-xs font-semibold ${t.badgeText} truncate max-w-[180px] sm:max-w-xs`}>
+                {campaign?.campaign_name ?? 'Special Offer'}
+              </span>
+            </div>
+            <div className={`hidden sm:flex items-center gap-1.5 text-xs ${t.trustText}`}>
+              <Lock size={10} />
+              <span>Secure & Private</span>
+            </div>
           </div>
-        )}
-      </div>
+        </header>
 
-      {/* Form */}
-      <div className="max-w-md mx-auto px-6 pb-20">
-        {state === 'success' ? (
-          <div className={`${t.surface} border ${t.surfaceBorder} rounded-2xl p-8 text-center shadow-xl`}>
-            <CheckCircle2 size={48} className="text-green-500 mx-auto mb-4" />
-            <h2 className={`text-xl font-bold mb-2 ${t.text}`}>You're in!</h2>
-            <p className={`text-sm ${t.subtext}`}>
-              We'll be in touch very soon. Thanks for your interest!
+        {/* ── Main ── */}
+        <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-12 lg:py-20">
+          <div className="grid lg:grid-cols-[1fr_420px] gap-12 lg:gap-16 items-start">
+
+            {/* ───── Left: Hero content ───── */}
+            <div>
+
+              {/* Badge */}
+              <div className={`inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full border ${t.badgeBg} ${t.badgeBorder}`}>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+                <span className={`text-xs font-semibold tracking-wide ${t.badgeText}`}>
+                  Limited Time Offer
+                </span>
+              </div>
+
+              {/* Headline */}
+              <h1 className={`text-4xl sm:text-5xl lg:text-[56px] font-black tracking-tight leading-[1.05] mb-6 ${t.headline}`}>
+                {campaign?.landing_page_title ?? campaign?.headline ?? 'An Exclusive Offer Just for You'}
+              </h1>
+
+              {/* Body text */}
+              {(campaign?.landing_page_body || campaign?.ad_copy) && (
+                <p className={`text-lg leading-relaxed mb-8 max-w-xl ${t.body}`}>
+                  {campaign?.landing_page_body ?? campaign?.ad_copy}
+                </p>
+              )}
+
+              {/* Offer pill */}
+              {campaign?.offer && (
+                <div className={`inline-flex items-center gap-2.5 bg-gradient-to-r ${t.offerGrad} text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg mb-10 text-sm`}>
+                  <span className="text-lg">🎯</span>
+                  {campaign.offer}
+                </div>
+              )}
+
+              {/* Benefit bullets */}
+              <div className="space-y-3.5 mb-10">
+                {benefits.map((b, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full ${t.bulletDot} flex items-center justify-center shrink-0`}>
+                      <CheckCircle2 size={11} className="text-white" />
+                    </div>
+                    <span className={`text-sm font-medium ${t.body}`}>{b}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Social proof */}
+              <div className={`inline-flex items-center gap-3 px-4 py-3 rounded-2xl ${t.trustBg} border ${t.trustBorder}`}>
+                {/* Avatar stack */}
+                <div className="flex -space-x-2 shrink-0">
+                  {['bg-blue-400','bg-emerald-400','bg-purple-400','bg-rose-400'].map((bg, i) => (
+                    <div
+                      key={i}
+                      className={`w-7 h-7 rounded-full ${bg} border-2 ${t.avatarBorder} flex items-center justify-center text-[9px] text-white font-bold`}
+                    >
+                      {String.fromCharCode(65 + i)}
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <p className={`text-xs font-bold ${t.headline}`}>500+ businesses already claimed this</p>
+                  <p className={`text-xs ${t.body}`}>Join them — spots filling fast</p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* ───── Right: Form card ───── */}
+            <div className="lg:sticky lg:top-8">
+
+              {state === 'success' ? (
+
+                /* ── Success state ── */
+                <div className={`${t.cardBg} border ${t.cardBorder} ${t.cardShadow} rounded-3xl p-10 text-center`}>
+                  <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-5">
+                    <CheckCircle2 size={48} className="text-green-500" />
+                  </div>
+                  <h2 className={`text-2xl font-black mb-2 ${t.cardTitle}`}>You're in! 🎉</h2>
+                  <p className={`text-sm leading-relaxed ${t.cardSub}`}>
+                    We received your details and will reach out very soon.
+                    <br />Thank you for your interest!
+                  </p>
+                </div>
+
+              ) : (
+
+                /* ── Lead form ── */
+                <div className={`${t.cardBg} border ${t.cardBorder} ${t.cardShadow} rounded-3xl p-8`}>
+
+                  {/* Card header */}
+                  <div className="text-center mb-6">
+                    <div className={`w-12 h-12 rounded-2xl ${t.badgeBg} border ${t.badgeBorder} flex items-center justify-center mx-auto mb-3`}>
+                      <Icon size={20} className={t.iconAccent} />
+                    </div>
+                    <h2 className={`text-xl font-black ${t.cardTitle}`}>{cta}</h2>
+                    <p className={`text-xs mt-1.5 ${t.cardSub}`}>
+                      We'll respond within 24 hours — no commitment needed
+                    </p>
+                  </div>
+
+                  <div className={`border-t ${t.divider} mb-6`} />
+
+                  <form onSubmit={submit} className="space-y-4">
+
+                    {/* Name */}
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${t.label}`}>Full name</label>
+                      <div className="relative">
+                        <User size={13} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${t.iconColor}`} />
+                        <input type="text" value={name} onChange={e => setName(e.target.value)}
+                          placeholder="Your full name" className={inputBase} />
+                      </div>
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${t.label}`}>Email address</label>
+                      <div className="relative">
+                        <Mail size={13} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${t.iconColor}`} />
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                          placeholder="you@email.com" className={inputBase} />
+                      </div>
+                    </div>
+
+                    {/* Phone */}
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${t.label}`}>Phone / WhatsApp</label>
+                      <div className="relative">
+                        <Phone size={13} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${t.iconColor}`} />
+                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                          placeholder="+1 555 000 0000" className={inputBase} />
+                      </div>
+                    </div>
+
+                    {/* Message */}
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${t.label}`}>
+                        Message <span className="font-normal opacity-50">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <MessageSquare size={13} className={`absolute left-3.5 top-3.5 ${t.iconColor}`} />
+                        <textarea value={message} onChange={e => setMessage(e.target.value)}
+                          placeholder="Tell us what you need…" rows={3}
+                          className={`${inputBase} resize-none`} />
+                      </div>
+                    </div>
+
+                    {/* Error */}
+                    {formError && (
+                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-500 px-3 py-2.5 rounded-xl text-xs">
+                        <AlertTriangle size={12} className="shrink-0" />
+                        {formError}
+                      </div>
+                    )}
+
+                    {/* Submit */}
+                    <button
+                      type="submit"
+                      disabled={state === 'submitting'}
+                      className={`w-full py-4 mt-1 rounded-2xl bg-gradient-to-r ${t.btn} text-white font-bold text-sm shadow-xl ${t.btnShadow} transition-all duration-150 active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2`}
+                    >
+                      {state === 'submitting' ? (
+                        <><Loader2 size={15} className="animate-spin" />Sending…</>
+                      ) : (
+                        <>{cta}<ArrowRight size={15} /></>
+                      )}
+                    </button>
+
+                    {/* Trust signals */}
+                    <div className={`flex items-center justify-between pt-1 px-1`}>
+                      {([
+                        { Icon: Lock,   label: 'Secure' },
+                        { Icon: Clock,  label: '24h Response' },
+                        { Icon: Shield, label: 'No Spam' },
+                      ] as const).map(({ Icon: TIcon, label }) => (
+                        <div key={label} className="flex items-center gap-1">
+                          <TIcon size={10} className={t.iconColor} />
+                          <span className={`text-[10px] ${t.trustText}`}>{label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                  </form>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </main>
+
+        {/* ── Footer ── */}
+        <footer className={`border-t ${t.divider} px-6 py-5`}>
+          <div className="max-w-6xl mx-auto text-center">
+            <p className={`text-[11px] ${t.trustText}`}>
+              By submitting this form you agree to be contacted about this offer.
+              Your data is kept private and will never be sold or shared.
             </p>
           </div>
-        ) : (
-          <LeadForm
-            t={t} cta={cta} state={state} onSubmit={submit}
-            name={name} setName={setName}
-            email={email} setEmail={setEmail}
-            phone={phone} setPhone={setPhone}
-            message={message} setMessage={setMessage}
-            formError={formError}
-          />
-        )}
+        </footer>
+
       </div>
     </div>
   )
