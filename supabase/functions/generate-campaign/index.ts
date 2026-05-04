@@ -13,14 +13,14 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-// Gemini models in priority order.
-// gemini-1.5-flash was removed from v1beta by Google — do NOT add it back.
-// Falls back automatically on 429 (quota) or 404 (model removed).
+// Free-tier Gemini models only (Google AI Studio free plan, no billing needed).
+// All three give 1,500 req/day. Falls back on 429 (quota) or 404 (removed).
+// gemini-1.5-flash  → removed from v1beta by Google, do NOT add back.
+// gemini-1.5-pro    → NOT free (50 req/day then billed), do NOT add.
 const GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-8b',
-  'gemini-1.5-pro',
+  'gemini-2.0-flash',       // best quality, 15 RPM
+  'gemini-2.0-flash-lite',  // fastest,      30 RPM
+  'gemini-1.5-flash-8b',    // lightest,     15 RPM
 ]
 
 async function callGemini(apiKey: string, prompt: string): Promise<string> {
