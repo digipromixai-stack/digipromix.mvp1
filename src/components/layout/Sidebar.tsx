@@ -98,17 +98,6 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* Footer card */}
-        <div className="px-3 py-4 border-t border-white/5">
-          <div className="px-3 py-3 rounded-lg bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/5">
-            <p className="text-[11px] uppercase tracking-wider text-blue-400 font-semibold mb-1">
-              MVP · v1.0
-            </p>
-            <p className="text-xs text-gray-400 leading-snug">
-              Watching the web while you focus on building.
-            </p>
-          </div>
-        </div>
       </aside>
     </>
   )
