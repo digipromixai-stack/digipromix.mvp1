@@ -117,32 +117,44 @@ Deno.serve(async (req) => {
     }
     const suggestedTemplate = Object.entries(templateMap).find(([k]) => industry.includes(k))?.[1] ?? 'default'
 
-    const prompt = `You are an expert digital marketing strategist. A competitor just made a move. Generate a counter-campaign.
+    const prompt = `You are an expert digital marketing strategist and legal compliance specialist.
+A market opportunity has been detected in the ${industry} industry. Generate a counter-campaign that positions YOUR brand strongly.
 
-Competitor: ${competitor.name} (${competitor.website_url})
-Industry: ${industry}
-What they did: ${change.title}
-Details: ${change.description ?? 'N/A'}
-Added content: ${addedContent || 'N/A'}
-Change type: ${change.change_type}
-Severity: ${change.severity}
-Score: ${campaignScore}/150
-Promo codes: ${promoCodes}
-Keywords: ${promoKeywords}
+STRICT LEGAL RULES — you MUST follow all of these:
+1. NEVER mention, reference, or allude to any competitor name, brand, product, or website.
+2. NEVER make comparative claims (e.g. "better than", "unlike others", "competitors charge more").
+3. NEVER use another company's trademark, slogan, or branded terms.
+4. All claims must be truthful, non-misleading, and supportable — no superlatives like "the best in the world" unless generic.
+5. Focus entirely on YOUR brand's own strengths, value, and offer.
+6. Copy must comply with FTC guidelines and general advertising law.
+
+Market context (use only to understand the opportunity — do NOT copy or reference):
+- Industry: ${industry}
+- Market event type: ${change.change_type}
+- Opportunity signal: ${change.title}
+- Relevant keywords in market: ${promoKeywords || 'N/A'}
+- Active promotions in market: ${promoCodes !== 'none' ? 'Yes — consider matching or beating with your own offer' : 'None detected'}
+- Market intensity score: ${campaignScore}/150
+
+Your task: Write campaign content that:
+- Highlights YOUR unique value proposition in the ${industry} space
+- Creates urgency and a compelling offer WITHOUT referencing anyone else
+- Uses positive, benefit-focused language about what YOU provide
+- Is ready to run on Google Ads and social media without any legal review issues
 
 Return ONLY a valid JSON object (no markdown, no extra text) with these exact fields:
 {
-  "campaign_name": "string max 50 chars",
-  "competitor_offer_extracted": "string",
-  "headline": "string max 90 chars",
-  "ad_copy": "string max 180 chars",
-  "social_copy": "string 3-4 sentences with emojis",
-  "offer": "string concrete offer",
-  "offer_justification": "string 1 sentence",
-  "keywords": ["array of 8-12 strings"],
-  "landing_page_title": "string max 70 chars",
-  "landing_page_cta": "string max 25 chars",
-  "landing_page_body": "string 2-3 sentences",
+  "campaign_name": "string max 50 chars — your brand campaign name only",
+  "competitor_offer_extracted": "string — describe the market opportunity in neutral terms",
+  "headline": "string max 90 chars — your value prop, no competitor mention",
+  "ad_copy": "string max 180 chars — benefit-focused, legally safe, no comparisons",
+  "social_copy": "string 3-4 sentences with emojis — positive, engaging, brand-focused",
+  "offer": "string — your concrete offer (discount, free trial, guarantee etc.)",
+  "offer_justification": "string 1 sentence — why this offer makes sense for your audience",
+  "keywords": ["array of 8-12 generic industry keywords — no competitor brand names"],
+  "landing_page_title": "string max 70 chars — benefit headline",
+  "landing_page_cta": "string max 25 chars — action-oriented CTA",
+  "landing_page_body": "string 2-3 sentences — value-focused, legally safe body copy",
   "suggested_template": "${suggestedTemplate}"
 }`
 
