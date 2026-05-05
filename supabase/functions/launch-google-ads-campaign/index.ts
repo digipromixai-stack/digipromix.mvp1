@@ -229,7 +229,10 @@ Deno.serve(async (req) => {
     }
 
     const customerId = (integration.account_id as string).replace(/-/g, '')
-    const loginCustomerId = (integration.login_customer_id as string | null)?.replace(/-/g, '') ?? customerId
+    // Only send login-customer-id header when accessing through an MCC.
+    // For direct (non-MCC) access, leave it null so the header is omitted entirely.
+    const rawLoginId = (integration.login_customer_id as string | null)?.replace(/-/g, '') ?? null
+    const loginCustomerId = rawLoginId && rawLoginId !== customerId ? rawLoginId : null
 
     const ctx: AdsCtx = {
       customerId,
@@ -238,7 +241,12 @@ Deno.serve(async (req) => {
       devToken,
     }
 
-    const rawUrl = landing_page_url ?? campaign.landing_page_url ?? 'https://example.com'
+    const rawUrl = (landing_page_url ?? campaign.landing_page_url) as string | null | undefined
+    if (!rawUrl || !rawUrl.trim()) {
+      const msg = 'Landing page URL is missing. Set landing_page_url on the campaign or publish a landing page first.'
+      await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+      return json({ error: msg }, 400)
+    }
     const finalUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`
 
     // ── 1. Campaign Budget ─────────────────────────────────────────────────────
