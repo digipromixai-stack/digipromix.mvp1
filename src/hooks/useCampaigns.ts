@@ -42,23 +42,36 @@ export function useUpdateCampaignStatus() {
       googleCampaignId?: string | null
       metaCampaignId?: string | null
     }) => {
-      const action = status === 'paused' ? 'pause' : 'enable'
+      // 'completed' is treated as a final pause: stop ads on platforms, then mark DB as completed.
+      // 'paused' → pause on platforms. 'active' → enable on platforms. 'draft' → DB only.
+      const platformAction =
+        status === 'active'                          ? 'enable'
+        : (status === 'paused' || status === 'completed') ? 'pause'
+        : null
 
-      if ((status === 'paused' || status === 'active')) {
+      if (platformAction) {
         // Sync to Google Ads if linked
         if (googleCampaignId) {
-          await callEdgeFunction('manage-google-ads-campaign', { campaign_id: id, action })
-          // Edge function updates DB — skip DB-only update below unless Meta also needs sync
-          if (!metaCampaignId) return
+          await callEdgeFunction('manage-google-ads-campaign', { campaign_id: id, action: platformAction })
         }
         // Sync to Meta if linked
         if (metaCampaignId) {
-          await callEdgeFunction('manage-meta-campaign', { campaign_id: id, action })
-          return
+          await callEdgeFunction('manage-meta-campaign', { campaign_id: id, action: platformAction })
         }
+        // For 'completed', the edge functions set DB to 'paused' — overwrite to 'completed' here.
+        // For 'paused'/'active', the edge functions already set the correct DB status.
+        if (status === 'completed') {
+          const { error } = await supabase.from('campaigns').update({ status: 'completed' }).eq('id', id)
+          if (error) throw error
+        } else if (!googleCampaignId && !metaCampaignId) {
+          // No ad platform linked — DB-only update
+          const { error } = await supabase.from('campaigns').update({ status }).eq('id', id)
+          if (error) throw error
+        }
+        return
       }
 
-      // No ad platform linked — just update DB
+      // 'draft' or other DB-only states
       const { error } = await supabase.from('campaigns').update({ status }).eq('id', id)
       if (error) throw error
     },

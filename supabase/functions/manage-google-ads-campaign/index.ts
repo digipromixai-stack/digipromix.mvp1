@@ -164,7 +164,9 @@ Deno.serve(async (req) => {
     }
 
     const customerId = (integration.account_id as string).replace(/-/g, '')
-    const loginCustomerId = ((integration.login_customer_id as string | null) ?? customerId).replace(/-/g, '')
+    // Only set login-customer-id when accessing through an MCC (non-empty + different from customerId).
+    const rawLoginId = (integration.login_customer_id as string | null)?.replace(/-/g, '') ?? null
+    const loginCustomerId = rawLoginId && rawLoginId !== customerId ? rawLoginId : customerId
     const ctx: AdsCtx = { customerId, loginCustomerId, accessToken, devToken }
 
     const errors: string[] = []
