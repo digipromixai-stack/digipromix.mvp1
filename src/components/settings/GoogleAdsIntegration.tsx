@@ -115,7 +115,7 @@ export function GoogleAdsIntegration() {
                 <span>
                   <strong>Setup required:</strong> Add <code className="font-mono">VITE_GOOGLE_ADS_CLIENT_ID</code> to your{' '}
                   <a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" className="underline font-semibold">Vercel Environment Variables</a>
-                  {' '}then redeploy. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="underline">Create an OAuth Client</a> in Google Cloud Console to get your Client ID. Also add <code className="font-mono">https://digipromix.vercel.app/auth/google-ads/callback</code> as an Authorized Redirect URI.
+                  {' '}then redeploy. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="underline">Create an OAuth Client</a> in Google Cloud Console to get your Client ID. Also add <code className="font-mono">https://www.digipromix.com/auth/google-ads/callback</code> as an Authorized Redirect URI.
                 </span>
               </div>
             )}
