@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 
 interface AuthContextValue {
@@ -26,31 +27,49 @@ async function ensureProfile(session: Session) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let prevUserId: string | null = null
+
     // getSession() automatically exchanges the hash token from the URL
     // (e.g. after email confirmation: /dashboard#access_token=...)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) ensureProfile(session)
       setSession(session)
+      prevUserId = session?.user.id ?? null
       setLoading(false)
     })
 
     // Listen for auth state changes (login, logout, token refresh, email confirm)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const newUserId = session?.user.id ?? null
+
+      // SECURITY: Clear all cached data when the user changes (login, logout, switch).
+      // Otherwise React Query keeps the previous user's data in memory and a different
+      // user could briefly see it before fresh fetches complete.
+      if (event === 'SIGNED_OUT' || (newUserId && prevUserId && newUserId !== prevUserId)) {
+        queryClient.clear()
+      }
+      // Refetch all queries on fresh sign-in so data reflects the new user.
+      if (event === 'SIGNED_IN' && newUserId !== prevUserId) {
+        queryClient.invalidateQueries()
+      }
+
       if (session) ensureProfile(session)
       setSession(session)
-      // Clear loading on any auth event in case getSession was slow
+      prevUserId = newUserId
       setLoading(false)
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [queryClient])
 
   async function signOut() {
     await supabase.auth.signOut()
+    queryClient.clear()
     setSession(null)
   }
 
