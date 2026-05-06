@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './lib/queryClient'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { supabase } from './lib/supabase'
 import { ToastProvider } from './components/ui/Toast'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/auth/LoginPage'
@@ -29,18 +30,57 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { MarketingPage } from './pages/MarketingPage'
 import { DocsPage } from './pages/DocsPage'
 
-// Handles Supabase email confirmation redirect:
-// Supabase sends the user to /auth/callback#access_token=...
-// This component lets AuthContext pick up the session, then navigates to /dashboard
+// Handles all OAuth/email auth redirects to /auth/callback.
+// Supports both PKCE flow (?code=...) and implicit flow (#access_token=...).
+// Waits for the session to actually materialise (PKCE code exchange is async)
+// before deciding whether to send the user to /dashboard or /login.
 function AuthCallback() {
-  const { session, loading } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!loading) {
-      navigate(session ? '/dashboard' : '/login', { replace: true })
+    let cancelled = false
+
+    async function resolveSession() {
+      // 1. Trigger Supabase to parse the URL (handles both ?code= and #access_token=)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (cancelled) return
+
+      if (session) {
+        navigate('/dashboard', { replace: true })
+        return
+      }
+
+      // 2. No session yet — wait briefly for SIGNED_IN event from PKCE exchange
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+        if (cancelled) return
+        if (event === 'SIGNED_IN' && s) {
+          subscription.unsubscribe()
+          navigate('/dashboard', { replace: true })
+        }
+      })
+
+      // 3. Fallback: after 4 seconds, give up and decide based on final state
+      setTimeout(async () => {
+        if (cancelled) return
+        const { data: { session: finalSession } } = await supabase.auth.getSession()
+        subscription.unsubscribe()
+        if (cancelled) return
+
+        // If URL contains an OAuth error, surface it
+        const params = new URLSearchParams(window.location.search)
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+        const oauthError = params.get('error_description') || hashParams.get('error_description')
+        if (oauthError) {
+          console.error('OAuth error:', oauthError)
+        }
+
+        navigate(finalSession ? '/dashboard' : '/login', { replace: true })
+      }, 4000)
     }
-  }, [session, loading, navigate])
+
+    resolveSession()
+    return () => { cancelled = true }
+  }, [navigate])
 
   return <PageSpinner />
 }
