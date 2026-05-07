@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'
-
-const RESEND_API_URL = 'https://api.resend.com/emails'
+import { sendGmailEmail } from '../_shared/gmail.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -18,14 +17,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
 
-  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-  if (!RESEND_API_KEY) {
-    console.warn('[email] RESEND_API_KEY not configured — skipping')
-    return jsonResponse({ sent: 0, failed: 0, skipped: 1 })
-  }
-
-  const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.digipromix.com'
-  const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'alerts@digipromix.com'
+  // Sender uses Gmail API directly — no third-party email service.
+  const APP_URL = Deno.env.get('APP_URL') ?? 'https://www.digipromix.com'
 
   const { data: pendingAlerts, error } = await supabaseAdmin
     .from('alerts')
@@ -98,22 +91,17 @@ serve(async (req) => {
 </html>`
 
     try {
-      const res = await fetch(RESEND_API_URL, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: FROM_EMAIL, to: userEmail, subject: `Alert: ${change.title}`, html }),
+      await sendGmailEmail({
+        to:       userEmail,
+        subject:  `Alert: ${change.title}`,
+        html,
+        fromName: 'DigiPromix Alerts',
       })
-      if (res.ok) {
-        await supabaseAdmin.from('alerts').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', alert.id)
-        sent++
-      } else {
-        await supabaseAdmin.from('alerts').update({ status: 'failed' }).eq('id', alert.id)
-        console.error(`[email] Failed for alert ${alert.id}:`, await res.text())
-        failed++
-      }
+      await supabaseAdmin.from('alerts').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', alert.id)
+      sent++
     } catch (err) {
       await supabaseAdmin.from('alerts').update({ status: 'failed' }).eq('id', alert.id)
-      console.error(`[email] Exception for alert ${alert.id}:`, err)
+      console.error(`[email] Gmail send failed for alert ${alert.id}:`, err instanceof Error ? err.message : err)
       failed++
     }
   }
