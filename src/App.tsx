@@ -29,6 +29,8 @@ import { PageSpinner } from './components/ui/Spinner'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { MarketingPage } from './pages/MarketingPage'
 import { DocsPage } from './pages/DocsPage'
+import { PrivacyPage } from './pages/PrivacyPage'
+import { TermsPage } from './pages/TermsPage'
 
 // Handles all OAuth/email auth redirects to /auth/callback.
 // Supports both PKCE flow (?code=...) and implicit flow (#access_token=...).
@@ -100,6 +102,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <MarketingPage />} />
       <Route path="/docs" element={<DocsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
 
       {/* Auth routes */}
       <Route path="/login" element={<LoginPage />} />
