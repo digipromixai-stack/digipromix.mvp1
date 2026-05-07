@@ -1,0 +1,32 @@
+# DigiPromix AI — robots.txt
+# https://www.digipromix.com/robots.txt
+
+User-agent: *
+Allow: /
+Allow: /docs
+Allow: /privacy
+Allow: /terms
+Allow: /lp/
+
+# Don't index protected app routes (they require auth, but be explicit)
+Disallow: /dashboard
+Disallow: /campaigns
+Disallow: /competitors
+Disallow: /timeline
+Disallow: /analytics
+Disallow: /interception
+Disallow: /leads
+Disallow: /clients
+Disallow: /alerts
+Disallow: /settings
+Disallow: /auth/
+
+# Allow Googlebot specifically (best practice)
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Tell crawlers where the sitemap lives
+Sitemap: https://www.digipromix.com/sitemap.xml
