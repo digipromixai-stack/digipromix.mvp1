@@ -524,9 +524,12 @@ export function MarketingPage() {
             <span className="font-bold text-gray-900">Digipromix</span>
           </div>
 
-          <div className="flex items-center gap-6 text-sm text-gray-400">
+          <div className="flex items-center gap-6 text-sm text-gray-400 flex-wrap justify-center">
             <a href="#features" className="hover:text-gray-600 transition-colors">Features</a>
             <a href="#pricing" className="hover:text-gray-600 transition-colors">Pricing</a>
+            <Link to="/docs" className="hover:text-gray-600 transition-colors">Docs</Link>
+            <Link to="/privacy" className="hover:text-gray-600 transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-gray-600 transition-colors">Terms of Service</Link>
             <Link to="/login" className="hover:text-gray-600 transition-colors">Sign in</Link>
             <Link to="/register" className="hover:text-gray-600 transition-colors">Sign up</Link>
           </div>
