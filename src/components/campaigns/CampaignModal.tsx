@@ -84,7 +84,12 @@ export function CampaignModal({ change, open, onClose }: Props) {
   const [posting, setPosting]         = useState(false)
   const [landingUrl, setLandingUrl]   = useState('')
   const [metaResult, setMetaResult]   = useState<{ meta_campaign_id?: string } | null>(null)
-  const [googleResult, setGoogleResult] = useState<{ google_campaign_id?: string } | null>(null)
+  const [googleResult, setGoogleResult] = useState<{
+    google_campaign_id?: string
+    mode?: 'self' | 'managed'
+    managed_account_id?: string | null
+    billing?: { required: boolean; status?: string; url?: string } | null
+  } | null>(null)
   // New fields
   const [template, setTemplate]       = useState<LandingTemplate>('default')
   const [dailyBudget, setDailyBudget] = useState('')
@@ -168,7 +173,12 @@ export function CampaignModal({ change, open, onClose }: Props) {
       if (selectedChannels.includes('google') && (
         (launchModes.google === 'self' && googleIntegration) || launchModes.google === 'managed'
       )) {
-        const { data, error: launchErr } = await invokeFunction<{ google_campaign_id: string }>(
+        const { data, error: launchErr } = await invokeFunction<{
+          google_campaign_id: string
+          mode?: 'self' | 'managed'
+          managed_account_id?: string | null
+          billing?: { required: boolean; status?: string; url?: string } | null
+        }>(
           'launch-google-ads-campaign',
           { campaign_id: campaign.id, landing_page_url: landingUrl || undefined }
         )
@@ -520,6 +530,31 @@ export function CampaignModal({ change, open, onClose }: Props) {
               >
                 Open Google Ads <ExternalLink size={11} />
               </a>
+            </div>
+          )}
+
+          {/* Billing setup CTA — managed mode only */}
+          {googleResult?.mode === 'managed' && googleResult.billing?.required && googleResult.billing.url && (
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 text-left">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm mb-1.5">
+                <DollarSign size={16} className="text-amber-600" /> Action required: Add billing to activate ads
+              </div>
+              <p className="text-xs text-amber-800 leading-relaxed mb-3">
+                Your DigiPromix-managed Google Ads sub-account is provisioned (ID:{' '}
+                <code className="font-mono bg-amber-100 px-1 rounded">{googleResult.managed_account_id}</code>).
+                The campaign is sitting in PAUSED state. Add a payment method to start serving ads — usually takes 2 minutes.
+              </p>
+              <a
+                href={googleResult.billing.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Open Google Ads billing setup <ExternalLink size={11} />
+              </a>
+              <p className="text-[10px] text-amber-700 mt-2">
+                Status: <span className="font-semibold uppercase">{googleResult.billing.status ?? 'pending'}</span> · Billing is paid by you directly — DigiPromix never touches your card.
+              </p>
             </div>
           )}
 

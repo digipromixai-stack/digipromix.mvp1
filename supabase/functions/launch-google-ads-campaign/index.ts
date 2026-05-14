@@ -333,6 +333,17 @@ Deno.serve(async (req) => {
         devToken,
       }
 
+      // If this sub-account was just provisioned, generate the Google Ads
+      // billing setup URL and persist it. The frontend uses this to prompt
+      // the user "Add billing to activate your ads."
+      if (subAccount.isNew) {
+        const billingUrl = `https://ads.google.com/aw/billing/paymentsprofile?ocid=${subAccount.customerId}`
+        await admin.from('managed_ads_accounts').update({
+          billing_invite_link: billingUrl,
+          billing_status: 'invited',
+        }).eq('user_id', user.id).eq('platform', 'google')
+      }
+
       await admin.from('campaigns').update({ managed_provision_status: 'active' }).eq('id', campaign_id)
     } else {
       // SELF — existing OAuth-connected user account flow
@@ -488,6 +499,22 @@ Deno.serve(async (req) => {
       landing_page_url:   finalUrl,
     }).eq('id', campaign_id)
 
+    // For MANAGED mode, look up the billing status / link to return to the frontend
+    let billingPayload: { required: boolean; status?: string; url?: string } | null = null
+    if (launchMode === 'managed') {
+      const { data: mgmt } = await admin
+        .from('managed_ads_accounts')
+        .select('billing_status, billing_invite_link')
+        .eq('user_id', user.id).eq('platform', 'google')
+        .maybeSingle()
+
+      billingPayload = {
+        required: (mgmt?.billing_status ?? 'pending') !== 'active',
+        status:   mgmt?.billing_status ?? 'pending',
+        url:      mgmt?.billing_invite_link ?? `https://ads.google.com/aw/billing/paymentsprofile?ocid=${ctx.customerId}`,
+      }
+    }
+
     return json({
       success: true,
       mode: launchMode,
@@ -495,8 +522,9 @@ Deno.serve(async (req) => {
       google_campaign_id: gCampaignId,
       google_ad_group_id: gAdGroupId,
       google_ad_id:       gAdId,
+      billing:            billingPayload,
       message: launchMode === 'managed'
-        ? 'Campaign provisioned in your DigiPromix-managed Google Ads sub-account (PAUSED). Our team will activate it once billing is set up.'
+        ? 'Campaign provisioned in your DigiPromix-managed Google Ads sub-account (PAUSED). Add billing to activate ads.'
         : 'Campaign created and ENABLED in Google Ads. Ads will serve once your developer token has Basic Access.',
     })
   } catch (err) {
