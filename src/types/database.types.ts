@@ -219,6 +219,27 @@ export interface Campaign {
   client_id: string | null
   template: LandingTemplate
   daily_budget: number | null
+  // Managed-mode flow (MCC / agency Business Manager — added per mvp1.0 spec)
+  launch_mode: 'self' | 'managed'
+  managed_business_name: string | null
+  managed_provision_status: 'not_required' | 'pending' | 'provisioning' | 'active' | 'failed'
+  created_at: string
+  updated_at: string
+}
+
+// ── Managed Ads Accounts (DigiPromix-provisioned sub-accounts) ────────────────
+export interface ManagedAdsAccount {
+  id: string
+  user_id: string
+  platform: 'google' | 'meta'
+  external_account_id: string         // MCC sub-customer ID (Google) or act_xxx (Meta)
+  resource_name: string | null        // Full resource name for Google Ads
+  business_name: string
+  currency_code: string
+  timezone: string
+  billing_status: 'pending' | 'invited' | 'active' | 'failed'
+  billing_invite_link: string | null
+  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -258,6 +279,14 @@ interface CampaignUpdate {
   social_copy?: string | null; offer?: string | null; keywords?: string[]
   landing_page_title?: string | null; landing_page_cta?: string | null
   landing_page_body?: string | null; channels?: string[]; status?: CampaignStatus
+  // Post-time enhancements
+  client_id?: string | null; template?: LandingTemplate
+  daily_budget?: number | null; landing_page_url?: string | null
+  published?: boolean
+  // Managed-mode fields
+  launch_mode?: 'self' | 'managed'
+  managed_business_name?: string | null
+  managed_provision_status?: 'not_required' | 'pending' | 'provisioning' | 'active' | 'failed'
 }
 
 // Supabase Database interface for createClient<Database> typing
@@ -273,6 +302,7 @@ export interface Database {
       alert_preferences: { Row: AlertPreferences; Insert: AlertPreferencesInsert; Update: AlertPreferencesUpdate }
       crawl_jobs: { Row: CrawlJob; Insert: CrawlJobInsert; Update: CrawlJobUpdate }
       campaigns: { Row: Campaign; Insert: CampaignInsert; Update: CampaignUpdate }
+      managed_ads_accounts: { Row: ManagedAdsAccount; Insert: Partial<ManagedAdsAccount> & Pick<ManagedAdsAccount, 'user_id' | 'platform' | 'external_account_id' | 'business_name'>; Update: Partial<ManagedAdsAccount> }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
