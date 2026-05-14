@@ -1,17 +1,18 @@
 /**
- * launch-google-ads-campaign Edge Function v10
+ * launch-google-ads-campaign Edge Function v11 — SELF + MANAGED (MCC)
  *
  * POST { campaign_id, daily_budget_usd?, landing_page_url? }
  *
- * Creates a PAUSED Search campaign in Google Ads via REST API v20:
- *   Campaign Budget → Campaign → Ad Group → Responsive Search Ad → Keywords
+ * SELF mode  → uses the user's OAuth-connected ad account (existing flow)
+ * MANAGED mode → provisions a sub-account under DigiPromix's MCC and runs
+ *                the campaign from there. Requires GOOGLE_ADS_MCC_ID and
+ *                GOOGLE_ADS_MCC_REFRESH_TOKEN to be configured.
  *
- * Refreshes the OAuth access token using the stored refresh_token.
- * All objects are created with status=PAUSED.
+ * Reads campaigns.launch_mode to decide the path.
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -28,7 +29,6 @@ function json(body: unknown, status = 200) {
 
 // ── Text helpers ──────────────────────────────────────────────────────────────
 
-/** Strip non-ASCII and Google-rejected chars, collapse whitespace */
 function sanitize(s: string): string {
   return String(s ?? '')
     .replace(/[–—]/g, '-')
@@ -39,7 +39,6 @@ function sanitize(s: string): string {
     .trim()
 }
 
-/** Split `text` into chunks of ≤ maxLen chars, breaking at word boundaries */
 function splitChunks(text: string, maxLen: number): string[] {
   const clean = sanitize(text)
   if (!clean) return []
@@ -50,57 +49,42 @@ function splitChunks(text: string, maxLen: number): string[] {
   for (const word of words) {
     const w = word.slice(0, maxLen)
     const candidate = current ? `${current} ${w}` : w
-    if (candidate.length <= maxLen) {
-      current = candidate
-    } else {
-      if (current) chunks.push(current)
-      current = w
-    }
+    if (candidate.length <= maxLen) current = candidate
+    else { if (current) chunks.push(current); current = w }
   }
   if (current) chunks.push(current)
   return chunks
 }
 
-/** Build ≥3 unique RSA headlines (≤30 chars each) from multiple sources */
 function buildHeadlines(sources: (string | null | undefined)[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
   for (const src of sources) {
     if (!src) continue
     for (const chunk of splitChunks(src, 30)) {
-      if (!seen.has(chunk)) {
-        seen.add(chunk)
-        out.push(chunk)
-        if (out.length >= 15) return out
-      }
+      if (!seen.has(chunk)) { seen.add(chunk); out.push(chunk); if (out.length >= 15) return out }
     }
   }
-  // Pad to minimum 3
   while (out.length < 3) out.push(out[0]?.slice(0, 30) ?? 'Learn More')
   return out
 }
 
-/** Build ≥2 unique RSA descriptions (≤90 chars each) */
 function buildDescriptions(sources: (string | null | undefined)[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
   for (const src of sources) {
     if (!src) continue
     const clean = sanitize(src).slice(0, 90)
-    if (clean && !seen.has(clean)) {
-      seen.add(clean)
-      out.push(clean)
-      if (out.length >= 4) return out
-    }
+    if (clean && !seen.has(clean)) { seen.add(clean); out.push(clean); if (out.length >= 4) return out }
   }
   while (out.length < 2) out.push(out[0]?.slice(0, 90) ?? 'Click to learn more')
   return out
 }
 
-// ── Google Ads API ────────────────────────────────────────────────────────────
+// ── Secrets / OAuth ───────────────────────────────────────────────────────────
 
 async function getSecret(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   envName: string,
   vaultName: string,
 ): Promise<string | null> {
@@ -124,9 +108,11 @@ async function refreshAccessToken(refreshToken: string, clientId: string, client
   return res.json() as Promise<{ access_token?: string; expires_in?: number; error?: string }>
 }
 
+// ── Google Ads API plumbing ───────────────────────────────────────────────────
+
 interface AdsCtx {
-  customerId: string
-  loginCustomerId: string | null
+  customerId: string         // operating customer (the account where the campaign lives)
+  loginCustomerId: string | null   // MCC manager (required when operating on a sub-account)
   accessToken: string
   devToken: string
 }
@@ -148,7 +134,6 @@ async function mutate(ctx: AdsCtx, path: string, operations: unknown[]) {
   return { ok: res.ok, status: res.status, data }
 }
 
-/** Extract a human-readable error string from Google Ads error response */
 function adsError(data: Record<string, unknown>, prefix: string): string {
   const errObj = (data?.error ?? {}) as Record<string, unknown>
   const details = (errObj?.details as Record<string, unknown>[] | undefined)?.[0]
@@ -162,6 +147,83 @@ function adsError(data: Record<string, unknown>, prefix: string): string {
     return `${prefix}: ${message} [field: ${fieldPath ?? 'unknown'}] [code: ${errorCode}]`
   }
   return `${prefix}: ${errObj?.message ?? JSON.stringify(data).slice(0, 500)}`
+}
+
+// ── MANAGED-mode helpers (MCC sub-account provisioning) ───────────────────────
+
+/**
+ * Provision a Google Ads sub-account under our MCC and persist it.
+ * Returns the new customer ID (digits only).
+ * https://developers.google.com/google-ads/api/rest/reference/rest/v20/customers/createCustomerClient
+ */
+async function provisionMccSubAccount(
+  admin: SupabaseClient,
+  ctx: { mccId: string; accessToken: string; devToken: string },
+  userId: string,
+  businessName: string,
+  currency: string,
+  timezone: string,
+): Promise<{ customerId: string; resourceName: string }> {
+  const res = await fetch(`${ADS_API}/customers/${ctx.mccId}:createCustomerClient`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${ctx.accessToken}`,
+      'developer-token': ctx.devToken,
+      'login-customer-id': ctx.mccId,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      customerClient: {
+        descriptiveName: sanitize(businessName).slice(0, 255) || 'DigiPromix Client',
+        currencyCode: currency,
+        timeZone: timezone,
+      },
+    }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(adsError(data, 'MCC sub-account creation'))
+
+  // resourceName is like "customers/1234567890"
+  const resourceName: string = data.resourceName ?? ''
+  const customerId = resourceName.split('/').pop() ?? ''
+  if (!customerId) throw new Error('MCC sub-account creation returned no customer id')
+
+  await admin.from('managed_ads_accounts').upsert({
+    user_id: userId,
+    platform: 'google',
+    external_account_id: customerId,
+    resource_name: resourceName,
+    business_name: businessName,
+    currency_code: currency,
+    timezone,
+    billing_status: 'pending',
+  }, { onConflict: 'user_id,platform' })
+
+  return { customerId, resourceName }
+}
+
+/** Get or provision the MCC sub-account for this user. */
+async function ensureMccSubAccount(
+  admin: SupabaseClient,
+  mccCtx: { mccId: string; accessToken: string; devToken: string },
+  userId: string,
+  businessName: string,
+): Promise<{ customerId: string; isNew: boolean }> {
+  const { data: existing } = await admin
+    .from('managed_ads_accounts')
+    .select('external_account_id')
+    .eq('user_id', userId)
+    .eq('platform', 'google')
+    .maybeSingle()
+
+  if (existing?.external_account_id) {
+    return { customerId: existing.external_account_id as string, isNew: false }
+  }
+
+  const created = await provisionMccSubAccount(
+    admin, mccCtx, userId, businessName, 'USD', 'America/New_York',
+  )
+  return { customerId: created.customerId, isNew: true }
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -195,12 +257,9 @@ Deno.serve(async (req) => {
       .eq('id', campaign_id).eq('user_id', user.id).single()
     if (campErr || !campaign) return json({ error: 'Campaign not found' }, 404)
 
-    // Fetch Google integration
-    const { data: integration, error: intErr } = await admin
-      .from('ad_integrations').select('*')
-      .eq('user_id', user.id).eq('platform', 'google').eq('is_active', true).single()
-    if (intErr || !integration) return json({ error: 'Google Ads account not connected. Please connect in Settings.' }, 400)
+    const launchMode = (campaign.launch_mode as 'self' | 'managed' | null) ?? 'self'
 
+    // Shared secrets (used for both modes)
     const clientId     = await getSecret(admin, 'GOOGLE_ADS_CLIENT_ID', 'google_ads_client_id')
     const clientSecret = await getSecret(admin, 'GOOGLE_ADS_CLIENT_SECRET', 'google_ads_client_secret')
     const devToken     = await getSecret(admin, 'GOOGLE_ADS_DEVELOPER_TOKEN', 'google_ads_developer_token')
@@ -208,39 +267,105 @@ Deno.serve(async (req) => {
       return json({ error: 'Google Ads API credentials not configured' }, 500)
     }
 
-    // Refresh access token — always refresh to ensure freshness
-    let accessToken = integration.access_token as string
-    const refreshToken = integration.refresh_token as string | null
-    if (refreshToken) {
-      const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret)
-      if (refreshed.error) {
-        // Token is revoked or expired — user must reconnect
-        await admin.from('ad_integrations').update({ is_active: false }).eq('id', integration.id)
-        return json({ error: 'Google Ads token expired or revoked. Please reconnect your Google Ads account in Settings.' }, 401)
+    // ─── Resolve operating context based on launch mode ────────────────────────
+    let ctx: AdsCtx
+
+    if (launchMode === 'managed') {
+      // MANAGED — reuse the existing OAuth pattern: the SaaS operator connects
+      // their MCC manager Google account via google-ads-oauth and flags the
+      // integration row with is_agency_manager = true. We read MCC ID +
+      // refresh_token directly from that row, so no extra env vars are needed.
+      const { data: agency } = await admin
+        .from('ad_integrations')
+        .select('*')
+        .eq('platform', 'google')
+        .eq('is_agency_manager', true)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (!agency || !agency.refresh_token) {
+        const msg = 'Managed mode not configured — connect your MCC manager Google account via Settings and mark it as the agency-manager integration (is_agency_manager = true on ad_integrations).'
+        await admin.from('campaigns').update({
+          google_error: msg, managed_provision_status: 'failed',
+        }).eq('id', campaign_id)
+        return json({ error: msg, code: 'managed_not_configured' }, 503)
       }
-      if (refreshed.access_token) {
-        accessToken = refreshed.access_token
-        const newExpiry = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
-        await admin.from('ad_integrations').update({
-          access_token: accessToken,
-          token_expires_at: newExpiry,
-        }).eq('id', integration.id)
+
+      // The MCC ID is either explicitly stored as login_customer_id, or it IS
+      // the account_id of the integration if the agency connected the MCC directly.
+      const mccId = (agency.login_customer_id as string | null) ?? (agency.account_id as string)
+      const mccRefreshToken = agency.refresh_token as string
+
+      // Refresh MCC manager token (reuses the same OAuth client as user flow)
+      const refreshed = await refreshAccessToken(mccRefreshToken, clientId, clientSecret)
+      if (refreshed.error || !refreshed.access_token) {
+        const msg = `MCC manager token refresh failed: ${refreshed.error ?? 'unknown'}`
+        await admin.from('campaigns').update({ google_error: msg, managed_provision_status: 'failed' }).eq('id', campaign_id)
+        return json({ error: msg }, 500)
       }
+
+      const mccAccessToken = refreshed.access_token
+      const mccCleanId = mccId.replace(/-/g, '')
+
+      // Provision sub-account on first managed launch (or reuse existing)
+      await admin.from('campaigns').update({ managed_provision_status: 'provisioning' }).eq('id', campaign_id)
+
+      let subAccount: { customerId: string; isNew: boolean }
+      try {
+        subAccount = await ensureMccSubAccount(
+          admin,
+          { mccId: mccCleanId, accessToken: mccAccessToken, devToken },
+          user.id,
+          (campaign.managed_business_name as string | null) ?? campaign.competitor_name ?? 'DigiPromix Client',
+        )
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'MCC sub-account provisioning failed'
+        await admin.from('campaigns').update({
+          google_error: msg, managed_provision_status: 'failed',
+        }).eq('id', campaign_id)
+        return json({ error: msg }, 500)
+      }
+
+      ctx = {
+        customerId: subAccount.customerId,
+        loginCustomerId: mccCleanId,
+        accessToken: mccAccessToken,
+        devToken,
+      }
+
+      await admin.from('campaigns').update({ managed_provision_status: 'active' }).eq('id', campaign_id)
+    } else {
+      // SELF — existing OAuth-connected user account flow
+      const { data: integration, error: intErr } = await admin
+        .from('ad_integrations').select('*')
+        .eq('user_id', user.id).eq('platform', 'google').eq('is_active', true).single()
+      if (intErr || !integration) return json({ error: 'Google Ads account not connected. Please connect in Settings or switch this campaign to managed mode.' }, 400)
+
+      let accessToken = integration.access_token as string
+      const refreshToken = integration.refresh_token as string | null
+      if (refreshToken) {
+        const refreshed = await refreshAccessToken(refreshToken, clientId, clientSecret)
+        if (refreshed.error) {
+          await admin.from('ad_integrations').update({ is_active: false }).eq('id', integration.id)
+          return json({ error: 'Google Ads token expired or revoked. Please reconnect your Google Ads account in Settings.' }, 401)
+        }
+        if (refreshed.access_token) {
+          accessToken = refreshed.access_token
+          const newExpiry = new Date(Date.now() + (refreshed.expires_in ?? 3600) * 1000).toISOString()
+          await admin.from('ad_integrations').update({
+            access_token: accessToken,
+            token_expires_at: newExpiry,
+          }).eq('id', integration.id)
+        }
+      }
+
+      const customerId = (integration.account_id as string).replace(/-/g, '')
+      const rawLoginId = (integration.login_customer_id as string | null)?.replace(/-/g, '') ?? null
+      const loginCustomerId = rawLoginId && rawLoginId !== customerId ? rawLoginId : null
+      ctx = { customerId, loginCustomerId, accessToken, devToken }
     }
 
-    const customerId = (integration.account_id as string).replace(/-/g, '')
-    // Only send login-customer-id header when accessing through an MCC.
-    // For direct (non-MCC) access, leave it null so the header is omitted entirely.
-    const rawLoginId = (integration.login_customer_id as string | null)?.replace(/-/g, '') ?? null
-    const loginCustomerId = rawLoginId && rawLoginId !== customerId ? rawLoginId : null
-
-    const ctx: AdsCtx = {
-      customerId,
-      loginCustomerId,
-      accessToken,
-      devToken,
-    }
-
+    // ─── Landing URL (required for SEARCH ads) ────────────────────────────────
     const rawUrl = (landing_page_url ?? campaign.landing_page_url) as string | null | undefined
     if (!rawUrl || !rawUrl.trim()) {
       const msg = 'Landing page URL is missing. Set landing_page_url on the campaign or publish a landing page first.'
@@ -269,12 +394,10 @@ Deno.serve(async (req) => {
     const start = now.toISOString().slice(0, 10).replace(/-/g, '')
     const end = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
 
-    // containsEuPoliticalAdvertising: proto enum NOT_EU_POLITICAL_ADVERTISING = 2
-    // REST API v20 requires this field. Integer 2 = NOT_EU_POLITICAL_ADVERTISING.
     const campaignRes = await mutate(ctx, '/campaigns:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} ${Date.now()}`).slice(0, 255),
-        status: 'ENABLED',
+        status: launchMode === 'managed' ? 'PAUSED' : 'ENABLED',  // managed starts paused — agency reviews before going live
         advertisingChannelType: 'SEARCH',
         manualCpc: { enhancedCpcEnabled: false },
         campaignBudget: budgetRN,
@@ -309,28 +432,15 @@ Deno.serve(async (req) => {
     }])
     if (!adGroupRes.ok) {
       const msg = adsError(adGroupRes.data, 'AdGroup')
-      await admin.from('campaigns').update({
-        google_campaign_id: gCampaignId,
-        google_error: msg,
-      }).eq('id', campaign_id)
+      await admin.from('campaigns').update({ google_campaign_id: gCampaignId, google_error: msg }).eq('id', campaign_id)
       return json({ error: `Google Ads API (${msg})`, raw: adGroupRes.data }, 400)
     }
     const gAdGroupRN: string = adGroupRes.data.results[0].resourceName
     const gAdGroupId = gAdGroupRN.split('/').pop()!
 
     // ── 4. Responsive Search Ad ────────────────────────────────────────────────
-    const headlines = buildHeadlines([
-      campaign.headline,
-      campaign.offer,
-      campaign.landing_page_title,
-      campaign.campaign_name,
-    ])
-    const descriptions = buildDescriptions([
-      campaign.ad_copy,
-      campaign.landing_page_body,
-      campaign.offer,
-      campaign.ad_copy,
-    ])
+    const headlines    = buildHeadlines([campaign.headline, campaign.offer, campaign.landing_page_title, campaign.campaign_name])
+    const descriptions = buildDescriptions([campaign.ad_copy, campaign.landing_page_body, campaign.offer, campaign.ad_copy])
 
     const adRes = await mutate(ctx, '/adGroupAds:mutate', [{
       create: {
@@ -348,9 +458,7 @@ Deno.serve(async (req) => {
     if (!adRes.ok) {
       const msg = adsError(adRes.data, 'Ad')
       await admin.from('campaigns').update({
-        google_campaign_id: gCampaignId,
-        google_ad_group_id: gAdGroupId,
-        google_error: msg,
+        google_campaign_id: gCampaignId, google_ad_group_id: gAdGroupId, google_error: msg,
       }).eq('id', campaign_id)
       return json({ error: `Google Ads API (${msg})`, raw: adRes.data }, 400)
     }
@@ -358,8 +466,6 @@ Deno.serve(async (req) => {
     const gAdId = gAdRN.split('~').pop()!
 
     // ── 5. Keywords (best-effort) ──────────────────────────────────────────────
-    // Mix BROAD + EXACT match types for better targeting coverage.
-    // BROAD catches long-tail variants; EXACT captures high-intent exact searches.
     const keywords = (campaign.keywords as string[] | null) ?? []
     if (keywords.length > 0) {
       const kwOps: unknown[] = []
@@ -369,7 +475,6 @@ Deno.serve(async (req) => {
         kwOps.push({ create: { adGroup: gAdGroupRN, status: 'ENABLED', keyword: { text, matchType: 'EXACT' } } })
       })
       await mutate(ctx, '/adGroupCriteria:mutate', kwOps)
-      // keyword errors are non-fatal
     }
 
     // ── Save & return ──────────────────────────────────────────────────────────
@@ -378,20 +483,24 @@ Deno.serve(async (req) => {
       google_ad_group_id: gAdGroupId,
       google_ad_id:       gAdId,
       google_error:       null,
-      status:             'active',
+      status:             launchMode === 'managed' ? 'draft' : 'active',  // managed needs agency review + billing setup
       channels:           [...new Set([...((campaign.channels as string[]) ?? []), 'google'])],
       landing_page_url:   finalUrl,
     }).eq('id', campaign_id)
 
     return json({
       success: true,
+      mode: launchMode,
+      managed_account_id: launchMode === 'managed' ? ctx.customerId : null,
       google_campaign_id: gCampaignId,
       google_ad_group_id: gAdGroupId,
       google_ad_id:       gAdId,
-      message: 'Campaign created and ENABLED in Google Ads. Ads will serve once your developer token has Basic Access.',
+      message: launchMode === 'managed'
+        ? 'Campaign provisioned in your DigiPromix-managed Google Ads sub-account (PAUSED). Our team will activate it once billing is set up.'
+        : 'Campaign created and ENABLED in Google Ads. Ads will serve once your developer token has Basic Access.',
     })
   } catch (err) {
     console.error(err)
-    return json({ error: 'Internal server error' }, 500)
+    return json({ error: err instanceof Error ? err.message : 'Internal server error' }, 500)
   }
 })
