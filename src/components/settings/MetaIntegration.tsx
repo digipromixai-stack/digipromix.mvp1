@@ -19,11 +19,15 @@ export function MetaIntegration() {
   const { toast } = useToast()
   const [disconnecting, setDisconnecting] = useState(false)
 
-  const appId = import.meta.env.VITE_META_APP_ID as string | undefined
+  // Meta App ID is public (visible in every OAuth URL Facebook shows the user).
+  // We default to the production DigiPromix app — override via VITE_META_APP_ID
+  // in .env / Vercel for staging or local-dev apps.
+  const DEFAULT_META_APP_ID = '1502467894875434'
+  const appId = (import.meta.env.VITE_META_APP_ID as string | undefined) || DEFAULT_META_APP_ID
 
   const connect = () => {
     if (!appId) {
-      toast('VITE_META_APP_ID is not set in your environment', 'error')
+      toast('Meta App ID is not configured', 'error')
       return
     }
     const state = crypto.randomUUID()
@@ -128,16 +132,8 @@ export function MetaIntegration() {
               ))}
             </ul>
 
-            {!appId && (
-              <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-700">
-                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                <span>
-                  <strong>Setup required:</strong> Add <code className="font-mono">VITE_META_APP_ID</code> to your{' '}
-                  <a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" className="underline font-semibold">Vercel Environment Variables</a>
-                  {' '}then redeploy. <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer" className="underline">Create a Facebook App</a> to get your App ID.
-                </span>
-              </div>
-            )}
+            {/* Setup warning hidden now that we have a hard-coded production fallback.
+                The Vercel env var override is documented in .env.example for staging / dev. */}
 
             <Button onClick={connect} disabled={!appId} className="w-full">
               <Globe size={14} className="mr-2" />
