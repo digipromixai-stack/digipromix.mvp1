@@ -6,17 +6,26 @@ import { invokeFunction } from '../../lib/supabase'
 import { useMetaIntegration, useInvalidateIntegrations } from '../../hooks/useAdIntegrations'
 import { useToast } from '../ui/Toast'
 
-// Use only Meta-approved "Standard Access" scopes for the Connect flow.
-// `ads_management`, `ads_read`, `pages_read_engagement`, `business_management`
-// are Advanced Access scopes — they need Meta App Review approval before users
-// can grant them in Live mode. Until the app passes review, requesting them
-// causes a (deliberately vague) "URL domain not in App Domains" error.
+// Full Meta scope set for the Connect flow.
+//   - public_profile / email: Standard Access (no review needed)
+//   - ads_management / ads_read: required for launching + reading Meta campaigns
+//   - pages_read_engagement: required to attach Facebook Page to ads
+//   - business_management: required for Business Manager assets
 //
-// For now we ask only for the basic scopes that work without App Review.
-// Once App Review approves the advanced scopes, add them back to this array.
+// IMPORTANT: For Live-mode users, the advanced scopes require Meta App Review
+// approval. Until approved, OAuth in Live mode shows a misleading "URL domain
+// not in App Domains" error. Two ways to test today:
+//   (a) Switch the app to Development mode → admins/testers can use any scope
+//   (b) Submit for App Review and wait 1–6 weeks
+//
+// See: https://developers.facebook.com/docs/permissions/reference
 const META_SCOPES = [
   'public_profile',
   'email',
+  'ads_management',
+  'ads_read',
+  'pages_read_engagement',
+  'business_management',
 ].join(',')
 
 export function MetaIntegration() {
