@@ -6,11 +6,17 @@ import { invokeFunction } from '../../lib/supabase'
 import { useMetaIntegration, useInvalidateIntegrations } from '../../hooks/useAdIntegrations'
 import { useToast } from '../ui/Toast'
 
+// Use only Meta-approved "Standard Access" scopes for the Connect flow.
+// `ads_management`, `ads_read`, `pages_read_engagement`, `business_management`
+// are Advanced Access scopes — they need Meta App Review approval before users
+// can grant them in Live mode. Until the app passes review, requesting them
+// causes a (deliberately vague) "URL domain not in App Domains" error.
+//
+// For now we ask only for the basic scopes that work without App Review.
+// Once App Review approves the advanced scopes, add them back to this array.
 const META_SCOPES = [
-  'ads_management',
-  'ads_read',
-  'pages_read_engagement',
-  'business_management',
+  'public_profile',
+  'email',
 ].join(',')
 
 export function MetaIntegration() {
