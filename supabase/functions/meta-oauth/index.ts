@@ -60,14 +60,26 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const { action } = body
 
+    // ── Resolve Meta App credentials (env first, then Vault fallback) ──
+    async function getSecret(envName: string, vaultName: string): Promise<string | null> {
+      const fromEnv = Deno.env.get(envName)
+      if (fromEnv) return fromEnv
+      const { data } = await admin.rpc('get_vault_secret', { secret_name: vaultName })
+      return (data as string | null) ?? null
+    }
+
     // ── EXCHANGE code for token ────────────────────────────────────
     if (action === 'exchange') {
       const { code, redirect_uri } = body
       if (!code || !redirect_uri) return json({ error: 'code and redirect_uri required' }, 400)
 
-      const appId     = Deno.env.get('META_APP_ID')
-      const appSecret = Deno.env.get('META_APP_SECRET')
-      if (!appId || !appSecret) return json({ error: 'META_APP_ID / META_APP_SECRET not configured' }, 500)
+      const appId     = await getSecret('META_APP_ID',     'meta_app_id')
+      const appSecret = await getSecret('META_APP_SECRET', 'meta_app_secret')
+      if (!appId || !appSecret) {
+        return json({
+          error: 'Meta credentials missing. Set META_APP_ID and META_APP_SECRET as Edge Function secrets, or store them in Supabase Vault as meta_app_id / meta_app_secret.',
+        }, 500)
+      }
 
       // Exchange code → short-lived token
       const tokenRes = await fetch(
