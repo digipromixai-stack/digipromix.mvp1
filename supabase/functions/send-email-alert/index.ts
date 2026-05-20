@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'
 import { sendGmailEmail } from '../_shared/gmail.ts'
 
@@ -14,7 +14,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
 
   // Sender uses Gmail API directly — no third-party email service.
@@ -38,14 +38,23 @@ serve(async (req) => {
   if (error) return jsonResponse({ error: error.message }, 500)
   if (!pendingAlerts || pendingAlerts.length === 0) return jsonResponse({ sent: 0, failed: 0 })
 
-  const { data: { users } } = await supabaseAdmin.auth.admin.listUsers()
-  const userEmailMap = new Map(users.map((u) => [u.id, u.email]))
+  // Build a per-page user→email lookup so we don't list all users in the project
+  const uniqueUserIds = [...new Set(pendingAlerts.map((a) => a.user_id))]
+  const userEmailMap = new Map<string, string | undefined>()
+  await Promise.all(
+    uniqueUserIds.map(async (uid) => {
+      const { data } = await supabaseAdmin.auth.admin.getUserById(uid)
+      userEmailMap.set(uid, data?.user?.email)
+    })
+  )
 
-  let sent = 0, failed = 0
-
-  for (const alert of pendingAlerts) {
+  // Process alerts in parallel — much faster than the previous sequential loop
+  const results = await Promise.allSettled(pendingAlerts.map(async (alert) => {
     const userEmail = userEmailMap.get(alert.user_id)
-    if (!userEmail) continue
+    if (!userEmail) {
+      await supabaseAdmin.from('alerts').update({ status: 'failed' }).eq('id', alert.id)
+      throw new Error('no_email')
+    }
 
     const change = alert.detected_changes as {
       id: string; title: string; description: string
@@ -98,13 +107,16 @@ serve(async (req) => {
         fromName: 'DigiPromix Alerts',
       })
       await supabaseAdmin.from('alerts').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', alert.id)
-      sent++
+      return 'sent'
     } catch (err) {
       await supabaseAdmin.from('alerts').update({ status: 'failed' }).eq('id', alert.id)
       console.error(`[email] Gmail send failed for alert ${alert.id}:`, err instanceof Error ? err.message : err)
-      failed++
+      throw err
     }
-  }
+  }))
 
-  return jsonResponse({ sent, failed })
+  const sent   = results.filter((r) => r.status === 'fulfilled').length
+  const failed = results.filter((r) => r.status === 'rejected').length
+
+  return jsonResponse({ sent, failed, total: pendingAlerts.length })
 })

@@ -195,46 +195,62 @@ Return ONLY a valid JSON object (no markdown, no extra text) with these exact fi
       return jsonResponse({ error: 'AI returned invalid JSON', detail: rawText.slice(0, 300) }, 500)
     }
 
-    function makeSlug(name: string): string {
+    function makeSlugBase(name: string): string {
       return name.toLowerCase()
         .replace(/[^a-z0-9\s-]/g, '').trim()
         .replace(/\s+/g, '-').replace(/-+/g, '-')
-        .slice(0, 48) + '-' + Math.random().toString(36).slice(2, 7)
+        .slice(0, 48) || 'campaign'
     }
-    const slug = makeSlug((generated.campaign_name as string) || 'campaign')
+    function randomSuffix(): string {
+      // 8 chars from crypto.randomUUID — ~280 trillion possibilities
+      return crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+    }
+    const slugBase = makeSlugBase((generated.campaign_name as string) || 'campaign')
     const template = (generated.suggested_template as string) || suggestedTemplate
 
-    const { data: campaign, error: insertError } = await supabase
-      .from('campaigns')
-      .insert({
-        user_id:            user.id,
-        change_id,
-        competitor_id:      change.competitor_id,
-        competitor_name:    competitor.name,
-        competitor_event:   change.title,
-        industry:           competitor.industry,
-        campaign_name:      generated.campaign_name,
-        headline:           generated.headline,
-        ad_copy:            generated.ad_copy,
-        social_copy:        generated.social_copy        ?? null,
-        offer:              generated.offer              ?? null,
-        keywords:           generated.keywords           ?? [],
-        landing_page_title: generated.landing_page_title ?? null,
-        landing_page_cta:   generated.landing_page_cta   ?? null,
-        landing_page_body:  generated.landing_page_body  ?? null,
-        status:             'draft',
-        channels:           [],
-        slug,
-        published:          false,
-        leads_count:        0,
-        template,
-      })
-      .select()
-      .single()
+    // Retry insert up to 3 times if slug collides (Postgres unique violation = 23505)
+    let campaign: Record<string, unknown> | null = null
+    let insertError: { code?: string; message: string } | null = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const slug = `${slugBase}-${randomSuffix()}`
+      const result = await supabase
+        .from('campaigns')
+        .insert({
+          user_id:            user.id,
+          change_id,
+          competitor_id:      change.competitor_id,
+          competitor_name:    competitor.name,
+          competitor_event:   change.title,
+          industry:           competitor.industry,
+          campaign_name:      generated.campaign_name,
+          headline:           generated.headline,
+          ad_copy:            generated.ad_copy,
+          social_copy:        generated.social_copy        ?? null,
+          offer:              generated.offer              ?? null,
+          keywords:           generated.keywords           ?? [],
+          landing_page_title: generated.landing_page_title ?? null,
+          landing_page_cta:   generated.landing_page_cta   ?? null,
+          landing_page_body:  generated.landing_page_body  ?? null,
+          status:             'draft',
+          channels:           [],
+          slug,
+          published:          false,
+          leads_count:        0,
+          template,
+        })
+        .select()
+        .single()
 
-    if (insertError) {
-      console.error('DB insert error:', insertError.code, insertError.message)
-      return jsonResponse({ error: 'Failed to save campaign', detail: insertError.message }, 500)
+      if (!result.error) { campaign = result.data; insertError = null; break }
+      insertError = { code: result.error.code, message: result.error.message }
+      // Unique violation on slug — retry with new suffix
+      if (result.error.code === '23505') continue
+      break
+    }
+
+    if (insertError || !campaign) {
+      console.error('DB insert error:', insertError?.code, insertError?.message)
+      return jsonResponse({ error: 'Failed to save campaign', detail: insertError?.message }, 500)
     }
 
     return jsonResponse({

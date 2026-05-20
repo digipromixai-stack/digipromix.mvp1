@@ -147,22 +147,36 @@ Deno.serve(async (req: Request) => {
 
   const competitorId = page.competitor_id
 
-  // Download both HTML snapshots from Storage
-  const [beforeFile, afterFile] = await Promise.all([
-    supabaseAdmin.storage.from('snapshots').download(beforeSnap.data.storage_path),
-    supabaseAdmin.storage.from('snapshots').download(afterSnap.data.storage_path),
-  ])
+  // Download HTML snapshots from Storage — OR fall back to normalized_text
+  // when storage_path is NULL (snapshots created by the Render Playwright crawler).
+  let beforeLines: string[]
+  let afterLines:  string[]
+  let beforeHtml = ''
+  let afterHtml  = ''
 
-  if (beforeFile.error || afterFile.error) {
-    return jsonResponse({ error: 'Could not download snapshots' }, 500)
+  const beforePath = beforeSnap.data.storage_path
+  const afterPath  = afterSnap.data.storage_path
+
+  if (beforePath && afterPath) {
+    // Both snapshots have HTML in Storage — download and extract lines
+    const [beforeFile, afterFile] = await Promise.all([
+      supabaseAdmin.storage.from('snapshots').download(beforePath),
+      supabaseAdmin.storage.from('snapshots').download(afterPath),
+    ])
+    if (beforeFile.error || afterFile.error) {
+      return jsonResponse({ error: 'Could not download snapshots' }, 500)
+    }
+    beforeHtml  = await beforeFile.data!.text()
+    afterHtml   = await afterFile.data!.text()
+    beforeLines = extractNormalizedLines(beforeHtml)
+    afterLines  = extractNormalizedLines(afterHtml)
+  } else {
+    // Playwright crawler path — use normalized_text stored inline in the snapshot row
+    const beforeText = (beforeSnap.data as Record<string, unknown>).normalized_text as string | null
+    const afterText  = (afterSnap.data  as Record<string, unknown>).normalized_text as string | null
+    beforeLines = beforeText ? beforeText.split('\n').filter(l => l.trim().length > 2) : []
+    afterLines  = afterText  ? afterText.split('\n').filter(l => l.trim().length > 2) : []
   }
-
-  const beforeHtml = await beforeFile.data!.text()
-  const afterHtml  = await afterFile.data!.text()
-
-  // Normalise lines — shared between classification and diff generation
-  const beforeLines = extractNormalizedLines(beforeHtml)
-  const afterLines  = extractNormalizedLines(afterHtml)
 
   // Local classification (score-based, 7 tiers)
   let classification = classifyChange(beforeHtml, afterHtml, page.url, beforeLines, afterLines)
@@ -204,13 +218,17 @@ Deno.serve(async (req: Request) => {
     classification.is_coordinated = true
   }
 
-  // Generate diff and store to Storage
+  // Generate diff — store to Storage only when both snapshots have HTML available
   const diff     = bestDiff(beforeLines, afterLines)
   const diffText = formatDiffAsText(diff)
-  const diffPath = `${userId}/${competitorId}/${snapshot_after_id}.diff.txt`
-  await supabaseAdmin.storage
-    .from('diffs')
-    .upload(diffPath, diffText, { contentType: 'text/plain', upsert: true })
+  let diffPath: string | null = null
+
+  if (afterPath) {
+    diffPath = `${userId}/${competitorId}/${snapshot_after_id}.diff.txt`
+    await supabaseAdmin.storage
+      .from('diffs')
+      .upload(diffPath, diffText, { contentType: 'text/plain', upsert: true })
+  }
 
   // Insert detected_change row
   const { data: change, error: changeError } = await supabaseAdmin
@@ -225,7 +243,7 @@ Deno.serve(async (req: Request) => {
       severity:      classification.severity,
       title:         classification.title,
       description:   classification.description,
-      diff_storage_path: diffPath,
+      diff_storage_path: diffPath ?? null,
       metadata: {
         // Standard fields
         price_before:       classification.price_before       ?? [],

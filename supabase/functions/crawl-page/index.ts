@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { supabaseAdmin } from '../_shared/supabaseAdmin.ts'
 import { extractNormalizedLines, extractPrices, extractByPageType, computeHash } from '../_shared/htmlExtractor.ts'
 
@@ -82,7 +82,7 @@ async function fetchWithRetry(
   return { error: lastError || 'Fetch failed after retries' }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
   }
@@ -154,7 +154,7 @@ serve(async (req) => {
 
   // Compute SHA-256 hashes (async)
   const normalizedLines = extractNormalizedLines(html)
-  const normalizedText = normalizedLines.join('\n')
+  const normalizedText  = normalizedLines.join('\n')
   const [contentHash, normalizedHash] = await Promise.all([
     computeHash(html),
     computeHash(normalizedText),
@@ -188,23 +188,18 @@ serve(async (req) => {
     return jsonResponse({ changed: false })
   }
 
-  // Store snapshot HTML in Supabase Storage
+  // Store snapshot HTML in Supabase Storage (best-effort — continue with null on failure)
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
   const storagePath = `${userId}/${page.competitor_id}/${monitored_page_id}/${ts}.html`
+  let resolvedStoragePath: string | null = storagePath
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from('snapshots')
     .upload(storagePath, html, { contentType: 'text/html', upsert: false })
 
   if (uploadError) {
-    console.error('Storage upload failed:', uploadError.message)
-    if (crawl_job_id) {
-      await supabaseAdmin
-        .from('crawl_jobs')
-        .update({ status: 'failed', error_message: `Storage upload failed: ${uploadError.message}`, completed_at: new Date().toISOString() })
-        .eq('id', crawl_job_id)
-    }
-    return jsonResponse({ error: 'Storage upload failed' }, 500)
+    console.error('Storage upload failed (continuing without storage):', uploadError.message)
+    resolvedStoragePath = null
   }
 
   // Insert snapshot record
@@ -213,10 +208,11 @@ serve(async (req) => {
     .insert({
       monitored_page_id,
       user_id: userId,
-      storage_path: storagePath,
+      storage_path: resolvedStoragePath,
+      normalized_text: normalizedText,
       content_hash: contentHash,
       normalized_hash: normalizedHash,
-      prices_json: JSON.stringify(prices),
+      prices_json: prices,
       http_status: httpStatus,
       structured_data: structuredData,
     })

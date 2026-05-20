@@ -53,11 +53,9 @@ enabled = true
 policy = "per_worker"
 inspector_port = 8083
 
-# schedule-crawls cron DISABLED — Python Playwright crawler on Render handles all
-# scheduling via Supabase pg_cron (render-keep-alive + trigger-crawl-4h)
+# schedule-crawls is triggered by pg_cron (see migration 012_pg_cron_schedule.sql)
 [functions.schedule-crawls]
 verify_jwt = false
-# cron = "0 * * * *"
 
 [functions.send-email-alert]
 verify_jwt = false
