@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
     }])
     if (!budgetRes.ok) {
       const msg = adsError(budgetRes.data, 'Budget')
-      await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+      await admin.from('campaigns').update({ google_error: msg, status: 'failed' }).eq('id', campaign_id)
       return json({ error: `Google Ads API (${msg})`, raw: budgetRes.data }, 400)
     }
     const budgetRN: string = budgetRes.data.results[0].resourceName
@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
     }])
     if (!campaignRes.ok) {
       const msg = adsError(campaignRes.data, 'Campaign')
-      await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+      await admin.from('campaigns').update({ google_error: msg, status: 'failed' }).eq('id', campaign_id)
       return json({ error: `Google Ads API (${msg})`, raw: campaignRes.data }, 400)
     }
     const gCampaignRN: string = campaignRes.data.results[0].resourceName
@@ -338,6 +338,7 @@ Deno.serve(async (req) => {
       await admin.from('campaigns').update({
         google_campaign_id: gCampaignId,
         google_error: msg,
+        status: 'failed',
       }).eq('id', campaign_id)
       return json({ error: `Google Ads API (${msg})`, raw: adGroupRes.data }, 400)
     }
@@ -377,6 +378,7 @@ Deno.serve(async (req) => {
         google_campaign_id: gCampaignId,
         google_ad_group_id: gAdGroupId,
         google_error: msg,
+        status: 'failed',
       }).eq('id', campaign_id)
       return json({ error: `Google Ads API (${msg})`, raw: adRes.data }, 400)
     }
