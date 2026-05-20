@@ -9,7 +9,7 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { invokeFunction, supabase } from '../../lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
-import { useMetaIntegration, useGoogleAdsIntegration } from '../../hooks/useAdIntegrations'
+import { useMetaIntegration, useGoogleAdsIntegration, minDailyForCurrency } from '../../hooks/useAdIntegrations'
 import { useClients } from '../../hooks/useClients'
 import type { Campaign, LandingTemplate } from '../../types/database.types'
 import type { DetectedChangeWithCompetitor } from '../../types/database.types'
@@ -118,6 +118,32 @@ export function CampaignModal({ change, open, onClose }: Props) {
 
   const postCampaign = async () => {
     if (!campaign) return
+
+    // ── Client-side validation before hitting any edge function ──────────
+    const metaWillLaunch   = selectedChannels.includes('meta')   && !!metaIntegration
+    const googleWillLaunch = selectedChannels.includes('google') && !!googleIntegration
+
+    if (metaWillLaunch || googleWillLaunch) {
+      try {
+        const u = new URL(landingUrl.trim())
+        if (!['http:', 'https:'].includes(u.protocol) || /example\.com$/i.test(u.hostname)) {
+          setError('Landing page URL must be a real https:// URL (not example.com).'); return
+        }
+      } catch {
+        setError('Enter a valid landing page URL before launching.'); return
+      }
+    }
+
+    if (metaWillLaunch) {
+      const currency  = metaIntegration?.currency ?? null
+      const minBudget = minDailyForCurrency(currency)
+      const n = Number(dailyBudget)
+      if (!Number.isFinite(n) || n < minBudget) {
+        setError(`Daily budget must be at least ${minBudget} ${currency ?? ''} for your Meta account.`)
+        return
+      }
+    }
+
     setPosting(true); setError(null)
     try {
       // Save status + channels + template + budget + client + publish landing page
@@ -135,21 +161,31 @@ export function CampaignModal({ change, open, onClose }: Props) {
         .eq('id', campaign.id)
       qc.invalidateQueries({ queryKey: ['campaigns'] })
 
+      const budgetNum = dailyBudget ? Number(dailyBudget) : undefined
+
       // Launch to Meta if connected and selected
-      if (selectedChannels.includes('meta') && metaIntegration) {
+      if (metaWillLaunch) {
         const { data, error: launchErr } = await invokeFunction<{ meta_campaign_id: string }>(
           'launch-meta-campaign',
-          { campaign_id: campaign.id, landing_page_url: landingUrl || undefined }
+          {
+            campaign_id:      campaign.id,
+            landing_page_url: landingUrl || undefined,
+            daily_budget_usd: budgetNum,   // backend treats this as account-currency units
+          }
         )
         if (launchErr) throw launchErr
         setMetaResult(data)
       }
 
       // Launch to Google Ads if connected and selected
-      if (selectedChannels.includes('google') && googleIntegration) {
+      if (googleWillLaunch) {
         const { data, error: launchErr } = await invokeFunction<{ google_campaign_id: string }>(
           'launch-google-ads-campaign',
-          { campaign_id: campaign.id, landing_page_url: landingUrl || undefined }
+          {
+            campaign_id:      campaign.id,
+            landing_page_url: landingUrl || undefined,
+            daily_budget_usd: budgetNum,
+          }
         )
         if (launchErr) throw launchErr
         setGoogleResult(data)
@@ -293,24 +329,54 @@ export function CampaignModal({ change, open, onClose }: Props) {
             </div>
           )}
 
-          {/* Daily budget */}
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-              <DollarSign size={11} /> Daily budget <span className="font-normal normal-case">(optional)</span>
-            </p>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-              <input
-                type="number"
-                min="1"
-                value={dailyBudget}
-                onChange={e => setDailyBudget(e.target.value)}
-                placeholder="50"
-                className="w-full pl-7 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <p className="text-[10px] text-gray-400 mt-1">Saved for your records — doesn't auto-charge your ad accounts.</p>
-          </div>
+          {/* Daily budget — currency-aware when Meta is connected */}
+          {(() => {
+            const currency = metaIntegration?.currency ?? null
+            const minBudget = minDailyForCurrency(currency)
+            const recommended = Math.max(minBudget * 5, 5)
+            const isRequired = selectedChannels.includes('meta') && !!metaIntegration
+            return (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <DollarSign size={11} /> Daily budget {isRequired
+                    ? <span className="text-red-500 font-normal normal-case">(required for Meta launch)</span>
+                    : <span className="font-normal normal-case">(optional)</span>}
+                </p>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">
+                    {currency ?? '$'}
+                  </span>
+                  <input
+                    type="number"
+                    min={minBudget}
+                    step={minBudget < 1 ? '0.1' : '1'}
+                    value={dailyBudget}
+                    onChange={e => setDailyBudget(e.target.value)}
+                    placeholder={String(recommended)}
+                    className={`w-full pl-12 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isRequired && dailyBudget && Number(dailyBudget) < minBudget
+                        ? 'border-red-300 bg-red-50/40'
+                        : 'border-gray-200'
+                    }`}
+                  />
+                </div>
+                {currency ? (
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Your Meta account currency is <span className="font-semibold">{currency}</span>.
+                    Meta requires at least <span className="font-semibold">{minBudget} {currency}/day</span>.
+                    Recommended start: <span className="font-semibold">{recommended} {currency}/day</span>.
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-gray-400 mt-1">Saved for your records — doesn't auto-charge your ad accounts.</p>
+                )}
+                {isRequired && dailyBudget && Number(dailyBudget) < minBudget && (
+                  <p className="text-[10px] text-red-600 mt-1 font-medium">
+                    Below the {currency} minimum — Meta will reject this launch.
+                  </p>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Channels */}
           <div>
@@ -365,20 +431,50 @@ export function CampaignModal({ change, open, onClose }: Props) {
           )}
 
           {/* Landing page URL — required for Meta or Google launch */}
-          {((metaSelected && metaIntegration) || (googleSelected && googleIntegration)) && (
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Landing page URL <span className="text-gray-400 font-normal">(where ad clicks will land)</span>
-              </label>
-              <input
-                type="url"
-                placeholder="https://your-landing-page.com"
-                value={landingUrl}
-                onChange={e => setLandingUrl(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          )}
+          {((metaSelected && metaIntegration) || (googleSelected && googleIntegration)) && (() => {
+            const isValid = (() => {
+              if (!landingUrl.trim()) return false
+              try {
+                const u = new URL(landingUrl.trim())
+                return (u.protocol === 'https:' || u.protocol === 'http:') && !/example\.com$/i.test(u.hostname)
+              } catch { return false }
+            })()
+            const showError = landingUrl.length > 0 && !isValid
+            return (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  Landing page URL <span className="text-red-500 font-normal">(required)</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://your-landing-page.com"
+                  value={landingUrl}
+                  onChange={e => setLandingUrl(e.target.value)}
+                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    showError ? 'border-red-300 bg-red-50/40' : 'border-gray-200'
+                  }`}
+                />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {campaign?.slug && (
+                    <>Tip: use your hosted landing page —{' '}
+                    <button
+                      type="button"
+                      className="text-blue-600 underline"
+                      onClick={() => setLandingUrl(`${window.location.origin}/lp/${campaign.slug}`)}
+                    >
+                      use this campaign's /lp/{campaign.slug}
+                    </button>
+                    </>
+                  )}
+                </p>
+                {showError && (
+                  <p className="text-[10px] text-red-600 mt-1 font-medium">
+                    Enter a valid https:// URL (not example.com).
+                  </p>
+                )}
+              </div>
+            )
+          })()}
 
           {error && (
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
