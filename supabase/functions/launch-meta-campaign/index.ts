@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
     const adUrl = (adUrlRaw as string).trim()
 
     // Daily budget — user provides amount in account currency (not always USD).
-    // We still accept the `daily_budget_usd` request param for backward compat.
+    // The Meta API treats this as the smallest currency unit (cents / paise).
     const budgetInput = Number(daily_budget_usd ?? campaign.daily_budget ?? 10)
     if (!Number.isFinite(budgetInput) || budgetInput < 1) {
       const msg = 'Daily budget must be at least 1 unit of the account currency.'
@@ -155,12 +155,10 @@ Deno.serve(async (req) => {
       return json({ error: msg }, 400)
     }
 
-    // Fetch ad account currency + minimum daily budget from Meta so we can give
-    // the user a precise error rather than the opaque "budget too small".
-    const acctInfo = await metaGet(
-      `/${accountId}?fields=currency,min_daily_budget_low_freq,min_daily_budget_imp`,
-      token,
-    )
+    // Fetch ad account currency so we can give a currency-aware error if
+    // Meta later rejects the budget. (The min_daily_budget_* fields were
+    // removed from the public Ad Account endpoint in Meta API v19+.)
+    const acctInfo = await metaGet(`/${accountId}?fields=currency`, token)
     if (acctInfo.error) {
       const { msg, tokenExpired, detail } = formatMetaError(acctInfo.error)
       console.error('Meta account info failed:', detail, acctInfo.error)
@@ -172,21 +170,35 @@ Deno.serve(async (req) => {
       return json({ error: msg, detail }, tokenExpired ? 401 : 400)
     }
     const currency: string = (acctInfo.currency as string) ?? 'USD'
-    // min_daily_budget_low_freq is in the smallest currency unit (cents/paise/etc.)
-    const accountMinSmallest = Number(acctInfo.min_daily_budget_low_freq ?? 100)
 
-    // Convert user's input. Their input is in *whole units* of the account
-    // currency (e.g. 10 = ₹10 / $10 / €10). We multiply by 100 to get the
-    // smallest unit Meta expects.
-    let dailyBudgetCents = Math.round(budgetInput * 100)
-
-    // If below account minimum, bump up to the minimum and let the user know
-    if (dailyBudgetCents < accountMinSmallest) {
-      const minWhole = (accountMinSmallest / 100).toFixed(2)
-      const msg = `Daily budget too small for this ${currency} account. Meta requires at least ${minWhole} ${currency}/day. Provided: ${budgetInput} ${currency}.`
-      await admin.from('campaigns').update({ meta_error: msg }).eq('id', campaign_id)
-      return json({ error: msg, currency, min_daily: Number(minWhole) }, 400)
+    // Per-currency known minimum daily budgets (Meta Marketing API docs, 2024).
+    // Used both for pre-flight validation and to enrich the post-flight error.
+    // Values are in whole units of the currency.
+    const CURRENCY_MIN_DAILY: Record<string, number> = {
+      USD: 1,    EUR: 1,    GBP: 1,    CAD: 1,    AUD: 1,    NZD: 1,
+      JPY: 100,  // JPY has no subunits
+      INR: 40,   AED: 4,    SAR: 4,    EGP: 8,    QAR: 4,    KWD: 0.3,
+      BRL: 3,    MXN: 20,   ARS: 100,
+      ZAR: 15,   NGN: 400,
+      TRY: 5,    RUB: 60,   IDR: 14000, MYR: 4, PHP: 50, THB: 30, VND: 23000,
+      SGD: 2,    HKD: 8,    TWD: 30,
+      CNY: 7,    KRW: 1200,
+      CHF: 1,    SEK: 10,   NOK: 10,   DKK: 7,    PLN: 4,    CZK: 23,
     }
+    const minDailyWhole = CURRENCY_MIN_DAILY[currency] ?? 1
+
+    if (budgetInput < minDailyWhole) {
+      const msg = `Daily budget too small for this ${currency} account. Meta requires at least ${minDailyWhole} ${currency}/day. Provided: ${budgetInput} ${currency}.`
+      await admin.from('campaigns').update({ meta_error: msg }).eq('id', campaign_id)
+      return json({ error: msg, currency, min_daily: minDailyWhole }, 400)
+    }
+
+    // Meta expects budget in smallest currency unit (cents / paise / etc).
+    // JPY/KRW/etc. have no subunits — pass the whole-unit amount directly.
+    const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW', 'VND', 'IDR'])
+    const dailyBudgetCents = ZERO_DECIMAL_CURRENCIES.has(currency)
+      ? Math.round(budgetInput)
+      : Math.round(budgetInput * 100)
 
     if (!campaign.campaign_name || !campaign.headline) {
       const msg = 'Campaign is missing a name or headline. Generate the campaign content first.'
@@ -210,12 +222,17 @@ Deno.serve(async (req) => {
     if (metaCampaign.error) {
       const { msg, tokenExpired, detail } = formatMetaError(metaCampaign.error)
       console.error('Meta campaign create failed:', detail, metaCampaign.error)
+      // Meta's "budget too small" subcode — enrich with our known minimum
+      let finalMsg = msg
+      if (metaCampaign.error.error_subcode === 2446375) {
+        finalMsg = `Daily budget too small. Try at least ${minDailyWhole * 5} ${currency}/day (your account currency is ${currency}).`
+      }
       if (tokenExpired) {
         await admin.from('ad_integrations').update({ is_active: false })
           .eq('user_id', user.id).eq('platform', 'meta')
       }
-      await admin.from('campaigns').update({ meta_error: `${msg} (${detail})` }).eq('id', campaign_id)
-      return json({ error: msg, detail }, tokenExpired ? 401 : 400)
+      await admin.from('campaigns').update({ meta_error: `${finalMsg} (${detail})` }).eq('id', campaign_id)
+      return json({ error: finalMsg, detail, currency, min_daily: minDailyWhole }, tokenExpired ? 401 : 400)
     }
 
     const metaCampaignId = metaCampaign.id!
