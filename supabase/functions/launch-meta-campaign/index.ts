@@ -51,7 +51,9 @@ function formatMetaError(err: MetaErrorBody | undefined): { msg: string; tokenEx
   if (tokenExpired) {
     msg = 'Meta access token expired. Please reconnect your Meta account in Settings.'
   } else if (pendingAction) {
-    msg = 'Meta has placed your ad account on hold and requires manual verification. Open Meta Ads Manager (https://business.facebook.com/adsmanager), look for the security / verification banner at the top, and complete the steps Meta shows you. After Meta releases the hold, retry the launch — no code changes are needed.'
+    // Meta's own message (often translated for the account locale) is fine —
+    // just prepend a one-line action so the user knows where to go.
+    msg = `Verify your account in Meta Ads Manager to continue: ${userMsg ?? err.message ?? ''}`.trim()
   } else {
     msg = userMsg ?? err.message ?? 'Unknown Meta error'
   }
