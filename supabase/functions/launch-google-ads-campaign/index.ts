@@ -1,13 +1,15 @@
 /**
- * launch-google-ads-campaign Edge Function v10
+ * launch-google-ads-campaign Edge Function v11
  *
  * POST { campaign_id, daily_budget_usd?, landing_page_url? }
  *
  * Creates a PAUSED Search campaign in Google Ads via REST API v20:
- *   Campaign Budget → Campaign → Ad Group → Responsive Search Ad → Keywords
+ *   Campaign Budget → Campaign (PAUSED) → Ad Group (PAUSED) →
+ *   Responsive Search Ad (PAUSED) → Keywords (broad + exact)
  *
  * Refreshes the OAuth access token using the stored refresh_token.
- * All objects are created with status=PAUSED.
+ * Validates landing_page_url and daily_budget before any Google Ads API call.
+ * All objects created PAUSED for safety — user activates in Google Ads UI.
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
@@ -186,7 +188,10 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } },
     )
 
-    const { campaign_id, daily_budget_usd = 10, landing_page_url } = await req.json()
+    const reqBody = await req.json().catch(() => ({}))
+    const { campaign_id, daily_budget_usd, landing_page_url } = reqBody as {
+      campaign_id?: string; daily_budget_usd?: number; landing_page_url?: string
+    }
     if (!campaign_id) return json({ error: 'campaign_id required' }, 400)
 
     // Fetch campaign
@@ -247,13 +252,34 @@ Deno.serve(async (req) => {
       await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
       return json({ error: msg }, 400)
     }
-    const finalUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`
+    let finalUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl.trim() : `https://${rawUrl.trim()}`
+    try {
+      const u = new URL(finalUrl)
+      if (/example\.com$/i.test(u.hostname)) {
+        const msg = 'Landing page URL must be a real domain (not example.com).'
+        await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+        return json({ error: msg }, 400)
+      }
+      finalUrl = u.toString()
+    } catch {
+      const msg = 'Landing page URL is invalid. Use a full https:// URL.'
+      await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+      return json({ error: msg }, 400)
+    }
+
+    // Resolve daily budget (param → campaign field → default $10), with validation
+    const budgetUsd = Number(daily_budget_usd ?? campaign.daily_budget ?? 10)
+    if (!Number.isFinite(budgetUsd) || budgetUsd < 1) {
+      const msg = 'Daily budget must be at least $1.'
+      await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+      return json({ error: msg }, 400)
+    }
 
     // ── 1. Campaign Budget ─────────────────────────────────────────────────────
     const budgetRes = await mutate(ctx, '/campaignBudgets:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} Budget ${Date.now()}`).slice(0, 255),
-        amountMicros: String(Math.round(daily_budget_usd * 1_000_000)),
+        amountMicros: String(Math.round(budgetUsd * 1_000_000)),
         explicitlyShared: false,
       },
     }])
@@ -274,7 +300,7 @@ Deno.serve(async (req) => {
     const campaignRes = await mutate(ctx, '/campaigns:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} ${Date.now()}`).slice(0, 255),
-        status: 'ENABLED',
+        status: 'PAUSED',                    // safety — user reviews and enables in Google Ads
         advertisingChannelType: 'SEARCH',
         manualCpc: { enhancedCpcEnabled: false },
         campaignBudget: budgetRN,
@@ -301,7 +327,7 @@ Deno.serve(async (req) => {
     const adGroupRes = await mutate(ctx, '/adGroups:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} - Ad Group`).slice(0, 255),
-        status: 'ENABLED',
+        status: 'PAUSED',                    // safety
         campaign: gCampaignRN,
         type: 'SEARCH_STANDARD',
         cpcBidMicros: '1000000',
@@ -335,7 +361,7 @@ Deno.serve(async (req) => {
     const adRes = await mutate(ctx, '/adGroupAds:mutate', [{
       create: {
         adGroup: gAdGroupRN,
-        status: 'ENABLED',
+        status: 'PAUSED',                    // safety
         ad: {
           finalUrls: [finalUrl],
           responsiveSearchAd: {
@@ -381,6 +407,7 @@ Deno.serve(async (req) => {
       status:             'active',
       channels:           [...new Set([...((campaign.channels as string[]) ?? []), 'google'])],
       landing_page_url:   finalUrl,
+      daily_budget:       budgetUsd,
     }).eq('id', campaign_id)
 
     return json({
@@ -388,7 +415,7 @@ Deno.serve(async (req) => {
       google_campaign_id: gCampaignId,
       google_ad_group_id: gAdGroupId,
       google_ad_id:       gAdId,
-      message: 'Campaign created and ENABLED in Google Ads. Ads will serve once your developer token has Basic Access.',
+      message: 'Campaign created on Google Ads as PAUSED. Review and activate in Google Ads. Requires Basic Access developer token to serve.',
     })
   } catch (err) {
     console.error(err)

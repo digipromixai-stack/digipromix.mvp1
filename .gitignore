@@ -18,6 +18,9 @@ dist
 dist-ssr
 *.local
 
+# Supabase CLI state — not source code
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

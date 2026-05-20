@@ -104,18 +104,10 @@ Deno.serve(async (req) => {
       return json({ error: 'Failed to save lead' }, 500)
     }
 
-    // Increment leads_count (read-then-write, best-effort)
-    const { data: campData } = await admin
-      .from('campaigns')
-      .select('leads_count')
-      .eq('id', campaign.id)
-      .single()
-    if (campData) {
-      await admin
-        .from('campaigns')
-        .update({ leads_count: (campData.leads_count ?? 0) + 1 })
-        .eq('id', campaign.id)
-    }
+    // Atomic increment (avoids lost updates if multiple leads arrive simultaneously)
+    const { error: incErr } = await admin
+      .rpc('increment_campaign_leads_count', { campaign_id_param: campaign.id })
+    if (incErr) console.error('leads_count increment failed (non-fatal):', incErr.message)
 
     // Send WhatsApp alert (best-effort, fail-soft)
     try {
