@@ -326,6 +326,9 @@ Deno.serve(async (req) => {
     if (!resolvedImage) resolvedImage = DEFAULT_AD_IMAGE
 
     // ── 4. Create Ad Creative ────────────────────────────────────────────
+    // Note: degrees_of_freedom_spec.standard_enhancements was deprecated by
+    // Meta (subcode 3858504). Individual features can be opted into per
+    // https://fburl.com/hyth50xo — but they're optional, so we omit them.
     const message = (campaign.social_copy ?? campaign.ad_copy ?? campaign.headline) as string
     const creative = await metaPost(`/${accountId}/adcreatives`, token, {
       name: `${campaign.campaign_name} – Creative`,
@@ -340,7 +343,6 @@ Deno.serve(async (req) => {
           call_to_action: { type: 'LEARN_MORE', value: { link: adUrl } },
         },
       },
-      degrees_of_freedom_spec: { creative_features_spec: { standard_enhancements: { enroll_status: 'OPT_OUT' } } },
     })
 
     if (creative.error) {
