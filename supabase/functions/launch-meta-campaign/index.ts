@@ -88,6 +88,47 @@ function isValidHttpUrl(s: unknown): s is string {
   }
 }
 
+// Meta requires PNG / JPG / GIF (no SVG). Returns true for known-good formats.
+function isMetaCompatibleImage(url: string): boolean {
+  try {
+    const u = new URL(url)
+    // Reject anything that obviously won't decode
+    if (/\.svg(\?|$)/i.test(u.pathname)) return false
+    return true
+  } catch { return false }
+}
+
+// Scrape og:image / twitter:image from the landing page so Meta has a real
+// raster image to use for the ad. Falls back to null if nothing usable found.
+async function scrapePageImage(pageUrl: string): Promise<string | null> {
+  try {
+    const res = await fetch(pageUrl, {
+      headers: { 'User-Agent': 'DigiPromix-Bot/1.0' },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const html = await res.text()
+    // og:image, twitter:image, then first <img src>
+    const patterns = [
+      /<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i,
+      /<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i,
+      /<link\s+rel=["']image_src["']\s+href=["']([^"']+)["']/i,
+    ]
+    for (const re of patterns) {
+      const m = html.match(re)
+      if (m && m[1] && isMetaCompatibleImage(m[1])) {
+        // Resolve relative URLs against the page URL
+        try { return new URL(m[1], pageUrl).toString() } catch { /* ignore */ }
+      }
+    }
+    return null
+  } catch { return null }
+}
+
+// Default fallback image — a generic 1200×630 marketing graphic.
+// Replace with your own hosted asset when you have one.
+const DEFAULT_AD_IMAGE = 'https://images.unsplash.com/photo-1551434678-e076c223a692?w=1200&h=630&fit=crop&auto=format&q=80'
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -111,8 +152,8 @@ Deno.serve(async (req) => {
     )
 
     const reqBody = await req.json().catch(() => ({}))
-    const { campaign_id, daily_budget_usd, landing_page_url } = reqBody as {
-      campaign_id?: string; daily_budget_usd?: number; landing_page_url?: string
+    const { campaign_id, daily_budget_usd, landing_page_url, image_url } = reqBody as {
+      campaign_id?: string; daily_budget_usd?: number; landing_page_url?: string; image_url?: string
     }
     if (!campaign_id) return json({ error: 'campaign_id required' }, 400)
 
@@ -274,7 +315,17 @@ Deno.serve(async (req) => {
 
     const adSetId = adSet.id!
 
-    // ── 3. Create Ad Creative ────────────────────────────────────────────
+    // ── 3. Resolve the ad image ──────────────────────────────────────────
+    // Priority: explicit image_url param → og:image on landing page → default
+    let resolvedImage: string | null = null
+    if (image_url && isValidHttpUrl(image_url) && isMetaCompatibleImage(image_url)) {
+      resolvedImage = image_url.trim()
+    } else {
+      resolvedImage = await scrapePageImage(adUrl)
+    }
+    if (!resolvedImage) resolvedImage = DEFAULT_AD_IMAGE
+
+    // ── 4. Create Ad Creative ────────────────────────────────────────────
     const message = (campaign.social_copy ?? campaign.ad_copy ?? campaign.headline) as string
     const creative = await metaPost(`/${accountId}/adcreatives`, token, {
       name: `${campaign.campaign_name} – Creative`,
@@ -285,6 +336,7 @@ Deno.serve(async (req) => {
           link:        adUrl,
           name:        campaign.headline,
           description: campaign.offer ?? campaign.ad_copy ?? '',
+          picture:     resolvedImage,    // explicit image so Meta doesn't try to auto-scrape SVG/missing
           call_to_action: { type: 'LEARN_MORE', value: { link: adUrl } },
         },
       },
@@ -294,6 +346,11 @@ Deno.serve(async (req) => {
     if (creative.error) {
       const { msg, tokenExpired, detail } = formatMetaError(creative.error)
       console.error('Meta creative create failed:', detail, creative.error)
+      // 2446496 = image processing failed (wrong format, too small, unreachable URL)
+      let finalMsg = msg
+      if (creative.error.error_subcode === 2446496) {
+        finalMsg = `Meta could not process the ad image (${resolvedImage}). Make sure the image is a public PNG/JPG at least 600×600px and not behind auth. Pass image_url in the request to override.`
+      }
       if (tokenExpired) {
         await admin.from('ad_integrations').update({ is_active: false })
           .eq('user_id', user.id).eq('platform', 'meta')
@@ -301,9 +358,9 @@ Deno.serve(async (req) => {
       await admin.from('campaigns').update({
         meta_campaign_id: metaCampaignId,
         meta_adset_id:    adSetId,
-        meta_error:       `${msg} (${detail})`,
+        meta_error:       `${finalMsg} (${detail})`,
       }).eq('id', campaign_id)
-      return json({ error: msg, detail }, tokenExpired ? 401 : 400)
+      return json({ error: finalMsg, detail, image_used: resolvedImage }, tokenExpired ? 401 : 400)
     }
 
     // ── 4. Create Ad ─────────────────────────────────────────────────────
