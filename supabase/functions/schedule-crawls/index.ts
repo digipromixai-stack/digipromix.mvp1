@@ -105,45 +105,36 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Failed to create jobs' }, 500)
   }
 
-  // ── Dispatch crawl-page for each job (fire-and-forget) ────────────────────
-  const crawlUrl  = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crawl-page`
+  // ── Dispatch crawl-page for each job (truly fire-and-forget) ──────────────
+  // crawl-page does a real HTTP fetch that can take >20s. We do NOT await the
+  // response — we just kick off the request and trust the platform to deliver
+  // it. crawl-page itself updates the crawl_jobs row when it finishes.
+  // The schedule-crawls cron also expires jobs that stay in 'running'>5min.
+  const crawlUrl   = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crawl-page`
   const authHeader = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
 
-  const dispatched: string[] = []
-  const failed:     string[] = []
+  for (const job of jobs) {
+    // Intentionally not awaited — fire and forget. EdgeRuntime.waitUntil keeps
+    // the request alive after we return.
+    const p = fetch(crawlUrl, {
+      method: 'POST',
+      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        monitored_page_id: job.monitored_page_id,
+        crawl_job_id:      job.id,
+      }),
+    }).catch((err) => console.error(`Dispatch failed for job ${job.id}:`, err))
 
-  await Promise.allSettled(
-    jobs.map(async (job) => {
-      try {
-        const res = await fetch(crawlUrl, {
-          method: 'POST',
-          headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            monitored_page_id: job.monitored_page_id,
-            crawl_job_id:      job.id,
-          }),
-          signal: AbortSignal.timeout(10_000), // 10 s — enough to confirm receipt
-        })
-        if (res.ok) {
-          dispatched.push(job.id)
-        } else {
-          const text = await res.text().catch(() => res.status.toString())
-          console.error(`Dispatch HTTP error for job ${job.id}: ${res.status} ${text}`)
-          failed.push(job.id)
-        }
-      } catch (err) {
-        console.error(`Dispatch fetch failed for job ${job.id}:`, err)
-        failed.push(job.id)
-      }
-    })
-  )
+    // Detach from main response promise but keep alive on Edge Runtime
+    // @ts-expect-error EdgeRuntime is Supabase-specific, not typed in deno-edge
+    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(p)
+  }
 
-  console.log(`schedule-crawls: dispatched=${dispatched.length} failed=${failed.length} skipped_active=${activePageIds.size}`)
+  console.log(`schedule-crawls: queued=${jobs.length} skipped_active=${activePageIds.size}`)
 
   return jsonResponse({
     total:          jobs.length,
-    dispatched:     dispatched.length,
-    failed:         failed.length,
+    queued:         jobs.length,
     skipped_active: activePageIds.size,
   })
 })

@@ -57,6 +57,15 @@ inspector_port = 8083
 [functions.schedule-crawls]
 verify_jwt = false
 
+# crawl-page is only invoked internally by schedule-crawls and the Render
+# Playwright crawler — no public auth needed.
+[functions.crawl-page]
+verify_jwt = false
+
+# detect-changes is invoked internally by crawl-page after a new snapshot.
+[functions.detect-changes]
+verify_jwt = false
+
 [functions.send-email-alert]
 verify_jwt = false
 
