@@ -209,6 +209,8 @@ Deno.serve(async (req) => {
     // ── 1. Create Campaign with CBO (Campaign Budget Optimization) ───────
     // Meta requires either CBO (budget on campaign) OR is_adset_budget_sharing_enabled
     // explicitly set. We use CBO since it's Meta's recommended modern approach.
+    // bid_strategy is set HERE (campaign level) — when CBO is on the campaign,
+    // the AdSet inherits the strategy and you cannot also set it on the AdSet.
     const metaCampaign = await metaPost(`/${accountId}/campaigns`, token, {
       name:                              campaign.campaign_name,
       objective:                         'OUTCOME_TRAFFIC',
@@ -216,6 +218,7 @@ Deno.serve(async (req) => {
       buying_type:                       'AUCTION',
       special_ad_categories:             [],
       daily_budget:                      dailyBudgetCents,     // CBO — budget at campaign level
+      bid_strategy:                      'LOWEST_COST_WITHOUT_CAP', // Meta-managed, no bid_amount required
       is_adset_budget_sharing_enabled:   false,                // explicit per Meta requirement (code 4834011)
     })
 
@@ -238,14 +241,15 @@ Deno.serve(async (req) => {
     const metaCampaignId = metaCampaign.id!
 
     // ── 2. Create Ad Set (LINK_CLICKS — drives traffic to landing page) ──
-    // No daily_budget here — using campaign-level CBO instead.
+    // No daily_budget AND no bid_strategy here — both come from the campaign
+    // when using CBO. Setting bid_strategy on the AdSet triggers Meta's
+    // "bid_amount required" error (subcode 1815857).
     const adSet = await metaPost(`/${accountId}/adsets`, token, {
       name:              `${campaign.campaign_name} – AdSet`,
       campaign_id:       metaCampaignId,
       billing_event:     'IMPRESSIONS',
       optimization_goal: 'LINK_CLICKS',
       destination_type:  'WEBSITE',
-      bid_strategy:      'LOWEST_COST_WITHOUT_CAP',
       targeting: {
         geo_locations: { countries: ['US'] },
         age_min: 18,

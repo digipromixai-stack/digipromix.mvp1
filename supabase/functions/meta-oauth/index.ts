@@ -110,8 +110,23 @@ Deno.serve(async (req) => {
 
     // ── SAVE chosen account ────────────────────────────────────────
     if (action === 'save') {
-      const { access_token, account_id, account_name, page_id, page_name, expires_at } = body
+      const { access_token, account_id, account_name, page_id, page_name, expires_at, currency } = body
       if (!access_token || !account_id) return json({ error: 'access_token and account_id required' }, 400)
+
+      // If currency wasn't supplied by the client, fetch it from Meta once.
+      // This avoids per-launch round-trips for the budget UI.
+      let acctCurrency: string | null = currency ?? null
+      if (!acctCurrency) {
+        try {
+          const acctRes = await fetch(`${GRAPH}/${account_id}?fields=currency`, {
+            headers: { Authorization: `Bearer ${access_token}` },
+          })
+          const acctData = await acctRes.json()
+          if (acctData?.currency) acctCurrency = acctData.currency as string
+        } catch (e) {
+          console.warn('Failed to fetch account currency:', e)
+        }
+      }
 
       const { error } = await admin.from('ad_integrations').upsert(
         {
@@ -123,13 +138,14 @@ Deno.serve(async (req) => {
           page_id: page_id ?? null,
           page_name: page_name ?? null,
           token_expires_at: expires_at ?? null,
+          currency: acctCurrency,
           is_active: true,
         },
         { onConflict: 'user_id,platform' }
       )
 
       if (error) return json({ error: error.message }, 500)
-      return json({ success: true })
+      return json({ success: true, currency: acctCurrency })
     }
 
     // ── DISCONNECT ─────────────────────────────────────────────────
