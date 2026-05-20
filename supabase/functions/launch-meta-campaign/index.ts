@@ -68,6 +68,14 @@ async function metaPost(path: string, token: string, payload: Record<string, unk
   return body as Record<string, unknown> & { error?: MetaErrorBody; id?: string }
 }
 
+async function metaGet(path: string, token: string) {
+  const res = await fetch(`${GRAPH}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const body = await res.json().catch(() => ({}))
+  return body as Record<string, unknown> & { error?: MetaErrorBody }
+}
+
 // ── Validation ──────────────────────────────────────────────────────────────
 function isValidHttpUrl(s: unknown): s is string {
   if (typeof s !== 'string' || !s.trim()) return false
@@ -138,16 +146,47 @@ Deno.serve(async (req) => {
     }
     const adUrl = (adUrlRaw as string).trim()
 
-    // Daily budget: prefer request param → campaign field → default $10
-    const budgetUsd = Number(
-      daily_budget_usd ?? campaign.daily_budget ?? 10
-    )
-    if (!Number.isFinite(budgetUsd) || budgetUsd < 1) {
-      const msg = 'Daily budget must be at least $1.'
+    // Daily budget — user provides amount in account currency (not always USD).
+    // We still accept the `daily_budget_usd` request param for backward compat.
+    const budgetInput = Number(daily_budget_usd ?? campaign.daily_budget ?? 10)
+    if (!Number.isFinite(budgetInput) || budgetInput < 1) {
+      const msg = 'Daily budget must be at least 1 unit of the account currency.'
       await admin.from('campaigns').update({ meta_error: msg }).eq('id', campaign_id)
       return json({ error: msg }, 400)
     }
-    const dailyBudgetCents = Math.round(budgetUsd * 100)
+
+    // Fetch ad account currency + minimum daily budget from Meta so we can give
+    // the user a precise error rather than the opaque "budget too small".
+    const acctInfo = await metaGet(
+      `/${accountId}?fields=currency,min_daily_budget_low_freq,min_daily_budget_imp`,
+      token,
+    )
+    if (acctInfo.error) {
+      const { msg, tokenExpired, detail } = formatMetaError(acctInfo.error)
+      console.error('Meta account info failed:', detail, acctInfo.error)
+      if (tokenExpired) {
+        await admin.from('ad_integrations').update({ is_active: false })
+          .eq('user_id', user.id).eq('platform', 'meta')
+      }
+      await admin.from('campaigns').update({ meta_error: `${msg} (${detail})` }).eq('id', campaign_id)
+      return json({ error: msg, detail }, tokenExpired ? 401 : 400)
+    }
+    const currency: string = (acctInfo.currency as string) ?? 'USD'
+    // min_daily_budget_low_freq is in the smallest currency unit (cents/paise/etc.)
+    const accountMinSmallest = Number(acctInfo.min_daily_budget_low_freq ?? 100)
+
+    // Convert user's input. Their input is in *whole units* of the account
+    // currency (e.g. 10 = ₹10 / $10 / €10). We multiply by 100 to get the
+    // smallest unit Meta expects.
+    let dailyBudgetCents = Math.round(budgetInput * 100)
+
+    // If below account minimum, bump up to the minimum and let the user know
+    if (dailyBudgetCents < accountMinSmallest) {
+      const minWhole = (accountMinSmallest / 100).toFixed(2)
+      const msg = `Daily budget too small for this ${currency} account. Meta requires at least ${minWhole} ${currency}/day. Provided: ${budgetInput} ${currency}.`
+      await admin.from('campaigns').update({ meta_error: msg }).eq('id', campaign_id)
+      return json({ error: msg, currency, min_daily: Number(minWhole) }, 400)
+    }
 
     if (!campaign.campaign_name || !campaign.headline) {
       const msg = 'Campaign is missing a name or headline. Generate the campaign content first.'
