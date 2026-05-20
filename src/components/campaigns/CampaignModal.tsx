@@ -89,9 +89,10 @@ export function CampaignModal({ change, open, onClose }: Props) {
   const [template, setTemplate]       = useState<LandingTemplate>('default')
   const [dailyBudget, setDailyBudget] = useState('')
   const [clientId, setClientId]       = useState('')
+  const [imageUrl, setImageUrl]       = useState('')
   const [insights, setInsights]       = useState<{ competitor_offer?: string; offer_justification?: string } | null>(null)
 
-  const handleClose = () => { setStep('generate'); setError(null); setCampaign(null); setMetaResult(null); setGoogleResult(null); setTemplate('default'); setDailyBudget(''); setClientId(''); setInsights(null); onClose() }
+  const handleClose = () => { setStep('generate'); setError(null); setCampaign(null); setMetaResult(null); setGoogleResult(null); setTemplate('default'); setDailyBudget(''); setClientId(''); setImageUrl(''); setInsights(null); onClose() }
 
   const generate = async () => {
     setLoading(true); setError(null)
@@ -171,6 +172,7 @@ export function CampaignModal({ change, open, onClose }: Props) {
             campaign_id:      campaign.id,
             landing_page_url: landingUrl || undefined,
             daily_budget_usd: budgetNum,   // backend treats this as account-currency units
+            image_url:        imageUrl.trim() || undefined,
           }
         )
         if (launchErr) throw launchErr
@@ -475,6 +477,25 @@ export function CampaignModal({ change, open, onClose }: Props) {
               </div>
             )
           })()}
+
+          {/* Ad image URL — required by Meta (no SVG) */}
+          {metaSelected && metaIntegration && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">
+                Ad image URL <span className="text-gray-400 font-normal">(optional — Meta will auto-scrape og:image if blank)</span>
+              </label>
+              <input
+                type="url"
+                placeholder="https://your-site.com/og-image.png"
+                value={imageUrl}
+                onChange={e => setImageUrl(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">
+                Must be a public PNG / JPG (not SVG), at least 600×600px. 1200×630 recommended.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
