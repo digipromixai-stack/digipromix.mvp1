@@ -38,21 +38,30 @@ interface MetaErrorBody {
   fbtrace_id?:     string
 }
 
-function formatMetaError(err: MetaErrorBody | undefined): { msg: string; tokenExpired: boolean; detail: string } {
-  if (!err) return { msg: 'Unknown Meta error', tokenExpired: false, detail: '' }
+function formatMetaError(err: MetaErrorBody | undefined): { msg: string; tokenExpired: boolean; pendingAction: boolean; detail: string } {
+  if (!err) return { msg: 'Unknown Meta error', tokenExpired: false, pendingAction: false, detail: '' }
   const tokenExpired = err.code === 190 || err.code === 102 || err.code === 463
+  // code 31 = "pending action required" — Meta has flagged the ad account
+  // and requires the owner to verify it manually in Ads Manager. No code fix
+  // can bypass this; only the account owner can resolve it.
+  const pendingAction = err.code === 31 || err.error_subcode === 3858385
   // Prefer the user-friendly Meta-provided messages when available
   const userMsg = err.error_user_msg ?? err.error_user_title
-  const msg = tokenExpired
-    ? 'Meta access token expired. Please reconnect your Meta account in Settings.'
-    : userMsg ?? err.message ?? 'Unknown Meta error'
+  let msg: string
+  if (tokenExpired) {
+    msg = 'Meta access token expired. Please reconnect your Meta account in Settings.'
+  } else if (pendingAction) {
+    msg = 'Meta has placed your ad account on hold and requires manual verification. Open Meta Ads Manager (https://business.facebook.com/adsmanager), look for the security / verification banner at the top, and complete the steps Meta shows you. After Meta releases the hold, retry the launch — no code changes are needed.'
+  } else {
+    msg = userMsg ?? err.message ?? 'Unknown Meta error'
+  }
   const detail = [
     err.code        ? `code=${err.code}`              : null,
     err.error_subcode ? `subcode=${err.error_subcode}` : null,
     err.fbtrace_id  ? `trace=${err.fbtrace_id}`       : null,
     err.message     ? `raw="${err.message}"`           : null,
   ].filter(Boolean).join(' ')
-  return { msg, tokenExpired, detail }
+  return { msg, tokenExpired, pendingAction, detail }
 }
 
 async function metaPost(path: string, token: string, payload: Record<string, unknown>) {
@@ -201,14 +210,14 @@ Deno.serve(async (req) => {
     // removed from the public Ad Account endpoint in Meta API v19+.)
     const acctInfo = await metaGet(`/${accountId}?fields=currency`, token)
     if (acctInfo.error) {
-      const { msg, tokenExpired, detail } = formatMetaError(acctInfo.error)
+      const { msg, tokenExpired, pendingAction, detail } = formatMetaError(acctInfo.error)
       console.error('Meta account info failed:', detail, acctInfo.error)
       if (tokenExpired) {
         await admin.from('ad_integrations').update({ is_active: false })
           .eq('user_id', user.id).eq('platform', 'meta')
       }
       await admin.from('campaigns').update({ meta_error: `${msg} (${detail})` }).eq('id', campaign_id)
-      return json({ error: msg, detail }, tokenExpired ? 401 : 400)
+      return json({ error: msg, detail }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
     const currency: string = (acctInfo.currency as string) ?? 'USD'
 
@@ -264,7 +273,7 @@ Deno.serve(async (req) => {
     })
 
     if (metaCampaign.error) {
-      const { msg, tokenExpired, detail } = formatMetaError(metaCampaign.error)
+      const { msg, tokenExpired, pendingAction, detail } = formatMetaError(metaCampaign.error)
       console.error('Meta campaign create failed:', detail, metaCampaign.error)
       // Meta's "budget too small" subcode — enrich with our known minimum
       let finalMsg = msg
@@ -276,7 +285,7 @@ Deno.serve(async (req) => {
           .eq('user_id', user.id).eq('platform', 'meta')
       }
       await admin.from('campaigns').update({ meta_error: `${finalMsg} (${detail})` }).eq('id', campaign_id)
-      return json({ error: finalMsg, detail, currency, min_daily: minDailyWhole }, tokenExpired ? 401 : 400)
+      return json({ error: finalMsg, detail, currency, min_daily: minDailyWhole }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
 
     const metaCampaignId = metaCampaign.id!
@@ -300,7 +309,7 @@ Deno.serve(async (req) => {
     })
 
     if (adSet.error) {
-      const { msg, tokenExpired, detail } = formatMetaError(adSet.error)
+      const { msg, tokenExpired, pendingAction, detail } = formatMetaError(adSet.error)
       console.error('Meta adset create failed:', detail, adSet.error)
       if (tokenExpired) {
         await admin.from('ad_integrations').update({ is_active: false })
@@ -310,7 +319,7 @@ Deno.serve(async (req) => {
         meta_campaign_id: metaCampaignId,
         meta_error:       `${msg} (${detail})`,
       }).eq('id', campaign_id)
-      return json({ error: msg, detail }, tokenExpired ? 401 : 400)
+      return json({ error: msg, detail }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
 
     const adSetId = adSet.id!
@@ -346,7 +355,7 @@ Deno.serve(async (req) => {
     })
 
     if (creative.error) {
-      const { msg, tokenExpired, detail } = formatMetaError(creative.error)
+      const { msg, tokenExpired, pendingAction, detail } = formatMetaError(creative.error)
       console.error('Meta creative create failed:', detail, creative.error)
       // 2446496 = image processing failed (wrong format, too small, unreachable URL)
       let finalMsg = msg
@@ -362,7 +371,7 @@ Deno.serve(async (req) => {
         meta_adset_id:    adSetId,
         meta_error:       `${finalMsg} (${detail})`,
       }).eq('id', campaign_id)
-      return json({ error: finalMsg, detail, image_used: resolvedImage }, tokenExpired ? 401 : 400)
+      return json({ error: finalMsg, detail, image_used: resolvedImage }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
 
     // ── 4. Create Ad ─────────────────────────────────────────────────────
@@ -374,7 +383,7 @@ Deno.serve(async (req) => {
     })
 
     if (ad.error) {
-      const { msg, tokenExpired, detail } = formatMetaError(ad.error)
+      const { msg, tokenExpired, pendingAction, detail } = formatMetaError(ad.error)
       console.error('Meta ad create failed:', detail, ad.error)
       if (tokenExpired) {
         await admin.from('ad_integrations').update({ is_active: false })
@@ -385,7 +394,7 @@ Deno.serve(async (req) => {
         meta_adset_id:    adSetId,
         meta_error:       `${msg} (${detail})`,
       }).eq('id', campaign_id)
-      return json({ error: msg, detail }, tokenExpired ? 401 : 400)
+      return json({ error: msg, detail }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
 
     // ── Save IDs back to our DB ──────────────────────────────────────────
