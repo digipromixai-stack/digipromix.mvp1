@@ -66,6 +66,11 @@ verify_jwt = false
 [functions.detect-changes]
 verify_jwt = false
 
+# cleanup-orphan-snapshots is a maintenance function — runs ad-hoc or
+# via pg_cron. Internal-only so verify_jwt is off.
+[functions.cleanup-orphan-snapshots]
+verify_jwt = false
+
 [functions.send-email-alert]
 verify_jwt = false
 

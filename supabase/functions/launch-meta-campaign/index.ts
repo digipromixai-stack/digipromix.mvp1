@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
         await admin.from('ad_integrations').update({ is_active: false })
           .eq('user_id', user.id).eq('platform', 'meta')
       }
-      await admin.from('campaigns').update({ meta_error: `${msg} (${detail})` }).eq('id', campaign_id)
+      await admin.from('campaigns').update({ meta_error: `${msg} (${detail})`, status: 'failed' }).eq('id', campaign_id)
       return json({ error: msg, detail }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
     const currency: string = (acctInfo.currency as string) ?? 'USD'
@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
         await admin.from('ad_integrations').update({ is_active: false })
           .eq('user_id', user.id).eq('platform', 'meta')
       }
-      await admin.from('campaigns').update({ meta_error: `${finalMsg} (${detail})` }).eq('id', campaign_id)
+      await admin.from('campaigns').update({ meta_error: `${finalMsg} (${detail})`, status: 'failed' }).eq('id', campaign_id)
       return json({ error: finalMsg, detail, currency, min_daily: minDailyWhole }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
 
@@ -320,6 +320,7 @@ Deno.serve(async (req) => {
       await admin.from('campaigns').update({
         meta_campaign_id: metaCampaignId,
         meta_error:       `${msg} (${detail})`,
+        status:           'failed',
       }).eq('id', campaign_id)
       return json({ error: msg, detail }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
@@ -372,6 +373,7 @@ Deno.serve(async (req) => {
         meta_campaign_id: metaCampaignId,
         meta_adset_id:    adSetId,
         meta_error:       `${finalMsg} (${detail})`,
+        status:           'failed',
       }).eq('id', campaign_id)
       return json({ error: finalMsg, detail, image_used: resolvedImage }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
@@ -395,6 +397,7 @@ Deno.serve(async (req) => {
         meta_campaign_id: metaCampaignId,
         meta_adset_id:    adSetId,
         meta_error:       `${msg} (${detail})`,
+        status:           'failed',
       }).eq('id', campaign_id)
       return json({ error: msg, detail }, tokenExpired ? 401 : (pendingAction ? 409 : 400))
     }
