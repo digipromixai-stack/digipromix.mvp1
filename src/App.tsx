@@ -11,6 +11,7 @@ import { RegisterPage } from './pages/auth/RegisterPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { OpportunityFeedPage } from './pages/OpportunityFeedPage'
 import { CompetitorsPage } from './pages/CompetitorsPage'
 import { CompetitorDetailPage } from './pages/CompetitorDetailPage'
 import { TimelinePage } from './pages/TimelinePage'
@@ -126,6 +127,7 @@ function AppRoutes() {
         }
       >
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/opportunities" element={<OpportunityFeedPage />} />
         <Route path="/competitors" element={<CompetitorsPage />} />
         <Route path="/competitors/:id" element={<CompetitorDetailPage />} />
         <Route path="/timeline" element={<TimelinePage />} />

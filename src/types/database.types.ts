@@ -219,6 +219,27 @@ export interface Campaign {
   client_id: string | null
   template: LandingTemplate
   daily_budget: number | null
+  // Managed-mode flow (MCC / agency Business Manager — added per mvp1.0 spec)
+  launch_mode: 'self' | 'managed'
+  managed_business_name: string | null
+  managed_provision_status: 'not_required' | 'pending' | 'provisioning' | 'active' | 'failed'
+  created_at: string
+  updated_at: string
+}
+
+// ── Managed Ads Accounts (DigiPromix-provisioned sub-accounts) ────────────────
+export interface ManagedAdsAccount {
+  id: string
+  user_id: string
+  platform: 'google' | 'meta'
+  external_account_id: string         // MCC sub-customer ID (Google) or act_xxx (Meta)
+  resource_name: string | null        // Full resource name for Google Ads
+  business_name: string
+  currency_code: string
+  timezone: string
+  billing_status: 'pending' | 'invited' | 'active' | 'failed'
+  billing_invite_link: string | null
+  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -258,6 +279,127 @@ interface CampaignUpdate {
   social_copy?: string | null; offer?: string | null; keywords?: string[]
   landing_page_title?: string | null; landing_page_cta?: string | null
   landing_page_body?: string | null; channels?: string[]; status?: CampaignStatus
+  // Post-time enhancements
+  client_id?: string | null; template?: LandingTemplate
+  daily_budget?: number | null; landing_page_url?: string | null
+  published?: boolean
+  // Managed-mode fields
+  launch_mode?: 'self' | 'managed'
+  managed_business_name?: string | null
+  managed_provision_status?: 'not_required' | 'pending' | 'provisioning' | 'active' | 'failed'
+}
+
+// ── MVP 2.0 — Signal Intelligence, AI Decision Engine, Memory Layer ─────────
+
+export type SignalType = 'competitor_change' | 'google_trends' | 'meta_ad_library' | 'seo_rank' | 'social_engagement'
+export type OpportunityStatus = 'open' | 'dismissed' | 'launched' | 'expired'
+export type RecommendationAction = 'launch_campaign' | 'adjust_budget' | 'pause_campaign' | 'change_creative' | 'change_audience' | 'scale_campaign' | 'reactivate'
+export type LeadIntentScore = 'HOT' | 'MEDIUM' | 'LOW'
+
+export interface Signal {
+  id: string
+  user_id: string
+  signal_type: SignalType
+  source: string
+  industry: string | null
+  location: string | null
+  keyword: string | null
+  competitor_id: string | null
+  monitored_page_id: string | null
+  payload: Record<string, unknown>
+  growth_pct: number | null
+  weight: number
+  collected_at: string
+  created_at: string
+}
+
+export interface Opportunity {
+  id: string
+  user_id: string
+  signal_id: string | null
+  title: string
+  description: string | null
+  industry: string | null
+  location: string | null
+  market_name: string | null
+  opportunity_score: number
+  expected_leads: number | null
+  estimated_cpc: number | null
+  estimated_cpl: number | null
+  recommended_budget: number | null
+  confidence: number | null
+  recommended_action: string | null
+  reasoning: string | null
+  signal_sources: Array<Record<string, unknown>>
+  status: OpportunityStatus
+  expires_at: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface AiRecommendation {
+  id: string
+  user_id: string
+  opportunity_id: string | null
+  campaign_id: string | null
+  action_type: RecommendationAction
+  recommendation: string
+  rationale: string | null
+  priority: number
+  confidence: number | null
+  metadata: Record<string, unknown>
+  applied_at: string | null
+  dismissed_at: string | null
+  created_at: string
+}
+
+export interface CampaignEmbedding {
+  id: string
+  user_id: string
+  campaign_id: string | null
+  signal_id: string | null
+  opportunity_id: string | null
+  content_text: string | null
+  // embedding: not exposed to frontend (server-side only)
+  outcome_clicks: number | null
+  outcome_impressions: number | null
+  outcome_conversions: number | null
+  outcome_spend: number | null
+  outcome_leads: number | null
+  seasonality_tag: string | null
+  region: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export interface CampaignPerformance {
+  id: string
+  campaign_id: string
+  user_id: string
+  date: string                 // ISO date
+  platform: 'google' | 'meta'
+  clicks: number
+  impressions: number
+  spend: number
+  conversions: number
+  ctr: number | null
+  cpc: number | null
+  conversion_rate: number | null
+  raw_payload: Record<string, unknown> | null
+  fetched_at: string
+}
+
+export interface LeadScore {
+  id: string
+  lead_id: string
+  user_id: string
+  engagement_score: number
+  score_type: LeadIntentScore
+  page_behavior: Record<string, unknown>
+  recommended_action: string | null
+  metadata: Record<string, unknown>
+  created_at: string
 }
 
 // Supabase Database interface for createClient<Database> typing
@@ -273,6 +415,14 @@ export interface Database {
       alert_preferences: { Row: AlertPreferences; Insert: AlertPreferencesInsert; Update: AlertPreferencesUpdate }
       crawl_jobs: { Row: CrawlJob; Insert: CrawlJobInsert; Update: CrawlJobUpdate }
       campaigns: { Row: Campaign; Insert: CampaignInsert; Update: CampaignUpdate }
+      managed_ads_accounts: { Row: ManagedAdsAccount; Insert: Partial<ManagedAdsAccount> & Pick<ManagedAdsAccount, 'user_id' | 'platform' | 'external_account_id' | 'business_name'>; Update: Partial<ManagedAdsAccount> }
+      // MVP 2.0 — Signal Intelligence + AI Decision Engine + Memory + Lead Intent
+      signals: { Row: Signal; Insert: Partial<Signal> & Pick<Signal, 'user_id' | 'signal_type' | 'source'>; Update: Partial<Signal> }
+      opportunities: { Row: Opportunity; Insert: Partial<Opportunity> & Pick<Opportunity, 'user_id' | 'title'>; Update: Partial<Opportunity> }
+      ai_recommendations: { Row: AiRecommendation; Insert: Partial<AiRecommendation> & Pick<AiRecommendation, 'user_id' | 'action_type' | 'recommendation'>; Update: Partial<AiRecommendation> }
+      campaign_embeddings: { Row: CampaignEmbedding; Insert: Partial<CampaignEmbedding> & Pick<CampaignEmbedding, 'user_id'>; Update: Partial<CampaignEmbedding> }
+      campaign_performance: { Row: CampaignPerformance; Insert: Partial<CampaignPerformance> & Pick<CampaignPerformance, 'campaign_id' | 'user_id' | 'date' | 'platform'>; Update: Partial<CampaignPerformance> }
+      lead_scores: { Row: LeadScore; Insert: Partial<LeadScore> & Pick<LeadScore, 'lead_id' | 'user_id' | 'engagement_score' | 'score_type'>; Update: Partial<LeadScore> }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

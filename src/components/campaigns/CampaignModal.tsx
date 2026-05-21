@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   Rocket, Loader2, Copy, Check, Zap, Globe, Share2,
   Search, CheckCircle2, ChevronDown, ChevronUp, X,
-  ExternalLink, AlertTriangle, Link2, DollarSign, Layout,
+  ExternalLink, Link2, DollarSign, Layout, Sparkles, Shield,
 } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -84,15 +84,28 @@ export function CampaignModal({ change, open, onClose }: Props) {
   const [posting, setPosting]         = useState(false)
   const [landingUrl, setLandingUrl]   = useState('')
   const [metaResult, setMetaResult]   = useState<{ meta_campaign_id?: string } | null>(null)
-  const [googleResult, setGoogleResult] = useState<{ google_campaign_id?: string } | null>(null)
+  const [googleResult, setGoogleResult] = useState<{
+    google_campaign_id?: string
+    mode?: 'self' | 'managed'
+    managed_account_id?: string | null
+    billing?: { required: boolean; status?: string; url?: string } | null
+  } | null>(null)
   // New fields
   const [template, setTemplate]       = useState<LandingTemplate>('default')
   const [dailyBudget, setDailyBudget] = useState('')
   const [clientId, setClientId]       = useState('')
   const [imageUrl, setImageUrl]       = useState('')
   const [insights, setInsights]       = useState<{ competitor_offer?: string; offer_justification?: string } | null>(null)
+  // Launch mode per channel: 'self' = user's connected account, 'managed' = DigiPromix runs it via MCC
+  const [launchModes, setLaunchModes] = useState<Record<string, 'self' | 'managed'>>({ meta: 'managed', google: 'managed' })
+  const [managedBusinessName, setManagedBusinessName] = useState('')
 
-  const handleClose = () => { setStep('generate'); setError(null); setCampaign(null); setMetaResult(null); setGoogleResult(null); setTemplate('default'); setDailyBudget(''); setClientId(''); setImageUrl(''); setInsights(null); onClose() }
+  const handleClose = () => {
+    setStep('generate'); setError(null); setCampaign(null); setMetaResult(null); setGoogleResult(null)
+    setTemplate('default'); setDailyBudget(''); setClientId(''); setImageUrl(''); setInsights(null)
+    setLaunchModes({ meta: 'managed', google: 'managed' }); setManagedBusinessName('')
+    onClose()
+  }
 
   const generate = async () => {
     setLoading(true); setError(null)
@@ -121,8 +134,13 @@ export function CampaignModal({ change, open, onClose }: Props) {
     if (!campaign) return
 
     // ── Client-side validation before hitting any edge function ──────────
-    const metaWillLaunch   = selectedChannels.includes('meta')   && !!metaIntegration
-    const googleWillLaunch = selectedChannels.includes('google') && !!googleIntegration
+    // A launch happens when channel selected AND (managed mode OR self mode with connected integration)
+    const metaWillLaunch =
+      selectedChannels.includes('meta') &&
+      (launchModes.meta === 'managed' || !!metaIntegration)
+    const googleWillLaunch =
+      selectedChannels.includes('google') &&
+      (launchModes.google === 'managed' || !!googleIntegration)
 
     if (metaWillLaunch || googleWillLaunch) {
       try {
@@ -147,7 +165,14 @@ export function CampaignModal({ change, open, onClose }: Props) {
 
     setPosting(true); setError(null)
     try {
-      // Save status + channels + template + budget + client + publish landing page
+      // Determine which mode(s) this campaign is using. If ANY selected channel is
+      // managed, mark the whole campaign as managed in the DB so the launch
+      // functions take the MCC / agency-Business-Manager code path.
+      const anyManaged =
+        (selectedChannels.includes('meta')   && launchModes.meta   === 'managed') ||
+        (selectedChannels.includes('google') && launchModes.google === 'managed')
+
+      // Save status + channels + template + budget + client + launch mode + publish landing page
       await supabase
         .from('campaigns')
         .update({
@@ -158,13 +183,18 @@ export function CampaignModal({ change, open, onClose }: Props) {
           template,
           daily_budget: dailyBudget ? parseInt(dailyBudget, 10) : null,
           client_id: clientId || null,
+          launch_mode: anyManaged ? 'managed' : 'self',
+          managed_business_name: anyManaged ? (managedBusinessName || null) : null,
+          managed_provision_status: anyManaged ? 'pending' : 'not_required',
         })
         .eq('id', campaign.id)
       qc.invalidateQueries({ queryKey: ['campaigns'] })
 
       const budgetNum = dailyBudget ? Number(dailyBudget) : undefined
 
-      // Launch to Meta if connected and selected
+      // Launch to Meta when:
+      //   - SELF mode AND user account is connected, OR
+      //   - MANAGED mode (the function uses the agency Business Manager + System User)
       if (metaWillLaunch) {
         const { data, error: launchErr } = await invokeFunction<{ meta_campaign_id: string }>(
           'launch-meta-campaign',
@@ -179,9 +209,16 @@ export function CampaignModal({ change, open, onClose }: Props) {
         setMetaResult(data)
       }
 
-      // Launch to Google Ads if connected and selected
+      // Launch to Google Ads when:
+      //   - SELF mode AND user account is connected, OR
+      //   - MANAGED mode (the function provisions an MCC sub-account on demand)
       if (googleWillLaunch) {
-        const { data, error: launchErr } = await invokeFunction<{ google_campaign_id: string }>(
+        const { data, error: launchErr } = await invokeFunction<{
+          google_campaign_id: string
+          mode?: 'self' | 'managed'
+          managed_account_id?: string | null
+          billing?: { required: boolean; status?: string; url?: string } | null
+        }>(
           'launch-google-ads-campaign',
           {
             campaign_id:      campaign.id,
@@ -408,32 +445,55 @@ export function CampaignModal({ change, open, onClose }: Props) {
             </div>
           </div>
 
-          {/* Meta connection status */}
-          {metaSelected && !metaIntegration && (
-            <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-700">
-              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-              <span>
-                Meta account not connected.{' '}
-                <Link to="/settings" className="underline font-medium">Connect in Settings</Link>
-                {' '}to launch ads directly, or use the content above to create ads manually.
-              </span>
+          {/* ── Launch Mode chooser (per channel) ──────────────────────────
+              Implements the "Connect or Let DigiPromix Run For You" UX flow.
+              Removes the friction of forcing users to set up Google/Meta ad accounts. */}
+          {(metaSelected || googleSelected) && (
+            <div className="space-y-3">
+              {metaSelected && (
+                <LaunchModeChooser
+                  platform="Meta"
+                  connected={!!metaIntegration}
+                  mode={launchModes.meta ?? 'managed'}
+                  onChange={mode => setLaunchModes(prev => ({ ...prev, meta: mode }))}
+                />
+              )}
+              {googleSelected && (
+                <LaunchModeChooser
+                  platform="Google Ads"
+                  connected={!!googleIntegration}
+                  mode={launchModes.google ?? 'managed'}
+                  onChange={mode => setLaunchModes(prev => ({ ...prev, google: mode }))}
+                />
+              )}
             </div>
           )}
 
-          {/* Google Ads connection status */}
-          {googleSelected && !googleIntegration && (
-            <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-700">
-              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-              <span>
-                Google Ads account not connected.{' '}
-                <Link to="/settings" className="underline font-medium">Connect in Settings</Link>
-                {' '}to launch Search ads directly, or copy the content above into Google Ads Manager.
-              </span>
+          {/* Managed-mode quick details (business name needed for MCC sub-account) */}
+          {((metaSelected && launchModes.meta === 'managed') || (googleSelected && launchModes.google === 'managed')) && (
+            <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-700">
+                <Sparkles size={12} /> Done-for-you details
+              </div>
+              <input
+                type="text"
+                placeholder="Your business name (used to create the managed ad account)"
+                value={managedBusinessName}
+                onChange={e => setManagedBusinessName(e.target.value)}
+                className="w-full bg-white border border-violet-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+              <p className="text-[11px] text-violet-600 leading-relaxed">
+                Our team will provision a sub-account under our agency Manager (MCC) and launch your campaign within 24 hours.
+                Billing stays in your name — we'll send you a one-time setup link when ready.
+              </p>
             </div>
           )}
 
-          {/* Landing page URL — required for Meta or Google launch */}
-          {((metaSelected && metaIntegration) || (googleSelected && googleIntegration)) && (() => {
+          {/* Landing page URL — required for any launch (self or managed) */}
+          {(
+            (metaSelected   && (launchModes.meta   === 'managed' || metaIntegration)) ||
+            (googleSelected && (launchModes.google === 'managed' || googleIntegration))
+          ) && (() => {
             const isValid = (() => {
               if (!landingUrl.trim()) return false
               try {
@@ -478,8 +538,8 @@ export function CampaignModal({ change, open, onClose }: Props) {
             )
           })()}
 
-          {/* Ad image URL — required by Meta (no SVG) */}
-          {metaSelected && metaIntegration && (
+          {/* Ad image URL — Meta (no SVG); supports both self + managed mode */}
+          {metaSelected && (launchModes.meta === 'managed' || metaIntegration) && (
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">
                 Ad image URL <span className="text-gray-400 font-normal">(optional — Meta will auto-scrape og:image if blank)</span>
@@ -599,21 +659,53 @@ export function CampaignModal({ change, open, onClose }: Props) {
             </div>
           )}
 
-          {/* Manual channels */}
-          {selectedChannels.some(ch =>
-            !(ch === 'meta' && metaIntegration) && !(ch === 'google' && googleIntegration)
-          ) && (
+          {/* Billing setup CTA — managed mode only */}
+          {googleResult?.mode === 'managed' && googleResult.billing?.required && googleResult.billing.url && (
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 text-left">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm mb-1.5">
+                <DollarSign size={16} className="text-amber-600" /> Action required: Add billing to activate ads
+              </div>
+              <p className="text-xs text-amber-800 leading-relaxed mb-3">
+                Your DigiPromix-managed Google Ads sub-account is provisioned (ID:{' '}
+                <code className="font-mono bg-amber-100 px-1 rounded">{googleResult.managed_account_id}</code>).
+                The campaign is sitting in PAUSED state. Add a payment method to start serving ads — usually takes 2 minutes.
+              </p>
+              <a
+                href={googleResult.billing.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Open Google Ads billing setup <ExternalLink size={11} />
+              </a>
+              <p className="text-[10px] text-amber-700 mt-2">
+                Status: <span className="font-semibold uppercase">{googleResult.billing.status ?? 'pending'}</span> · Billing is paid by you directly — DigiPromix never touches your card.
+              </p>
+            </div>
+          )}
+
+          {/* DigiPromix-managed channels */}
+          {selectedChannels.some(ch => (ch === 'meta' && launchModes.meta === 'managed') || (ch === 'google' && launchModes.google === 'managed')) && (
+            <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-xl p-4 text-left">
+              <div className="flex items-center gap-1.5 text-violet-700 font-semibold text-sm mb-2">
+                <Sparkles size={14} /> Done-for-you queue
+              </div>
+              <p className="text-xs text-violet-700 leading-relaxed">
+                Our team will set up the managed ad account and launch your campaign on{' '}
+                {selectedChannels.filter(ch => (ch === 'meta' && launchModes.meta === 'managed') || (ch === 'google' && launchModes.google === 'managed')).map(ch => ch === 'meta' ? 'Meta' : 'Google').join(' + ')} within 24 hours.
+                You'll get a confirmation email once it's live.
+              </p>
+            </div>
+          )}
+
+          {/* Manual channels (instagram-only or other channels not auto-launched) */}
+          {selectedChannels.some(ch => ch === 'instagram') && (
             <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-left">
               <p className="text-xs font-semibold text-gray-600 mb-2">Manual upload</p>
-              {selectedChannels
-                .filter(ch => !(ch === 'meta' && metaIntegration) && !(ch === 'google' && googleIntegration))
-                .map(ch => (
-                  <div key={ch} className="flex items-center gap-2 text-sm text-gray-600 py-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
-                    Copy the headline + ad copy above into{' '}
-                    {ch === 'google' ? 'Google Ads Manager' : ch === 'meta' ? 'Meta Ads Manager' : 'Instagram'}
-                  </div>
-                ))}
+              <div className="flex items-center gap-2 text-sm text-gray-600 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+                Copy the headline + ad copy above into Instagram
+              </div>
             </div>
           )}
 
@@ -624,5 +716,93 @@ export function CampaignModal({ change, open, onClose }: Props) {
         </div>
       )}
     </Modal>
+  )
+}
+
+// ── Launch Mode Chooser ──────────────────────────────────────────────────────
+// Implements the "Connect or Let Us Run" hybrid UX from the MVP spec.
+// Removes onboarding friction by offering a done-for-you managed option
+// (DigiPromix runs the ad via MCC) alongside the standard self-connect flow.
+
+function LaunchModeChooser({
+  platform,
+  connected,
+  mode,
+  onChange,
+}: {
+  platform: 'Meta' | 'Google Ads'
+  connected: boolean
+  mode: 'self' | 'managed'
+  onChange: (mode: 'self' | 'managed') => void
+}) {
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+        <p className="text-xs font-semibold text-gray-600">How should we launch on <span className="text-gray-900">{platform}</span>?</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+        {/* OPTION A — Connect your own account */}
+        <button
+          type="button"
+          onClick={() => onChange('self')}
+          className={`flex items-start gap-2.5 p-3 text-left transition-colors ${
+            mode === 'self' ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
+          }`}
+        >
+          <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+            mode === 'self' ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+          }`}>
+            {mode === 'self' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className={`text-sm font-semibold ${mode === 'self' ? 'text-blue-700' : 'text-gray-800'}`}>
+                Connect my account
+              </p>
+              {connected && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                  <span className="w-1 h-1 rounded-full bg-green-500" /> Connected
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
+              {connected
+                ? "Your account is linked — we'll launch directly."
+                : <>You'll need to <Link to="/settings" className="text-blue-600 underline">connect in Settings</Link> first.</>}
+            </p>
+          </div>
+        </button>
+
+        {/* OPTION B — Let DigiPromix run it (Recommended) */}
+        <button
+          type="button"
+          onClick={() => onChange('managed')}
+          className={`relative flex items-start gap-2.5 p-3 text-left transition-colors ${
+            mode === 'managed' ? 'bg-violet-50' : 'bg-white hover:bg-gray-50'
+          }`}
+        >
+          <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider bg-gradient-to-r from-violet-500 to-indigo-500 text-white px-1.5 py-0.5 rounded">
+            ⭐ Recommended
+          </span>
+          <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+            mode === 'managed' ? 'border-violet-500 bg-violet-500' : 'border-gray-300'
+          }`}>
+            {mode === 'managed' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Sparkles size={11} className={mode === 'managed' ? 'text-violet-600' : 'text-gray-400'} />
+              <p className={`text-sm font-semibold ${mode === 'managed' ? 'text-violet-700' : 'text-gray-800'}`}>
+                Let DigiPromix run it
+              </p>
+            </div>
+            <p className="text-[11px] text-gray-500 leading-snug mt-0.5 flex items-center gap-1">
+              <Shield size={9} className="text-violet-400 shrink-0" />
+              No ad account needed — we'll launch within 24h
+            </p>
+          </div>
+        </button>
+      </div>
+    </div>
   )
 }
