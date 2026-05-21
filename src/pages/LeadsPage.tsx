@@ -45,7 +45,8 @@ function IntentBadge({ scoreType }: { scoreType: string | null | undefined }) {
 function LeadCard({ lead }: { lead: LeadWithCampaign }) {
   const { mutate: updateStatus, isPending: updating } = useUpdateLeadStatus()
   const { mutate: deleteLead, isPending: deleting } = useDeleteLead()
-  const cfg = STATUS_CONFIG[lead.status]
+  // Defensive fallback — never crash on a status value the frontend doesn't know
+  const cfg = STATUS_CONFIG[lead.status] ?? STATUS_CONFIG.new
 
   return (
     <Card className="hover:shadow-md transition-shadow">
