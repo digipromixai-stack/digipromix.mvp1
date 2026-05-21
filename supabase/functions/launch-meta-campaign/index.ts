@@ -109,6 +109,25 @@ function isMetaCompatibleImage(url: string): boolean {
   } catch { return false }
 }
 
+/**
+ * HEAD-check that an image URL actually exists + returns a raster MIME type.
+ * Prevents Meta from rejecting with subcode 1487833 ("could not be downloaded")
+ * when the og:image points to a 404 or to a non-image resource.
+ */
+async function isImageReachable(url: string): Promise<boolean> {
+  try {
+    let res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+    // Some servers don't support HEAD — fall back to a tiny GET
+    if (res.status === 405 || res.status === 501) {
+      res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+    }
+    if (!res.ok) return false
+    const ct = res.headers.get('content-type') ?? ''
+    // Accept anything that looks like an image (image/png, image/jpeg, image/gif, image/webp)
+    return /^image\/(png|jpe?g|gif|webp)/i.test(ct)
+  } catch { return false }
+}
+
 // Scrape og:image / twitter:image from the landing page so Meta has a real
 // raster image to use for the ad. Falls back to null if nothing usable found.
 async function scrapePageImage(pageUrl: string): Promise<string | null> {
@@ -145,15 +164,24 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization') ?? ''
+    const adminOnBehalfOf = req.headers.get('x-admin-on-behalf-of')
 
-    // Authenticate via user-scoped client
-    const userClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } },
-    )
-    const { data: { user }, error: authErr } = await userClient.auth.getUser()
-    if (authErr || !user) return json({ error: 'Unauthorized' }, 401)
+    // Admin path: bearer = service role + x-admin-on-behalf-of header set.
+    // Bypasses user-session lookup so internal functions / cron / curl can launch.
+    let user: { id: string } | null = null
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (adminOnBehalfOf && serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`) {
+      user = { id: adminOnBehalfOf }
+    } else {
+      const userClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } },
+      )
+      const { data: { user: u }, error: authErr } = await userClient.auth.getUser()
+      if (authErr || !u) return json({ error: 'Unauthorized' }, 401)
+      user = u
+    }
 
     // Service-role client for privileged DB operations
     const admin = createClient(
@@ -328,14 +356,19 @@ Deno.serve(async (req) => {
     const adSetId = adSet.id!
 
     // ── 3. Resolve the ad image ──────────────────────────────────────────
-    // Priority: explicit image_url param → og:image on landing page → default
-    let resolvedImage: string | null = null
-    if (image_url && isValidHttpUrl(image_url) && isMetaCompatibleImage(image_url)) {
-      resolvedImage = image_url.trim()
-    } else {
-      resolvedImage = await scrapePageImage(adUrl)
+    // Priority: explicit image_url param → og:image on landing page → default.
+    // HEAD-check every candidate to avoid Meta subcode 1487833 ("image could
+    // not be downloaded") when the og:image URL points to a 404.
+    async function pickImage(): Promise<string> {
+      if (image_url && isValidHttpUrl(image_url) && isMetaCompatibleImage(image_url)) {
+        if (await isImageReachable(image_url.trim())) return image_url.trim()
+      }
+      const scraped = await scrapePageImage(adUrl)
+      if (scraped && await isImageReachable(scraped)) return scraped
+      // Last-resort default. If even this fails, Meta will surface the error.
+      return DEFAULT_AD_IMAGE
     }
-    if (!resolvedImage) resolvedImage = DEFAULT_AD_IMAGE
+    const resolvedImage = await pickImage()
 
     // ── 4. Create Ad Creative ────────────────────────────────────────────
     // Note: degrees_of_freedom_spec.standard_enhancements was deprecated by
@@ -360,10 +393,11 @@ Deno.serve(async (req) => {
     if (creative.error) {
       const { msg, tokenExpired, pendingAction, detail } = formatMetaError(creative.error)
       console.error('Meta creative create failed:', detail, creative.error)
-      // 2446496 = image processing failed (wrong format, too small, unreachable URL)
+      // 2446496 = image processing failed (wrong format, too small)
+      // 1487833 = image could not be downloaded (404, blocked, slow)
       let finalMsg = msg
-      if (creative.error.error_subcode === 2446496) {
-        finalMsg = `Meta could not process the ad image (${resolvedImage}). Make sure the image is a public PNG/JPG at least 600×600px and not behind auth. Pass image_url in the request to override.`
+      if (creative.error.error_subcode === 2446496 || creative.error.error_subcode === 1487833) {
+        finalMsg = `Meta could not download or process the ad image (${resolvedImage}). Upload a public PNG/JPG at least 600×600px to your domain (e.g. /og-image.png) or pass image_url explicitly in the launch request.`
       }
       if (tokenExpired) {
         await admin.from('ad_integrations').update({ is_active: false })
