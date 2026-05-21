@@ -31,6 +31,7 @@ import { MarketingPage } from './pages/MarketingPage'
 import { DocsPage } from './pages/DocsPage'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { TermsPage } from './pages/TermsPage'
+import { CookieConsent } from './components/ui/CookieConsent'
 
 // Handles all OAuth/email auth redirects to /auth/callback.
 // Supports both PKCE flow (?code=...) and implicit flow (#access_token=...).
@@ -152,6 +153,7 @@ export default function App() {
           <AuthProvider>
             <ToastProvider>
               <AppRoutes />
+              <CookieConsent />
             </ToastProvider>
           </AuthProvider>
         </BrowserRouter>

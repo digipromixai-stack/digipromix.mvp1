@@ -3,7 +3,7 @@
  * Premium, conversion-optimised design with 5 industry templates.
  * Layout: two-column (hero left · sticky form right) on desktop, stacked on mobile.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Loader2, CheckCircle2, AlertTriangle, Zap, Heart, Home,
@@ -227,6 +227,54 @@ const TEMPLATE_BENEFITS: Record<LandingTemplate, string[]> = {
   'local-services': ['Same-day service appointments', 'Fully licensed and insured team', 'Free on-site estimate included'],
 }
 
+// ── Engagement tracker ────────────────────────────────────────────────────────
+// MVP 2.0 Lead Intent Scoring inputs. Captured passively on the landing page
+// and sent with the lead submission so the backend can classify HOT/MEDIUM/LOW.
+function useEngagementSignals() {
+  const startRef = useRef<number>(Date.now())
+  const scrollRef = useRef<number>(0)
+  const clickRef  = useRef<number>(0)
+
+  useEffect(() => {
+    const onScroll = () => {
+      const doc = document.documentElement
+      const max = Math.max(1, doc.scrollHeight - doc.clientHeight)
+      const pct = Math.round((doc.scrollTop / max) * 100)
+      if (pct > scrollRef.current) scrollRef.current = Math.min(100, pct)
+    }
+    const onClick = () => { clickRef.current += 1 }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('click', onClick)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('click', onClick)
+    }
+  }, [])
+
+  // Snapshot accessor — called at submit time
+  return useCallback(() => ({
+    time_on_page_seconds: Math.round((Date.now() - startRef.current) / 1000),
+    scroll_depth_pct:     scrollRef.current,
+    click_count:          clickRef.current,
+  }), [])
+}
+
+// Read UTM and referrer once on mount
+function useAttribution() {
+  const [attribution] = useState(() => {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+    return {
+      utm_source:   params.get('utm_source')   ?? null,
+      utm_medium:   params.get('utm_medium')   ?? null,
+      utm_campaign: params.get('utm_campaign') ?? null,
+      utm_content:  params.get('utm_content')  ?? null,
+      utm_term:     params.get('utm_term')     ?? null,
+      referrer:     typeof document !== 'undefined' && document.referrer ? document.referrer : null,
+    }
+  })
+  return attribution
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function LandingPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -237,6 +285,8 @@ export function LandingPage() {
   const [phone,     setPhone]     = useState('')
   const [message,   setMessage]   = useState('')
   const [formError, setFormError] = useState<string | null>(null)
+  const getEngagement = useEngagementSignals()
+  const attribution   = useAttribution()
 
   useEffect(() => {
     if (!slug) { setState('not_found'); return }
@@ -257,12 +307,15 @@ export function LandingPage() {
     }
     setFormError(null)
     setState('submitting')
+    const engagement = getEngagement()
     const { error } = await invokeFunction('submit-lead', {
       slug,
       name:    name.trim()    || null,
       email:   email.trim()   || null,
       phone:   phone.trim()   || null,
       message: message.trim() || null,
+      ...engagement,
+      ...attribution,
     })
     if (error) { setFormError('Something went wrong. Please try again.'); setState('ready'); return }
     setState('success')
