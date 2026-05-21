@@ -164,7 +164,7 @@ interface AlertPreferencesUpdate { email_alerts?: boolean; dashboard_alerts?: bo
 interface CrawlJobInsert { competitor_id: string; monitored_page_id?: string | null; status?: CrawlJobStatus }
 interface CrawlJobUpdate { status?: CrawlJobStatus; error_message?: string | null; started_at?: string | null; completed_at?: string | null }
 
-export type CampaignStatus   = 'draft' | 'active' | 'paused' | 'completed'
+export type CampaignStatus   = 'draft' | 'active' | 'paused' | 'failed' | 'completed'
 export type LeadStatus       = 'new' | 'contacted' | 'qualified' | 'closed'
 export type LandingTemplate  = 'default' | 'healthcare' | 'real-estate' | 'education' | 'local-services'
 

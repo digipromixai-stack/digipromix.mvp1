@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   Rocket, Search, Globe, Share2, Trash2, Play, Pause,
   CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
+  AlertTriangle,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '../components/ui/Card'
@@ -13,10 +14,11 @@ import { timeAgo } from '../lib/utils'
 import type { Campaign, CampaignStatus } from '../types/database.types'
 
 const STATUS_CONFIG: Record<CampaignStatus, { label: string; color: string; icon: React.ElementType }> = {
-  draft:     { label: 'Draft',     color: 'bg-gray-100 text-gray-600',   icon: FileEdit     },
-  active:    { label: 'Active',    color: 'bg-green-100 text-green-700', icon: Play         },
-  paused:    { label: 'Paused',    color: 'bg-yellow-100 text-yellow-700', icon: Pause      },
-  completed: { label: 'Completed', color: 'bg-blue-100 text-blue-700',   icon: CheckCircle2 },
+  draft:     { label: 'Draft',     color: 'bg-gray-100 text-gray-600',     icon: FileEdit       },
+  active:    { label: 'Active',    color: 'bg-green-100 text-green-700',   icon: Play           },
+  paused:    { label: 'Paused',    color: 'bg-yellow-100 text-yellow-700', icon: Pause          },
+  failed:    { label: 'Failed',    color: 'bg-red-100 text-red-700',       icon: AlertTriangle  },
+  completed: { label: 'Completed', color: 'bg-blue-100 text-blue-700',     icon: CheckCircle2   },
 }
 
 const CHANNEL_ICONS: Record<string, React.ElementType> = {
@@ -26,7 +28,11 @@ const CHANNEL_ICONS: Record<string, React.ElementType> = {
 }
 
 function StatusBadge({ status }: { status: CampaignStatus }) {
-  const cfg = STATUS_CONFIG[status]
+  // Defensive fallback — if the DB ever returns a status not yet known to the
+  // frontend (older or newer enum value), render a neutral chip instead of crashing.
+  const cfg = STATUS_CONFIG[status] ?? {
+    label: status, color: 'bg-gray-100 text-gray-600', icon: FileEdit,
+  }
   const Icon = cfg.icon
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.color}`}>
