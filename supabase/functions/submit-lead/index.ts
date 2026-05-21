@@ -25,13 +25,73 @@ function json(body: unknown, status = 200) {
   })
 }
 
-function scoreLeadSimple(name: string | null, email: string | null, phone: string | null, message: string | null): number {
-  let s = 30 // base
-  if (name?.trim())    s += 10
-  if (email?.trim())   s += 25
-  if (phone?.trim())   s += 30
-  if (message?.trim()) s += 15
-  return Math.min(s, 100)
+interface ScoringInput {
+  name:    string | null
+  email:   string | null
+  phone:   string | null
+  message: string | null
+  // Engagement signals (MVP 2.0 Lead Intent Scoring)
+  time_on_page_seconds: number | null
+  scroll_depth_pct:     number | null
+  click_count:          number | null
+  utm_source:           string | null
+  utm_medium:           string | null
+  referrer:             string | null
+}
+
+/**
+ * MVP 2.0 Lead Intent Scoring
+ * Combines form quality with engagement signals + UTM context to classify
+ * leads as HOT / MEDIUM / LOW. Output: { score: 0-100, score_type, recommended_action }
+ */
+function scoreLeadIntent(i: ScoringInput): { score: number; score_type: 'HOT' | 'MEDIUM' | 'LOW'; recommended_action: string } {
+  let s = 0
+
+  // ── Form quality (max 50) ──
+  if (i.name?.trim())    s += 5
+  if (i.email?.trim())   s += 15
+  if (i.phone?.trim())   s += 20
+  if (i.message?.trim()) s += 10
+
+  // ── Engagement quality (max 30) ──
+  const time = i.time_on_page_seconds ?? 0
+  if (time >= 60)       s += 10                 // > 1 min = engaged
+  else if (time >= 30)  s += 6
+  else if (time >= 10)  s += 3
+
+  const scroll = i.scroll_depth_pct ?? 0
+  if (scroll >= 75)     s += 10                 // read most of the page
+  else if (scroll >= 50) s += 6
+  else if (scroll >= 25) s += 3
+
+  const clicks = i.click_count ?? 0
+  if (clicks >= 3)      s += 10                 // explored multiple CTAs
+  else if (clicks >= 1) s += 5
+
+  // ── Channel quality (max 20) ──
+  // Paid traffic + branded referrals signal higher intent than organic strangers
+  const src = (i.utm_source ?? '').toLowerCase()
+  const med = (i.utm_medium ?? '').toLowerCase()
+  if (med === 'cpc' || med === 'paid' || src === 'google' || src === 'meta' || src === 'facebook') s += 15
+  else if (i.referrer?.trim())  s += 8           // referred from a known site
+  else if (src)                 s += 5           // tagged organic
+
+  s = Math.min(s, 100)
+
+  let score_type: 'HOT' | 'MEDIUM' | 'LOW'
+  let recommended_action: string
+  if (s >= 70) {
+    score_type = 'HOT'
+    recommended_action = 'Contact within 5 minutes — high intent.'
+  } else if (s >= 40) {
+    score_type = 'MEDIUM'
+    recommended_action = 'Follow up within 24 hours with personalised message.'
+  } else {
+    score_type = 'LOW'
+    recommended_action = 'Add to nurture sequence — low immediate intent.'
+  }
+
+  return { score: s, score_type, recommended_action }
 }
 
 async function sendWhatsApp(
@@ -64,7 +124,19 @@ Deno.serve(async (req) => {
     )
 
     const body = await req.json()
-    const { slug, name = null, email = null, phone = null, message = null } = body
+    const {
+      slug, name = null, email = null, phone = null, message = null,
+      // MVP 2.0 — engagement + attribution signals (all optional, frontend may omit)
+      time_on_page_seconds = null,
+      scroll_depth_pct     = null,
+      click_count          = null,
+      utm_source           = null,
+      utm_medium           = null,
+      utm_campaign         = null,
+      utm_content          = null,
+      utm_term             = null,
+      referrer             = null,
+    } = body
 
     if (!slug) return json({ error: 'slug is required' }, 400)
     if (!name && !email && !phone) return json({ error: 'At least name, email or phone is required' }, 400)
@@ -79,7 +151,11 @@ Deno.serve(async (req) => {
 
     if (campErr || !campaign) return json({ error: 'Landing page not found' }, 404)
 
-    const score = scoreLeadSimple(name, email, phone, message)
+    const { score, score_type, recommended_action } = scoreLeadIntent({
+      name, email, phone, message,
+      time_on_page_seconds, scroll_depth_pct, click_count,
+      utm_source, utm_medium, referrer,
+    })
 
     // Insert lead
     const { data: lead, error: insertErr } = await admin
@@ -94,6 +170,13 @@ Deno.serve(async (req) => {
         message,
         source:        'landing_page',
         score,
+        score_type,
+        recommended_action,
+        time_on_page_seconds,
+        scroll_depth_pct,
+        click_count,
+        utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+        referrer,
         status:        'new',
       })
       .select()

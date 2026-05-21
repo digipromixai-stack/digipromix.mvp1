@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Users, Mail, Phone, MessageSquare, Trash2, Star } from 'lucide-react'
+import { Users, Mail, Phone, MessageSquare, Trash2, Star, Flame, Snowflake, Activity } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/Card'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -21,6 +21,24 @@ function ScoreDot({ score }: { score: number }) {
       <span className={`w-2 h-2 rounded-full ${color}`} />
       <span className="text-xs text-gray-500 font-mono">{score}%</span>
     </div>
+  )
+}
+
+// MVP 2.0 Lead Intent badge — HOT/MEDIUM/LOW with iconography
+function IntentBadge({ scoreType }: { scoreType: string | null | undefined }) {
+  if (!scoreType) return null
+  const variants: Record<string, { Icon: typeof Flame; label: string; cls: string }> = {
+    HOT:    { Icon: Flame,     label: 'HOT',    cls: 'bg-red-50 text-red-700 border-red-200' },
+    MEDIUM: { Icon: Activity,  label: 'MEDIUM', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    LOW:    { Icon: Snowflake, label: 'LOW',    cls: 'bg-slate-50 text-slate-600 border-slate-200' },
+  }
+  const v = variants[scoreType] ?? variants.LOW
+  const { Icon } = v
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${v.cls}`}>
+      <Icon size={10} />
+      {v.label}
+    </span>
   )
 }
 
@@ -47,7 +65,8 @@ function LeadCard({ lead }: { lead: LeadWithCampaign }) {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <IntentBadge scoreType={(lead as { score_type?: string }).score_type} />
                 <ScoreDot score={lead.score} />
                 <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.color}`}>
                   {cfg.label}
@@ -73,6 +92,12 @@ function LeadCard({ lead }: { lead: LeadWithCampaign }) {
               <p className="flex items-start gap-1 text-xs text-gray-500 mt-1.5 italic">
                 <MessageSquare size={11} className="shrink-0 mt-0.5" />
                 {lead.message}
+              </p>
+            )}
+
+            {(lead as { recommended_action?: string }).recommended_action && (
+              <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md mt-1.5">
+                {(lead as { recommended_action?: string }).recommended_action}
               </p>
             )}
 

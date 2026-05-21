@@ -71,6 +71,10 @@ verify_jwt = false
 [functions.cleanup-orphan-snapshots]
 verify_jwt = false
 
+# health-check is publicly callable by uptime monitors — no auth.
+[functions.health-check]
+verify_jwt = false
+
 [functions.send-email-alert]
 verify_jwt = false
 
