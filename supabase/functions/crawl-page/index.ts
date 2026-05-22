@@ -381,8 +381,19 @@ Deno.serve(async (req) => {
   ])
 
   if (snapError || !newSnapshot) {
-    console.error('Snapshot insert failed:', snapError?.message)
-    return jsonResponse({ error: 'Snapshot insert failed' }, 500)
+    // Write the *actual* SQL error to crawl_jobs so the next person who
+    // queries failed jobs sees the real cause, not the generic message.
+    const realMsg = snapError?.message ?? snapError?.code ?? 'unknown DB error'
+    const detail  = `Snapshot insert failed: ${realMsg}`
+    console.error(detail, snapError)
+    if (crawl_job_id) {
+      await supabaseAdmin.from('crawl_jobs').update({
+        status: 'failed',
+        error_message: detail.slice(0, 500),
+        completed_at: new Date().toISOString(),
+      }).eq('id', crawl_job_id)
+    }
+    return jsonResponse({ error: detail, code: snapError?.code ?? null }, 500)
   }
 
   if (lastSnapshot) {
