@@ -75,6 +75,10 @@ verify_jwt = false
 [functions.health-check]
 verify_jwt = false
 
+# score-opportunities is called by pg_cron — internal only, no user auth.
+[functions.score-opportunities]
+verify_jwt = false
+
 [functions.send-email-alert]
 verify_jwt = false
 
