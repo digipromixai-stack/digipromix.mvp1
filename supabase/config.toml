@@ -84,6 +84,10 @@ verify_jwt = false
 [functions.embed-campaign]
 verify_jwt = false
 
+# optimize-campaigns runs daily via pg_cron — internal only.
+[functions.optimize-campaigns]
+verify_jwt = false
+
 [functions.send-email-alert]
 verify_jwt = false
 
