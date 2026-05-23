@@ -79,6 +79,11 @@ verify_jwt = false
 [functions.score-opportunities]
 verify_jwt = false
 
+# embed-campaign is invoked internally by generate-campaign (and backfill
+# scripts) via the admin_token bypass. No user-facing auth.
+[functions.embed-campaign]
+verify_jwt = false
+
 [functions.send-email-alert]
 verify_jwt = false
 

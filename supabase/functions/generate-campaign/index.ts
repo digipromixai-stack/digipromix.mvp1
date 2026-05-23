@@ -120,6 +120,68 @@ Deno.serve(async (req) => {
     }
     const suggestedTemplate = Object.entries(templateMap).find(([k]) => industry.includes(k))?.[1] ?? 'default'
 
+    // ── MVP 2.0 §6 — RAG retrieval ─────────────────────────────────────
+    // Embed the trigger event + look up similar past campaigns from the
+    // user's memory. Failures here are non-fatal — the generator still
+    // works, just without past-outcome context.
+    let ragContext = ''
+    try {
+      const ragQuery = [
+        `Industry: ${industry}`,
+        `Event: ${change.change_type}`,
+        `Signal: ${change.title}`,
+        promoKeywords ? `Keywords: ${promoKeywords}` : null,
+      ].filter(Boolean).join('\n')
+
+      // Gemini gemini-embedding-001 — 768-dim, free under the existing key
+      const ragKey = Deno.env.get('GEMINI_API_KEY')
+        ?? (await supabase.rpc('get_vault_secret', { secret_name: 'gemini_api_key' })).data
+      if (ragKey) {
+        const embRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${ragKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'models/gemini-embedding-001',
+              content: { parts: [{ text: ragQuery.slice(0, 8000) }] },
+              taskType: 'RETRIEVAL_QUERY',
+              outputDimensionality: 768,
+            }),
+          },
+        )
+        if (embRes.ok) {
+          const embData = await embRes.json() as { embedding: { values: number[] } }
+          const qVec = embData.embedding.values
+          const { data: similar } = await supabase.rpc('match_campaign_embeddings', {
+            query_embedding: qVec,
+            match_user_id:   user.id,
+            match_threshold: 0.55,
+            match_count:     3,
+            exclude_campaign: null,
+          })
+          if (similar && (similar as unknown[]).length > 0) {
+            const lines = (similar as Array<{
+              similarity: number; outcome_leads: number | null;
+              outcome_conversions: number | null; outcome_spend: number | null;
+              content_text: string | null;
+            }>).map((m, i) => {
+              const o: string[] = []
+              if (m.outcome_leads        != null) o.push(`${m.outcome_leads} leads`)
+              if (m.outcome_conversions  != null) o.push(`${m.outcome_conversions} conv`)
+              if (m.outcome_spend        != null) o.push(`$${m.outcome_spend} spend`)
+              const outcome = o.length ? ` [outcome: ${o.join(', ')}]` : ''
+              const snippet = (m.content_text ?? '').replace(/\s+/g, ' ').slice(0, 300)
+              return `[${i + 1}] sim=${m.similarity.toFixed(2)}${outcome} → ${snippet}`
+            }).join('\n')
+            ragContext = `\n\nPAST CAMPAIGN MEMORY (similar opportunities you've launched before — use as inspiration for what works, do NOT copy verbatim):\n${lines}\n`
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('RAG retrieval failed (non-fatal):', e instanceof Error ? e.message : e)
+    }
+
     const prompt = `You are an expert digital marketing strategist and legal compliance specialist.
 A market opportunity has been detected in the ${industry} industry. Generate a counter-campaign that positions YOUR brand strongly.
 
@@ -138,7 +200,7 @@ Market context (use only to understand the opportunity — do NOT copy or refere
 - Relevant keywords in market: ${promoKeywords || 'N/A'}
 - Active promotions in market: ${promoCodes !== 'none' ? 'Yes — consider matching or beating with your own offer' : 'None detected'}
 - Market intensity score: ${campaignScore}/150
-
+${ragContext}
 Your task: Write campaign content that:
 - Highlights YOUR unique value proposition in the ${industry} space
 - Creates urgency and a compelling offer WITHOUT referencing anyone else
@@ -252,6 +314,22 @@ Return ONLY a valid JSON object (no markdown, no extra text) with these exact fi
       console.error('DB insert error:', insertError?.code, insertError?.message)
       return jsonResponse({ error: 'Failed to save campaign', detail: insertError?.message }, 500)
     }
+
+    // ── MVP 2.0 §6 — Add this campaign to AI Memory (fire-and-forget) ──
+    // Generates an embedding so future opportunities can RAG-retrieve this
+    // campaign as past inspiration. Failure is silent; the embedding is
+    // ancillary and can be backfilled later by re-running embed-campaign.
+    const embedUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/embed-campaign`
+    const embedReq = fetch(embedUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        campaign_id: (campaign as { id: string }).id,
+        admin_token: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+      }),
+    }).catch((e) => console.warn('embed-campaign dispatch failed:', e))
+    // @ts-expect-error EdgeRuntime is Supabase-specific
+    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(embedReq)
 
     return jsonResponse({
       campaign,
