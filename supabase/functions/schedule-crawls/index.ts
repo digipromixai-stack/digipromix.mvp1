@@ -34,7 +34,10 @@ Deno.serve(async (req) => {
     .eq('status', 'queued')
     .lt('created_at', new Date(now.getTime() - 10 * 60 * 1000).toISOString())
 
-  // ── Expire stale running jobs (>5 min) — edge function timed out ──────────
+  // ── Expire stale running jobs (>90s) — edge function timed out ──────────
+  // crawl-page has a tight ~25s budget; anything older than 90s is definitely
+  // stuck and should be cleared so its monitored_page can re-enter the queue
+  // on the next tick.
   await supabaseAdmin
     .from('crawl_jobs')
     .update({
@@ -43,7 +46,7 @@ Deno.serve(async (req) => {
       completed_at: now.toISOString(),
     })
     .eq('status', 'running')
-    .lt('started_at', new Date(now.getTime() - 5 * 60 * 1000).toISOString())
+    .lt('started_at', new Date(now.getTime() - 90 * 1000).toISOString())
 
   // ── Fetch all active monitored pages ──────────────────────────────────────
   const { data: pages, error } = await supabaseAdmin

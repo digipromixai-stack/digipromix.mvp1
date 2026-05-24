@@ -28,8 +28,12 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } },
 )
 
-const CRAWL_TIMEOUT_MS = 20_000
-const MAX_RETRIES      = 2
+// Anti-bot sites (Media Markt, Zalando, Saturn) sometimes hold the connection
+// open without ever responding, eating the full timeout. 12s × 1 retry + small
+// backoff fits inside the Supabase Edge Function 25s wall budget and prevents
+// "running" jobs hanging until the 5-min cron expiry sweeps them.
+const CRAWL_TIMEOUT_MS = 12_000
+const MAX_RETRIES      = 1
 const MAX_BODY_BYTES   = 5 * 1024 * 1024
 const ENCODER          = new TextEncoder()
 
