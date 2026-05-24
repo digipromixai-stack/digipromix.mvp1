@@ -17,8 +17,11 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
 
   const now = new Date()
-  const oneDayAgo  = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString()
+  // "daily" competitors used to wait 24h. We dropped to 6h because Render's
+  // Python crawler is unreliable — this Edge-fn path becomes the primary
+  // freshness guarantee (every 6h via the hourly cron). hourly stays at 1h.
+  const sixHoursAgo = new Date(now.getTime() - 6  * 60 * 60 * 1000).toISOString()
+  const oneHourAgo  = new Date(now.getTime() - 1  * 60 * 60 * 1000).toISOString()
 
   // ── Expire stale queued jobs (>10 min) — unblock those pages ──────────────
   await supabaseAdmin
@@ -63,7 +66,7 @@ Deno.serve(async (req) => {
     if (!competitor?.is_active) return false
     const lastCrawled = page.last_crawled_at
     if (!lastCrawled) return true  // never crawled — always due
-    const cutoff = competitor.crawl_frequency === 'hourly' ? oneHourAgo : oneDayAgo
+    const cutoff = competitor.crawl_frequency === 'hourly' ? oneHourAgo : sixHoursAgo
     return lastCrawled < cutoff
   })
 
