@@ -360,35 +360,61 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
         title={cfg.label}
         size="lg"
       >
-        {/* Header: competitor + page + time */}
-        <div className={`flex items-center gap-3 p-3 rounded-xl border mb-5 ${cfg.accent}`}>
-          <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${cfg.iconBg} shrink-0`}>
-            <Icon size={15} className={cfg.iconColor} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 leading-snug">{change.title}</p>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <ChangeTypeBadge type={change.change_type} />
-              <SeverityBadge severity={change.severity} />
-              <span className="text-xs text-gray-400">{timeAgo(change.detected_at)}</span>
+        {/* WHERE — competitor + page-type + full URL with Open Page button.
+            Replaces the older two-row layout so the "what page on whose site"
+            answer is immediately visible. */}
+        {(() => {
+          const pageUrl  = change.monitored_pages?.url ?? ''
+          const pageType = (change.monitored_pages?.page_type ?? 'custom').replace('_', ' ')
+          const compName = change.competitors?.name ?? 'Unknown'
+          const compSite = change.competitors?.website_url ?? ''
+          const favicon  = compSite ? `https://www.google.com/s2/favicons?domain=${(() => { try { return new URL(compSite).hostname } catch { return '' } })()}&sz=64` : null
+          return (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mb-5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Where this changed</p>
+              <div className="flex items-start gap-3">
+                {favicon && (
+                  <img src={favicon} alt="" className="w-10 h-10 rounded-lg bg-white border border-gray-200 p-1 shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-base font-bold text-gray-900">{compName}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold uppercase tracking-wide">
+                      {pageType}
+                    </span>
+                  </div>
+                  <a
+                    href={pageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1 truncate"
+                    title={pageUrl}
+                  >
+                    {pageUrl}
+                    <ExternalLink size={10} className="shrink-0" />
+                  </a>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <ChangeTypeBadge type={change.change_type} />
+                    <SeverityBadge severity={change.severity} />
+                    <span className="text-xs text-gray-400">{timeAgo(change.detected_at)}</span>
+                  </div>
+                </div>
+                <a
+                  href={pageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden sm:inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                >
+                  <ExternalLink size={12} />
+                  Open page
+                </a>
+              </div>
             </div>
-          </div>
-        </div>
+          )
+        })()}
 
-        {/* Competitor + page link */}
-        <div className="flex items-center gap-2 mb-5 text-xs text-gray-500">
-          <span className="font-medium text-gray-700">{change.competitors?.name}</span>
-          <span className="text-gray-300">·</span>
-          <a
-            href={change.monitored_pages?.url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-blue-500 hover:underline flex items-center gap-0.5 truncate"
-          >
-            {change.monitored_pages?.url}
-            <ExternalLink size={10} className="shrink-0 ml-0.5" />
-          </a>
-        </div>
+        {/* WHAT — short title acts as the summary headline */}
+        <p className="text-base font-semibold text-gray-900 leading-snug mb-4">{change.title}</p>
 
         {/* ── Type-specific "What Changed" ── */}
         <div className="space-y-5">
