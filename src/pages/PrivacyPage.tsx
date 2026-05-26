@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Shield, ArrowLeft } from 'lucide-react'
 
 export function PrivacyPage() {
-  const lastUpdated = 'May 7, 2026'
+  const lastUpdated = 'May 25, 2026'
 
   return (
     <div className="min-h-screen bg-white">
@@ -176,12 +176,34 @@ export function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-900 mt-8 mb-3">11. Contact</h2>
+            <h2 className="text-xl font-bold text-gray-900 mt-8 mb-3">11. Competitive Intelligence Data Sources</h2>
+            <p>
+              DigiPromix monitors publicly accessible competitor web pages to surface market signals
+              (price changes, promotions, new landing pages, campaign launches) to our customers. We:
+            </p>
+            <ul className="list-disc pl-5 mt-2 space-y-1.5">
+              <li>Only fetch <strong>public, non-authenticated</strong> pages — never anything behind a login or paywall.</li>
+              <li>Honor <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">robots.txt</code> directives — paths a site marks as disallowed are skipped automatically.</li>
+              <li>Identify ourselves in the <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">User-Agent</code> as <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">DigiPromix-Bot/2.x (+https://www.digipromix.com/bot)</code>.</li>
+              <li>Rate-limit to once every 1–6 hours per page — designed to be courteous, not aggressive.</li>
+              <li>Retain raw page snapshots for a maximum of <strong>90 days</strong> for change-comparison purposes; older snapshots are auto-deleted.</li>
+              <li>Never republish raw scraped content — we present extracted insights and summaries only.</li>
+            </ul>
+            <p className="mt-3">
+              If you operate a website and want DigiPromix to stop crawling it, email
+              {' '}<a href="mailto:abuse@digipromix.com" className="text-blue-600 hover:underline">abuse@digipromix.com</a>{' '}
+              with the domain. We honor takedown requests within 24 hours.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-bold text-gray-900 mt-8 mb-3">12. Contact</h2>
             <p>Questions, requests, or complaints about this policy?</p>
             <div className="mt-3 p-4 bg-gray-50 border border-gray-100 rounded-xl">
               <p className="text-sm">
                 <strong>DigiPromix AI</strong><br />
-                Email: <a href="mailto:digipromix.ai@gmail.com" className="text-blue-600 hover:underline">digipromix.ai@gmail.com</a><br />
+                General / privacy: <a href="mailto:digipromix.ai@gmail.com" className="text-blue-600 hover:underline">digipromix.ai@gmail.com</a><br />
+                Crawler takedown: <a href="mailto:abuse@digipromix.com" className="text-blue-600 hover:underline">abuse@digipromix.com</a><br />
                 Website: <a href="https://www.digipromix.com" className="text-blue-600 hover:underline">www.digipromix.com</a>
               </p>
             </div>

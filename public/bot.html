@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="index, follow" />
+    <title>DigiPromix-Bot — Crawler Information</title>
+    <meta name="description" content="Information about the DigiPromix competitive-intelligence crawler. How to opt out via robots.txt or takedown request." />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <style>
+      :root { color-scheme: light; --fg:#0f172a; --muted:#64748b; --link:#2563eb; --bg:#fff; --card:#f8fafc; --line:#e2e8f0; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif; line-height: 1.6; }
+      main { max-width: 720px; margin: 0 auto; padding: 48px 24px 96px; }
+      h1 { font-size: 32px; letter-spacing: -0.02em; margin: 0 0 6px; }
+      h2 { font-size: 18px; margin: 32px 0 8px; }
+      p, li { font-size: 15px; color: #334155; }
+      code, pre { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; color: #0f172a; }
+      pre { padding: 14px 16px; overflow-x: auto; }
+      a { color: var(--link); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .meta { color: var(--muted); font-size: 13px; margin: 0 0 32px; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin: 16px 0; }
+      .badge { display: inline-block; background: #ecfdf5; color: #065f46; border: 1px solid #d1fae5; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-right: 6px; }
+      .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="meta"><a href="/">← DigiPromix AI</a></p>
+      <h1>DigiPromix-Bot</h1>
+      <p class="meta">Competitive-intelligence crawler · operated by DigiPromix AI · last updated May 25, 2026</p>
+
+      <p>
+        <span class="badge">User-Agent</span><code>DigiPromix-Bot/2.x (+https://www.digipromix.com/bot)</code>
+      </p>
+
+      <h2>What it does</h2>
+      <p>
+        DigiPromix-Bot fetches <strong>public, non-authenticated</strong> web pages on behalf of our
+        customers to detect competitive market signals: price changes, new promotions, new landing
+        pages, banner refreshes, and campaign launches.
+      </p>
+
+      <h2>What it does NOT do</h2>
+      <ul>
+        <li>It never logs in, never bypasses paywalls, never accesses anything behind authentication.</li>
+        <li>It never submits forms, never clicks Buy / Add-to-cart, never abuses search.</li>
+        <li>It never collects personal data (names, emails, account info, reviews with author info).</li>
+        <li>It never republishes scraped content — only short factual summaries flow to our customers.</li>
+      </ul>
+
+      <h2>How it behaves</h2>
+      <ul>
+        <li>Honors your <code>robots.txt</code> — paths you disallow are skipped automatically.</li>
+        <li>Identifies itself in the <code>User-Agent</code> header.</li>
+        <li>Rate-limited to once every 1–6 hours per page.</li>
+        <li>Retains snapshots for a maximum of 90 days (then auto-purged).</li>
+      </ul>
+
+      <h2>How to block us</h2>
+      <p>Add this to your <code>/robots.txt</code>:</p>
+      <pre>User-agent: DigiPromix-Bot
+Disallow: /</pre>
+      <p>We re-fetch <code>robots.txt</code> every 24 hours, so changes take effect within a day.</p>
+
+      <h2>Takedown / opt-out</h2>
+      <p>
+        If you'd prefer email contact or want a faster response, email
+        <a href="mailto:abuse@digipromix.com">abuse@digipromix.com</a>
+        with the affected domain. We honor takedown requests within 24 hours and confirm by reply.
+      </p>
+
+      <h2>Verification</h2>
+      <p>
+        DigiPromix-Bot crawls from an AWS EC2 instance in <code>us-east-1</code> (IP <code>44.222.116.245</code>) for
+        most fetches, and from rotating commercial proxy IPs (<a href="https://scrape.do" rel="nofollow noopener">scrape.do</a>)
+        for sites with anti-bot defenses. If you see this User-Agent from elsewhere it isn't us — please report it.
+      </p>
+
+      <div class="footer">
+        DigiPromix AI · Built on Supabase + AWS · See
+        <a href="/privacy">privacy policy</a> ·
+        <a href="/terms">terms</a> ·
+        Operated by Glyco IT
+      </div>
+    </main>
+  </body>
+</html>
