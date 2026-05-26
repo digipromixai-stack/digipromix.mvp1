@@ -266,7 +266,7 @@ function CardPreview({ change }: { change: DetectedChangeWithCompetitor }) {
 
 export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor }) {
   const [showDetail, setShowDetail] = useState(false)
-  const [showDiff,   setShowDiff]   = useState(false)
+  // showDiff state removed — DiffViewer is now inline inside the detail modal
   const [showCampaign, setShowCampaign] = useState(false)
 
   const cfg  = TYPE_CONFIG[change.change_type] ?? TYPE_CONFIG.content_change
@@ -443,6 +443,16 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
               <p className="text-sm text-blue-900 leading-relaxed">{change.description}</p>
             </div>
           )}
+
+          {/* Inline page diff — show what actually changed on the competitor page */}
+          {change.diff_storage_path && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <GitCompare size={12} />Exact Page Changes
+              </p>
+              <DiffViewer diffStoragePath={change.diff_storage_path} />
+            </div>
+          )}
         </div>
 
         {/* Action buttons */}
@@ -454,15 +464,6 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
             <Rocket size={14} />
             Generate Counter-Campaign
           </button>
-          {change.diff_storage_path && (
-            <button
-              onClick={() => { setShowDetail(false); setShowDiff(true) }}
-              className="flex items-center gap-1.5 py-2.5 px-4 border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-medium rounded-xl transition-colors"
-            >
-              <GitCompare size={13} />
-              View Diff
-            </button>
-          )}
         </div>
       </Modal>
 
@@ -473,27 +474,7 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
         onClose={() => setShowCampaign(false)}
       />
 
-      {/* ── Diff Modal ── */}
-      {change.diff_storage_path && (
-        <Modal
-          open={showDiff}
-          onClose={() => setShowDiff(false)}
-          title="Page Diff"
-          size="xl"
-        >
-          <div className="flex items-center gap-2 flex-wrap mb-4">
-            <div className={`flex items-center justify-center w-7 h-7 rounded-lg ${cfg.iconBg}`}>
-              <Icon size={13} className={cfg.iconColor} />
-            </div>
-            <ChangeTypeBadge type={change.change_type} />
-            <SeverityBadge severity={change.severity} />
-            <span className="text-xs text-gray-400 ml-auto">
-              {change.competitors?.name} · {timeAgo(change.detected_at)}
-            </span>
-          </div>
-          <DiffViewer diffStoragePath={change.diff_storage_path} />
-        </Modal>
-      )}
+      {/* Diff Modal removed — DiffViewer is now inline inside the detail modal above */}
     </>
   )
 }
