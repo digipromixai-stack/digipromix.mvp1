@@ -381,6 +381,86 @@ function signalText(
   ].filter(Boolean).join('\n')
 }
 
+// ── Cross-source signal boost (MVP 2.0 Phase 1 Signal Engine) ───────────────
+//
+// For each detected_change-based opportunity, look up other signals from the
+// `signals` table that corroborate the same opportunity:
+//   • AD_VOLUME_SPIKE   from same competitor   (+6 score, +0.10 confidence)
+//   • NEW_CREATIVE      from same competitor   (+4 score, +0.05 confidence)
+//   • OFFER_REPEAT      from same competitor   (+5 score, +0.07 confidence)
+//   • SEARCH_SPIKE      matching industry      (+5 score, +0.07 confidence)
+//   • RISING_KEYWORD    matching industry      (+2 score, +0.03 confidence)
+//
+// Per the MVP 2.0 doc: an opportunity becomes HIGH when MULTIPLE signal
+// sources agree — e.g. competitor changed home page + ad volume spiked +
+// search demand rising = "launch now" signal.
+
+interface CrossSourceBoost {
+  scoreDelta:       number
+  confidenceDelta:  number
+  reasons:          string[]
+  signalIds:        string[]
+  signalTypes:      string[]
+}
+
+async function crossSourceBoostFor(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  competitorId: string | null,
+  industry: string | null,
+): Promise<CrossSourceBoost> {
+  const NEUTRAL: CrossSourceBoost = { scoreDelta: 0, confidenceDelta: 0, reasons: [], signalIds: [], signalTypes: [] }
+  if (!competitorId && !industry) return NEUTRAL
+
+  // Pull signals from the last 48h that touch the same competitor OR industry
+  const since = new Date(Date.now() - 48 * 3600 * 1000).toISOString()
+  let q = admin
+    .from('signals')
+    .select('id, signal_type, source, industry, growth_pct, competitor_id, payload')
+    .eq('user_id', userId)
+    .gte('collected_at', since)
+    .limit(50)
+
+  // Filter by either competitor OR industry — supabase `.or()` keeps it
+  const orParts: string[] = []
+  if (competitorId) orParts.push(`competitor_id.eq.${competitorId}`)
+  if (industry)     orParts.push(`industry.eq.${industry.toLowerCase().trim()}`)
+  if (orParts.length > 0) q = q.or(orParts.join(','))
+
+  const { data: signals, error } = await q
+  if (error || !signals || signals.length === 0) return NEUTRAL
+
+  let scoreDelta      = 0
+  let confidenceDelta = 0
+  const reasons:     string[] = []
+  const signalIds:   string[] = []
+  const signalTypes: string[] = []
+
+  const WEIGHTS: Record<string, { score: number; conf: number }> = {
+    AD_VOLUME_SPIKE: { score: 6, conf: 0.10 },
+    NEW_CREATIVE:    { score: 4, conf: 0.05 },
+    OFFER_REPEAT:    { score: 5, conf: 0.07 },
+    SEARCH_SPIKE:    { score: 5, conf: 0.07 },
+    RISING_KEYWORD:  { score: 2, conf: 0.03 },
+  }
+
+  for (const s of signals) {
+    const w = WEIGHTS[s.signal_type as string]
+    if (!w) continue
+    scoreDelta      += w.score
+    confidenceDelta += w.conf
+    signalIds.push(s.id as string)
+    signalTypes.push(s.signal_type as string)
+    const growth = s.growth_pct != null ? ` (+${s.growth_pct}%)` : ''
+    reasons.push(`${(s.signal_type as string).toLowerCase()}${growth}`)
+  }
+
+  // Cap deltas so cross-source can't single-handedly dominate the score
+  scoreDelta      = Math.min(20, scoreDelta)
+  confidenceDelta = Math.min(0.25, confidenceDelta)
+  return { scoreDelta, confidenceDelta, reasons, signalIds, signalTypes }
+}
+
 // ── Main handler ────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -519,7 +599,21 @@ Deno.serve(async (req) => {
         vectorScoreDelta      = vb.scoreDelta
         vectorConfidenceDelta = vb.confidenceDelta
       }
-      const score = Math.min(100, Math.max(0, heuristicScore + vectorScoreDelta))
+
+      // CROSS-SOURCE BOOST (MVP 2.0 Phase 1 Signal Engine) — aggregate any
+      // Google Trends / Meta Ad Library signals from the `signals` table that
+      // touch the same competitor or industry. Always runs (cheap query, no
+      // LLM cost) — the multi-source corroboration is the doc's core thesis.
+      const cs = await crossSourceBoostFor(
+        admin,
+        change.user_id  as string,
+        change.competitor_id as string | null,
+        industry,
+      )
+
+      const score = Math.min(100, Math.max(0,
+        heuristicScore + vectorScoreDelta + cs.scoreDelta,
+      ))
 
       // ── Economic projection (with per-signal variance) ──────────────
       const baseline      = baselineFor(industry)
@@ -545,7 +639,7 @@ Deno.serve(async (req) => {
       if (campaignSig > 50)               confidence += 0.10
       if (recency >= 15)                  confidence += 0.05
       if (siblings.length >= 2)           confidence += 0.05
-      confidence = Math.min(0.95, confidence + vectorConfidenceDelta)
+      confidence = Math.min(0.95, confidence + vectorConfidenceDelta + cs.confidenceDelta)
 
       // ── LLM-enriched title + recommended_action (§6) ────────────────
       // Only call Gemini for opps above the enrichment threshold; fall back
@@ -607,11 +701,13 @@ Deno.serve(async (req) => {
           siblingBonus  ? `same-day-siblings×${siblings.length} (+${siblingBonus})` : null,
           recency       ? `recency (+${recency})` : null,
           vectorReason  ? `${vectorReason} (${vectorScoreDelta >= 0 ? '+' : ''}${vectorScoreDelta})` : null,
+          cs.scoreDelta ? `cross-source[${cs.reasons.join(', ')}] (+${cs.scoreDelta})` : null,
           llmUsed       ? `llm_enriched` : null,
         ].filter(Boolean).join(' · '),
         signal_sources: [
           { type: 'detected_change', id: change.id },
           ...siblings.map((s) => ({ type: 'detected_change' as const, id: s.id, change_type: s.change_type })),
+          ...cs.signalIds.map((id, i) => ({ type: 'signal' as const, id, signal_type: cs.signalTypes[i] })),
         ],
         status: 'open' as const,
         expires_at: expiresAt,
@@ -623,10 +719,14 @@ Deno.serve(async (req) => {
           is_coordinated:      meta.is_coordinated ?? false,
           sibling_change_ids:  siblings.map((s) => s.id),
           sibling_types:       siblings.map((s) => s.change_type),
-          heuristic_score:     heuristicScore,
-          vector_score_delta:  vectorScoreDelta,
-          vector_reason:       vectorReason,
-          llm_enriched:        llmUsed,
+          heuristic_score:        heuristicScore,
+          vector_score_delta:     vectorScoreDelta,
+          vector_reason:          vectorReason,
+          cross_source_delta:     cs.scoreDelta,
+          cross_source_reasons:   cs.reasons,
+          cross_source_signal_ids: cs.signalIds,
+          cross_source_signal_types: cs.signalTypes,
+          llm_enriched:           llmUsed,
         },
       })
     }
