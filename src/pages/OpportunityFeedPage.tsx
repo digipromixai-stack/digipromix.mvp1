@@ -1,21 +1,23 @@
 /**
- * MVP 2.0 — Revenue Opportunity Feed
+ * MVP 2.0 — Revenue Opportunity Feed (Opportunity Radar)
  *
- * The new homepage. Replaces the legacy DashboardPage at `/` once the AI
- * Decision Engine starts producing opportunities (Phase 2 / Week 4–5).
- *
- * For now: skeleton + empty state. Realtime subscription, filters, and
- * launch-campaign CTA arrive in Week 5 per the delivery plan.
+ * Reads from `opportunities` (filled hourly by score-opportunities cron).
+ * Clicking "Launch Campaign" opens the same CampaignModal used by the
+ * Changes page — it pulls the source detected_change via metadata.source_change_id
+ * and pre-fills generate-campaign with the right context.
  */
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
-  ArrowRight, Filter, Search, RefreshCcw,
+  ArrowRight, Filter, Search, RefreshCcw, X, Loader2,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
-import type { Opportunity } from '../types/database.types'
+import { supabase } from '../lib/supabase'
+import { CampaignModal } from '../components/campaigns/CampaignModal'
+import type { Opportunity, DetectedChangeWithCompetitor } from '../types/database.types'
 
 function ScoreBadge({ score }: { score: number }) {
   let bg = 'bg-gray-100 text-gray-700'
@@ -30,10 +32,29 @@ function ScoreBadge({ score }: { score: number }) {
   )
 }
 
-function OpportunityCard({ opp }: { opp: Opportunity }) {
+function OpportunityCard({
+  opp,
+  onLaunch,
+  onDismiss,
+  busy,
+}: {
+  opp: Opportunity
+  onLaunch: (opp: Opportunity) => void
+  onDismiss: (opp: Opportunity) => void
+  busy: boolean
+}) {
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-3 mb-3">
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow relative">
+      {/* Dismiss button */}
+      <button
+        onClick={() => onDismiss(opp)}
+        title="Dismiss this opportunity"
+        className="absolute top-3 right-3 text-gray-300 hover:text-gray-500 p-1 rounded"
+      >
+        <X size={14} />
+      </button>
+
+      <div className="flex items-start justify-between gap-3 mb-3 pr-6">
         <div className="min-w-0">
           <p className="text-xs font-mono uppercase text-gray-400 tracking-wider mb-1">
             {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
@@ -71,8 +92,12 @@ function OpportunityCard({ opp }: { opp: Opportunity }) {
         </p>
       )}
 
-      <button className="w-full bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors">
-        Launch Campaign <ArrowRight size={14} />
+      <button
+        onClick={() => onLaunch(opp)}
+        disabled={busy}
+        className="w-full bg-gray-900 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+      >
+        {busy ? <><Loader2 size={14} className="animate-spin" /> Loading…</> : <>Launch Campaign <ArrowRight size={14} /></>}
       </button>
     </div>
   )
@@ -81,6 +106,48 @@ function OpportunityCard({ opp }: { opp: Opportunity }) {
 export function OpportunityFeedPage() {
   const [statusFilter] = useState<'open'>('open')
   const { data: opportunities = [], isLoading, refetch } = useOpportunities({ status: statusFilter })
+  const queryClient = useQueryClient()
+
+  // Active campaign-launch context: the opportunity we're acting on + the
+  // detected_change row we resolved from metadata.source_change_id
+  const [activeChange, setActiveChange] = useState<DetectedChangeWithCompetitor | null>(null)
+  const [loadingOppId, setLoadingOppId] = useState<string | null>(null)
+
+  // Fetch the source detected_change and open the campaign modal
+  async function handleLaunch(opp: Opportunity) {
+    const sourceId = (opp.metadata as Record<string, unknown> | null)?.source_change_id as string | undefined
+    if (!sourceId) {
+      alert(
+        'This opportunity has no linked competitor signal yet — it was scored from aggregate data. '
+        + 'Open Changes to act on a specific competitor signal.',
+      )
+      return
+    }
+    setLoadingOppId(opp.id)
+    try {
+      const { data, error } = await supabase
+        .from('detected_changes')
+        .select('*, competitors(id, name, website_url, industry), monitored_pages(url, page_type)')
+        .eq('id', sourceId)
+        .single()
+      if (error || !data) {
+        alert('Could not load the source signal for this opportunity. It may have been pruned.')
+        return
+      }
+      setActiveChange(data as DetectedChangeWithCompetitor)
+    } finally {
+      setLoadingOppId(null)
+    }
+  }
+
+  // Dismiss → flip status to 'dismissed' so it falls out of the open feed
+  async function handleDismiss(opp: Opportunity) {
+    await supabase
+      .from('opportunities')
+      .update({ status: 'dismissed' })
+      .eq('id', opp.id)
+    queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -155,8 +222,25 @@ export function OpportunityFeedPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {opportunities.map(opp => <OpportunityCard key={opp.id} opp={opp} />)}
+          {opportunities.map(opp => (
+            <OpportunityCard
+              key={opp.id}
+              opp={opp}
+              onLaunch={handleLaunch}
+              onDismiss={handleDismiss}
+              busy={loadingOppId === opp.id}
+            />
+          ))}
         </div>
+      )}
+
+      {/* Campaign generation modal — same one Changes page uses */}
+      {activeChange && (
+        <CampaignModal
+          change={activeChange}
+          open={!!activeChange}
+          onClose={() => setActiveChange(null)}
+        />
       )}
     </div>
   )
