@@ -157,6 +157,27 @@ Deno.serve(async (req) => {
       utm_source, utm_medium, referrer,
     })
 
+    // MVP 2.0 §Phase 6 Lead Intent Engine — store the same score on the new
+    // intent_* columns (lowercase enum per CHECK constraint). Keep the legacy
+    // score/score_type columns populated for backwards compat with old
+    // dashboards / hooks until everyone's migrated.
+    const intent_level: 'hot' | 'medium' | 'low' =
+      score_type === 'HOT' ? 'hot' : score_type === 'MEDIUM' ? 'medium' : 'low'
+    const intent_signals = {
+      time_on_page_seconds: time_on_page_seconds ?? null,
+      scroll_depth_pct:     scroll_depth_pct     ?? null,
+      click_count:          click_count          ?? null,
+      utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+      referrer,
+      form_completeness: {
+        has_name:    !!(name    && String(name).trim()),
+        has_email:   !!(email   && String(email).trim()),
+        has_phone:   !!(phone   && String(phone).trim()),
+        has_message: !!(message && String(message).trim()),
+      },
+      scored_at: new Date().toISOString(),
+    }
+
     // Insert lead
     const { data: lead, error: insertErr } = await admin
       .from('leads')
@@ -169,9 +190,14 @@ Deno.serve(async (req) => {
         phone,
         message,
         source:        'landing_page',
+        // Legacy (still read by some UI surfaces)
         score,
         score_type,
         recommended_action,
+        // MVP 2.0 columns
+        intent_level,
+        intent_score: score,
+        intent_signals,
         time_on_page_seconds,
         scroll_depth_pct,
         click_count,
