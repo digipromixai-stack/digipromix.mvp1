@@ -24,15 +24,18 @@ function ScoreDot({ score }: { score: number }) {
   )
 }
 
-// MVP 2.0 Lead Intent badge — HOT/MEDIUM/LOW with iconography
+// MVP 2.0 Lead Intent badge — HOT/MEDIUM/LOW with iconography.
+// Accepts either the new lowercase `intent_level` ('hot'|'medium'|'low')
+// OR the legacy uppercase `score_type` ('HOT'|'MEDIUM'|'LOW').
 function IntentBadge({ scoreType }: { scoreType: string | null | undefined }) {
   if (!scoreType) return null
+  const key = scoreType.toUpperCase()
   const variants: Record<string, { Icon: typeof Flame; label: string; cls: string }> = {
     HOT:    { Icon: Flame,     label: 'HOT',    cls: 'bg-red-50 text-red-700 border-red-200' },
     MEDIUM: { Icon: Activity,  label: 'MEDIUM', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
     LOW:    { Icon: Snowflake, label: 'LOW',    cls: 'bg-slate-50 text-slate-600 border-slate-200' },
   }
-  const v = variants[scoreType] ?? variants.LOW
+  const v = variants[key] ?? variants.LOW
   const { Icon } = v
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${v.cls}`}>
@@ -67,7 +70,7 @@ function LeadCard({ lead }: { lead: LeadWithCampaign }) {
                 )}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <IntentBadge scoreType={(lead as { score_type?: string }).score_type} />
+                <IntentBadge scoreType={(lead as { intent_level?: string; score_type?: string }).intent_level ?? (lead as { score_type?: string }).score_type} />
                 <ScoreDot score={lead.score} />
                 <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.color}`}>
                   {cfg.label}
