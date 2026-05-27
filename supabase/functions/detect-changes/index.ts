@@ -158,7 +158,10 @@ Deno.serve(async (req: Request) => {
   const afterPath  = afterSnap.data.storage_path
 
   if (beforePath && afterPath) {
-    // Both snapshots have HTML in Storage — download and extract lines
+    // Both snapshots have HTML in Storage — download, decompress if gzipped,
+    // and extract lines. The Python crawler stores files as .html.gz (≈80%
+    // size saving); the older Edge crawler stored .html plain. Auto-detect
+    // via the path suffix so we don't garbage-decode either.
     const [beforeFile, afterFile] = await Promise.all([
       supabaseAdmin.storage.from('snapshots').download(beforePath),
       supabaseAdmin.storage.from('snapshots').download(afterPath),
@@ -166,8 +169,18 @@ Deno.serve(async (req: Request) => {
     if (beforeFile.error || afterFile.error) {
       return jsonResponse({ error: 'Could not download snapshots' }, 500)
     }
-    beforeHtml  = await beforeFile.data!.text()
-    afterHtml   = await afterFile.data!.text()
+
+    async function blobToHtml(blob: Blob, path: string): Promise<string> {
+      if (path.endsWith('.gz')) {
+        const ds   = new DecompressionStream('gzip')
+        const decompressed = await new Response(blob.stream().pipeThrough(ds)).arrayBuffer()
+        return new TextDecoder('utf-8').decode(decompressed)
+      }
+      return blob.text()
+    }
+
+    beforeHtml  = await blobToHtml(beforeFile.data!, beforePath)
+    afterHtml   = await blobToHtml(afterFile.data!,  afterPath)
     beforeLines = extractNormalizedLines(beforeHtml)
     afterLines  = extractNormalizedLines(afterHtml)
   } else {
