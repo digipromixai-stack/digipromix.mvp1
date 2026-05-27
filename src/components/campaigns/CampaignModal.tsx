@@ -28,6 +28,19 @@ interface Props {
   change: DetectedChangeWithCompetitor
   open: boolean
   onClose: () => void
+  // MVP 2.0 — when launched from an opportunity card, the radar already
+  // computed a recommended budget + expected leads. Surfacing them as
+  // pre-fill hints makes the "Launch Campaign" flow 1-click instead of
+  // "fill in everything from scratch."
+  opportunityHint?: {
+    title?:              string
+    recommended_budget?: number | null
+    expected_leads?:     number | null
+    estimated_cpc?:      number | null
+    estimated_cpl?:      number | null
+    confidence?:         number | null
+    industry?:           string | null
+  }
 }
 
 type Step = 'generate' | 'preview' | 'posted'
@@ -70,7 +83,7 @@ function Field({ label, value, multiline }: { label: string; value: string; mult
   )
 }
 
-export function CampaignModal({ change, open, onClose }: Props) {
+export function CampaignModal({ change, open, onClose, opportunityHint }: Props) {
   const qc = useQueryClient()
   const { metaIntegration }    = useMetaIntegration()
   const { googleIntegration }  = useGoogleAdsIntegration()
@@ -257,6 +270,51 @@ export function CampaignModal({ change, open, onClose }: Props) {
               {change.description && <p className="text-xs text-orange-700 mt-1 line-clamp-2">{change.description}</p>}
             </div>
           </div>
+
+          {/* MVP 2.0 — pre-fill panel from Opportunity Radar */}
+          {opportunityHint && (opportunityHint.recommended_budget != null || opportunityHint.expected_leads != null) && (
+            <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Sparkles size={13} className="text-violet-600" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">AI Radar prediction</span>
+                {opportunityHint.confidence != null && (
+                  <span className="ml-auto text-[10px] text-violet-700 font-semibold">
+                    {Math.round(opportunityHint.confidence * 100)}% confidence
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {opportunityHint.recommended_budget != null && (
+                  <div className="bg-white/70 rounded-lg p-2 text-center">
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Recommended budget</div>
+                    <div className="text-sm font-bold text-gray-900">${opportunityHint.recommended_budget}/wk</div>
+                  </div>
+                )}
+                {opportunityHint.expected_leads != null && (
+                  <div className="bg-white/70 rounded-lg p-2 text-center">
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Expected leads</div>
+                    <div className="text-sm font-bold text-gray-900">{opportunityHint.expected_leads}</div>
+                  </div>
+                )}
+                {opportunityHint.estimated_cpc != null && (
+                  <div className="bg-white/70 rounded-lg p-2 text-center">
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPC</div>
+                    <div className="text-sm font-bold text-gray-900">${opportunityHint.estimated_cpc.toFixed(2)}</div>
+                  </div>
+                )}
+                {opportunityHint.estimated_cpl != null && (
+                  <div className="bg-white/70 rounded-lg p-2 text-center">
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPL</div>
+                    <div className="text-sm font-bold text-gray-900">${opportunityHint.estimated_cpl.toFixed(2)}</div>
+                  </div>
+                )}
+              </div>
+              <p className="text-[11px] text-violet-700 mt-2">
+                These are heuristic projections from the AI Opportunity Radar. Actual numbers depend on creative quality + targeting.
+              </p>
+            </div>
+          )}
+
           <p className="text-sm text-gray-600">
             AI will analyse this competitor move and generate a tailored counter-campaign
             with headlines, ad copy, social content, and landing page text.
