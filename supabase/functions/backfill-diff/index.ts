@@ -1,8 +1,12 @@
-// One-shot backfill: regenerate the diff blob in Storage for changes whose
-// snapshots are gzip-compressed (.html.gz) but whose diff was written before
-// detect-changes learned to decompress gzip. Updates the existing diff file
-// at change.diff_storage_path in place — no new detected_changes rows, no
-// email alerts.
+// One-shot backfill: for changes whose snapshots are gzip-compressed
+// (.html.gz) but whose diff + metadata were written BEFORE detect-changes
+// learned to decompress gzip, regenerate two things:
+//   1. The diff blob in Storage at change.diff_storage_path (text/plain)
+//   2. The row's metadata JSON (so 'Jump to change' deep-link picks a real
+//      readable snippet instead of garbage like ["$1","$9"])
+//
+// We do NOT touch title/description (those came from Gemini AI and are fine),
+// we do NOT create new detected_changes rows, we do NOT fire email alerts.
 //
 // POST /functions/v1/backfill-diff
 //   { "change_id": "<uuid>" }  → backfills one
@@ -11,6 +15,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { extractNormalizedLines } from '../_shared/htmlExtractor.ts'
 import { bestDiff, formatDiffAsText } from '../_shared/diffGenerator.ts'
+import { classifyChange } from '../_shared/changeClassifier.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -55,7 +60,6 @@ Deno.serve(async (req) => {
       .select('id, snapshot_before, snapshot_after, diff_storage_path, page_snapshots!detected_changes_snapshot_after_fkey(storage_path)')
       .not('diff_storage_path', 'is', null)
     if (error) return json({ error: error.message }, 500)
-    // Filter to ones whose after-snapshot path ends in .gz
     changeIds = (data ?? [])
       .filter((r: any) => r.page_snapshots?.storage_path?.endsWith('.gz'))
       .map((r: any) => r.id)
@@ -69,13 +73,21 @@ Deno.serve(async (req) => {
     try {
       const { data: change, error: cErr } = await admin
         .from('detected_changes')
-        .select('id, snapshot_before, snapshot_after, diff_storage_path')
+        .select('id, snapshot_before, snapshot_after, diff_storage_path, monitored_page_id, metadata')
         .eq('id', id)
         .single()
       if (cErr || !change) { results.push({ change_id: id, ok: false, msg: 'change not found' }); continue }
       if (!change.snapshot_before || !change.snapshot_after || !change.diff_storage_path) {
         results.push({ change_id: id, ok: false, msg: 'missing snapshot or diff path' }); continue
       }
+
+      // Need the page URL for classifier (it uses url to detect landing-page vs blog)
+      const { data: page } = await admin
+        .from('monitored_pages')
+        .select('url')
+        .eq('id', change.monitored_page_id)
+        .single()
+      const pageUrl = page?.url ?? ''
 
       const [bs, as_] = await Promise.all([
         admin.from('page_snapshots').select('storage_path').eq('id', change.snapshot_before).single(),
@@ -100,16 +112,64 @@ Deno.serve(async (req) => {
       const beforeLines = extractNormalizedLines(beforeHtml)
       const afterLines  = extractNormalizedLines(afterHtml)
 
+      // 1. Regenerate diff blob
       const diffText = formatDiffAsText(bestDiff(beforeLines, afterLines))
-
       const upload = await admin.storage
         .from('diffs')
         .upload(change.diff_storage_path, diffText, { contentType: 'text/plain', upsert: true })
       if (upload.error) {
-        results.push({ change_id: id, ok: false, msg: upload.error.message }); continue
+        results.push({ change_id: id, ok: false, msg: 'diff upload: ' + upload.error.message }); continue
       }
 
-      results.push({ change_id: id, ok: true, msg: `${diffText.length} chars` })
+      // 2. Re-classify on decompressed HTML so metadata has readable snippets
+      const cls = classifyChange(beforeHtml, afterHtml, pageUrl, beforeLines, afterLines)
+
+      // Compute added/removed content by diffing line sets (real readable text).
+      // These power the "Jump to change" deep-link anchor.
+      const beforeSet = new Set(beforeLines.map(l => l.trim()).filter(l => l.length > 4))
+      const addedContent = afterLines
+        .map(l => l.trim())
+        .filter(l => l.length > 4 && l.length < 200 && !beforeSet.has(l))
+        .slice(0, 10)
+      const afterSet = new Set(afterLines.map(l => l.trim()).filter(l => l.length > 4))
+      const removedContent = beforeLines
+        .map(l => l.trim())
+        .filter(l => l.length > 4 && l.length < 200 && !afterSet.has(l))
+        .slice(0, 10)
+
+      // Preserve fields we don't recompute (ai_enhanced flag, action_recommended if it came from AI)
+      const oldMeta = (change.metadata ?? {}) as Record<string, unknown>
+      const newMeta = {
+        ...oldMeta,
+        price_before:        cls.price_before        ?? [],
+        price_after:         cls.price_after         ?? [],
+        promo_keywords:      cls.promo_keywords      ?? [],
+        promo_codes:         cls.promo_codes         ?? [],
+        added_content:       addedContent,
+        removed_content:     removedContent,
+        campaign_score:      cls.campaign_score      ?? oldMeta.campaign_score ?? null,
+        is_coordinated:      cls.is_coordinated      ?? oldMeta.is_coordinated ?? false,
+        // Keep AI-derived fields untouched if present
+        action_recommended:  oldMeta.action_recommended ?? cls.action_recommended ?? null,
+        price_change_detail: typeof oldMeta.price_change_detail === 'string' && oldMeta.price_change_detail
+          ? oldMeta.price_change_detail
+          : '',
+        backfilled_at:       new Date().toISOString(),
+      }
+
+      const { error: updErr } = await admin
+        .from('detected_changes')
+        .update({ metadata: newMeta })
+        .eq('id', id)
+      if (updErr) {
+        results.push({ change_id: id, ok: false, msg: 'metadata update: ' + updErr.message }); continue
+      }
+
+      results.push({
+        change_id: id,
+        ok: true,
+        msg: `diff ${diffText.length}c · added ${addedContent.length} · prices ${(cls.price_after ?? []).length}`,
+      })
     } catch (e) {
       results.push({ change_id: id, ok: false, msg: String(e) })
     }
