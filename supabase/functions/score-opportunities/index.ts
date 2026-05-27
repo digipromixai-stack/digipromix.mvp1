@@ -1,19 +1,28 @@
 /**
  * score-opportunities — MVP 2.0 AI Opportunity Radar
  *
- * Reads recent `detected_changes` (last 48h), scores each one using a
- * heuristic-first model (per the MVP 2.0 delivery plan), and upserts a row
- * into `opportunities` so the frontend Opportunity Feed has something to show.
+ * Aligned with the MVP 2.0 Delivery Plan (Ankit Jha, May 2026):
+ *   • §6 AI Decision Engine — "embeddings + vector similarity + heuristic
+ *     scoring + LLM enrichment"
+ *   • §13 Risk Mitigation — "AI hallucinated insights → Deterministic
+ *     scoring remains primary" (so the SCORE is heuristic, never LLM-ranked)
+ *   • §18 — "compounding intelligence system powered by signals, embeddings,
+ *     campaign outcomes" (vector-boost from past campaign outcomes)
  *
- * Heuristic — NOT an LLM call. Cheap, deterministic, idempotent. The plan
- * explicitly calls for heuristic-first scoring at MVP scale.
+ * Pipeline per opportunity:
+ *   1. DEDUP by (user_id, competitor_id, day)
+ *   2. HEURISTIC SCORE (deterministic, primary) — 0..100
+ *   3. VECTOR BOOST  — query campaign_embeddings for past similar campaigns
+ *      this user already ran; nudge score by their real outcomes
+ *   4. LLM ENRICHMENT (Gemini) — punchy title + recommended_action, with
+ *      heuristic fallback so the cron never breaks
+ *   5. Insert into `opportunities`, idempotent on metadata.source_change_id
  *
- * Scoring formula (0–100):
- *   severity_weight    +  change_type_weight  +  coordination_bonus
- *   + normalized_campaign_score  +  recency_factor
- *
- * POST {}             — no body needed
- * POST { user_id }    — score only one user's signals (optional)
+ * POST {}                          — score every user's recent signals
+ * POST { user_id }                 — only one user
+ * POST { window_hours }            — override 48h lookback (1..8760)
+ * POST { skip_llm: true }          — skip Gemini enrichment (e.g. local tests)
+ * POST { skip_vector_boost: true } — skip pgvector lookup
  *
  * verify_jwt is OFF — invoked by pg_cron and internal scripts only.
  */
@@ -160,6 +169,218 @@ function sharperTitle(
   }
 }
 
+// ── Gemini helpers (LLM enrichment per §6) ──────────────────────────────────
+//
+// Two narrow uses of Gemini, both per the doc:
+//  1. Build a 768-dim embedding of the signal text → fed into the existing
+//     match_campaign_embeddings RPC to find similar past campaigns.
+//  2. Generate a punchy title + recommended_action from the signal context.
+//     Falls back to the deterministic `sharperTitle()` on any error so the
+//     cron never breaks (the doc explicitly notes deterministic remains primary).
+
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
+
+async function geminiEmbed(text: string): Promise<number[] | null> {
+  if (!GEMINI_API_KEY || !text) return null
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'models/gemini-embedding-001',
+          content: { parts: [{ text: text.slice(0, 8000) }] },
+          taskType: 'RETRIEVAL_QUERY',
+          outputDimensionality: 768,
+        }),
+        signal: AbortSignal.timeout(5_000),
+      },
+    )
+    if (!res.ok) return null
+    const data = await res.json() as { embedding?: { values?: number[] } }
+    return data.embedding?.values ?? null
+  } catch {
+    return null  // never break the cron
+  }
+}
+
+interface EnrichResult { title: string; recommended_action: string }
+
+// Model fallback chain — matches generate-campaign so we're guaranteed
+// at least one works on this Gemini key.
+const TITLE_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite']
+
+// Strip ```json ... ``` fences and any leading prose. Gemini sometimes
+// wraps the JSON despite responseMimeType=application/json.
+function extractJson(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+  if (fenced) return fenced[1].trim()
+  const brace = text.indexOf('{')
+  if (brace >= 0) {
+    const end = text.lastIndexOf('}')
+    if (end > brace) return text.slice(brace, end + 1)
+  }
+  return text.trim()
+}
+
+async function geminiEnrichTitle(ctx: {
+  competitorName: string
+  industry: string | null
+  changeType: string
+  severity: string
+  pageType: string | null
+  promoCodes: string[]
+  priceBefore: string[]
+  priceAfter: string[]
+  addedContent: string[]
+  isCoordinated: boolean
+  score: number
+  siblingTypes: string[]
+}): Promise<EnrichResult | null> {
+  if (!GEMINI_API_KEY) return null
+
+  // Combined instruction + signal context as one user message (no systemInstruction —
+  // it fails on some free-tier configs). JSON-only output, no markdown.
+  const prompt = `You are an SMB ad-marketing copywriter writing OPPORTUNITY ALERT titles for a competitive-intelligence dashboard.
+
+Generate a punchy alert for this competitor signal:
+- Competitor: ${ctx.competitorName}
+${ctx.industry ? `- Industry: ${ctx.industry}\n` : ''}- Change type: ${ctx.changeType}
+- Severity: ${ctx.severity}
+${ctx.pageType ? `- Page type: ${ctx.pageType}\n` : ''}${ctx.promoCodes.length ? `- Promo codes: ${ctx.promoCodes.slice(0, 3).join(', ')}\n` : ''}${ctx.priceBefore.length && ctx.priceAfter.length ? `- Price moved ${ctx.priceBefore[0]} → ${ctx.priceAfter[0]}\n` : ''}${ctx.addedContent.length ? `- Added content snippets: ${ctx.addedContent.slice(0, 3).map(s => s.slice(0, 80)).join(' | ')}\n` : ''}${ctx.isCoordinated ? `- COORDINATED multi-page launch detected\n` : ''}${ctx.siblingTypes.length ? `- Same-day sibling changes: ${ctx.siblingTypes.join(', ')}\n` : ''}- Opportunity score: ${ctx.score}/100
+
+Return ONLY a JSON object (no markdown fences, no prose), shape:
+{"title": "<≤90 chars, punchy, name competitor, what changed + why it matters. No emojis, no 'AI', no 'alert:' prefix>", "recommended_action": "<≤130 chars, one concrete next step the user can act on TODAY, active voice>"}`
+
+  for (const model of TITLE_MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 220,
+              responseMimeType: 'application/json',
+            },
+          }),
+          signal: AbortSignal.timeout(8_000),
+        },
+      )
+      if (res.status === 429 || res.status === 404) continue  // try next model
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        console.warn(`geminiEnrichTitle ${model} HTTP ${res.status}: ${body.slice(0, 150)}`)
+        continue
+      }
+      const data = await res.json() as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>
+      }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!text) {
+        console.warn(`geminiEnrichTitle ${model} empty response, finishReason=${data.candidates?.[0]?.finishReason}`)
+        continue
+      }
+      const parsed = JSON.parse(extractJson(text)) as Partial<EnrichResult>
+      if (typeof parsed.title !== 'string' || typeof parsed.recommended_action !== 'string') {
+        console.warn(`geminiEnrichTitle ${model} bad shape: ${text.slice(0, 150)}`)
+        continue
+      }
+      return {
+        title:              parsed.title.slice(0, 120),
+        recommended_action: parsed.recommended_action.slice(0, 160),
+      }
+    } catch (err) {
+      console.warn(`geminiEnrichTitle ${model} threw:`, String(err).slice(0, 200))
+    }
+  }
+  return null  // all models failed → caller uses deterministic fallback
+}
+
+// ── Vector boost from past campaign outcomes (§18 compounding intelligence) ─
+//
+// Query campaign_embeddings (via match_campaign_embeddings RPC) for past
+// campaigns this user already ran that are semantically similar to the
+// current signal. If they performed well → +5 score, +0.05 confidence.
+// If they performed poorly → -3 score (this archetype doesn't convert here).
+interface VectorBoost { scoreDelta: number; confidenceDelta: number; reason: string | null }
+
+async function vectorBoostFor(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  signalText: string,
+): Promise<VectorBoost> {
+  const NEUTRAL: VectorBoost = { scoreDelta: 0, confidenceDelta: 0, reason: null }
+  const embedding = await geminiEmbed(signalText)
+  if (!embedding) return NEUTRAL
+
+  const { data, error } = await admin.rpc('match_campaign_embeddings', {
+    query_embedding:  embedding,
+    match_user_id:    userId,
+    match_threshold:  0.7,
+    match_count:      3,
+  })
+  if (error || !Array.isArray(data) || data.length === 0) return NEUTRAL
+
+  const top = data[0] as {
+    similarity: number
+    outcome_leads:       number | null
+    outcome_conversions: number | null
+    outcome_spend:       number | null
+  }
+  const leads = Number(top.outcome_leads ?? 0)
+  const sim   = Number(top.similarity   ?? 0)
+
+  // Past similar campaign converted well → boost the new opportunity
+  if (leads >= 5 && sim >= 0.75) {
+    return {
+      scoreDelta:      Math.min(8, Math.round(sim * 10)),
+      confidenceDelta: 0.07,
+      reason:          `past_similar_won (${leads} leads, sim=${sim.toFixed(2)})`,
+    }
+  }
+  // Past similar campaign flopped → temper the new opportunity
+  if (leads === 0 && Number(top.outcome_spend ?? 0) > 50 && sim >= 0.78) {
+    return {
+      scoreDelta:      -3,
+      confidenceDelta: 0.02,
+      reason:          `past_similar_flopped (sim=${sim.toFixed(2)})`,
+    }
+  }
+  // Match exists but neutral → just add a small confidence nudge
+  return {
+    scoreDelta:      0,
+    confidenceDelta: 0.03,
+    reason:          `past_similar_seen (sim=${sim.toFixed(2)})`,
+  }
+}
+
+// Compact text representation of a signal used as the vector query
+function signalText(
+  competitorName: string | null,
+  industry: string | null,
+  changeType: string,
+  meta: Record<string, unknown>,
+  pageType: string | null,
+): string {
+  const codes      = Array.isArray(meta.promo_codes)    ? (meta.promo_codes    as string[]).slice(0, 5).join(', ') : ''
+  const added      = Array.isArray(meta.added_content)  ? (meta.added_content  as string[]).slice(0, 5).join(' | ') : ''
+  const priceAfter = Array.isArray(meta.price_after)    ? (meta.price_after    as string[]).slice(0, 3).join(', ') : ''
+  return [
+    industry        ? `Industry: ${industry}` : null,
+    competitorName  ? `Competitor: ${competitorName}` : null,
+    `Change: ${changeType}`,
+    pageType        ? `Page: ${pageType}` : null,
+    codes           ? `Promo codes: ${codes}` : null,
+    priceAfter      ? `New prices: ${priceAfter}` : null,
+    added           ? `Added: ${added}` : null,
+  ].filter(Boolean).join('\n')
+}
+
 // ── Main handler ────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -173,8 +394,12 @@ Deno.serve(async (req) => {
     )
 
     const reqBody = await req.json().catch(() => ({}))
-    const onlyUser     = (reqBody as { user_id?: string }).user_id ?? null
-    const windowHours  = Math.min(8760, Math.max(1, Number((reqBody as { window_hours?: number }).window_hours) || 48))
+    const onlyUser         = (reqBody as { user_id?: string }).user_id ?? null
+    const windowHours      = Math.min(8760, Math.max(1, Number((reqBody as { window_hours?: number }).window_hours) || 48))
+    const skipLlm          = (reqBody as { skip_llm?: boolean }).skip_llm === true
+    const skipVectorBoost  = (reqBody as { skip_vector_boost?: boolean }).skip_vector_boost === true
+    // Only enrich opportunities above this heuristic score — keep Gemini cost low
+    const enrichThreshold  = 50
 
     // ── Pull recent changes that don't yet have an opportunity row ───────
     let query = admin
@@ -245,7 +470,8 @@ Deno.serve(async (req) => {
 
     // ── Score each + build the opportunity rows ──────────────────────────
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    const rows = todo.map(({ primary: change, siblings }) => {
+    const rows: Record<string, unknown>[] = []
+    for (const { primary: change, siblings } of todo) {
       const competitor = change.competitors as { name: string; industry: string | null } | null
       const page       = change.monitored_pages as { page_type: string | null } | null
       const industry   = competitor?.industry ?? null
@@ -276,9 +502,24 @@ Deno.serve(async (req) => {
       // across re-runs (no random noise).
       const jitter = ((change.competitor_id as string).charCodeAt(0) + (change.competitor_id as string).charCodeAt(8)) % 5
 
-      const rawScore = sevScore + typeScore + coordBonus + sigBonus + recency
-                     + pageWeight + promoBonus + priceBonus + siblingBonus + jitter
-      const score    = Math.min(100, Math.max(0, rawScore))
+      const heuristicScore = Math.min(100, Math.max(0,
+        sevScore + typeScore + coordBonus + sigBonus + recency
+        + pageWeight + promoBonus + priceBonus + siblingBonus + jitter,
+      ))
+
+      // VECTOR BOOST (§18 compounding intelligence) — only for opps that
+      // already cleared the enrichment threshold, to keep Gemini calls cheap.
+      let vectorReason: string | null = null
+      let vectorScoreDelta              = 0
+      let vectorConfidenceDelta         = 0
+      if (!skipVectorBoost && heuristicScore >= enrichThreshold) {
+        const sig = signalText(competitor?.name ?? null, industry, change.change_type as string, meta, page?.page_type ?? null)
+        const vb  = await vectorBoostFor(admin, change.user_id as string, sig)
+        vectorReason          = vb.reason
+        vectorScoreDelta      = vb.scoreDelta
+        vectorConfidenceDelta = vb.confidenceDelta
+      }
+      const score = Math.min(100, Math.max(0, heuristicScore + vectorScoreDelta))
 
       // ── Economic projection (with per-signal variance) ──────────────
       const baseline      = baselineFor(industry)
@@ -304,15 +545,43 @@ Deno.serve(async (req) => {
       if (campaignSig > 50)               confidence += 0.10
       if (recency >= 15)                  confidence += 0.05
       if (siblings.length >= 2)           confidence += 0.05
-      confidence = Math.min(0.95, confidence)
+      confidence = Math.min(0.95, confidence + vectorConfidenceDelta)
 
-      // ── Sharper auto-title ──────────────────────────────────────────
-      const title = sharperTitle(change.title as string | null, change.change_type as string, competitor?.name ?? null, meta)
+      // ── LLM-enriched title + recommended_action (§6) ────────────────
+      // Only call Gemini for opps above the enrichment threshold; fall back
+      // to deterministic sharperTitle() / suggestAction() on any error so
+      // the cron never breaks (§13 — deterministic remains primary).
+      const fallbackTitle  = sharperTitle(change.title as string | null, change.change_type as string, competitor?.name ?? null, meta)
+      const fallbackAction = suggestAction(change.change_type as string, score)
+      let finalTitle  = fallbackTitle
+      let finalAction = fallbackAction
+      let llmUsed     = false
+      if (!skipLlm && score >= enrichThreshold) {
+        const enrich = await geminiEnrichTitle({
+          competitorName: competitor?.name ?? 'Competitor',
+          industry,
+          changeType:   change.change_type as string,
+          severity:     change.severity as string,
+          pageType:     page?.page_type ?? null,
+          promoCodes:   Array.isArray(meta.promo_codes)   ? (meta.promo_codes   as string[]) : [],
+          priceBefore:  Array.isArray(meta.price_before)  ? (meta.price_before  as string[]) : [],
+          priceAfter:   Array.isArray(meta.price_after)   ? (meta.price_after   as string[]) : [],
+          addedContent: Array.isArray(meta.added_content) ? (meta.added_content as string[]) : [],
+          isCoordinated: meta.is_coordinated === true,
+          score,
+          siblingTypes:  siblings.map((s) => s.change_type as string),
+        })
+        if (enrich) {
+          finalTitle  = enrich.title
+          finalAction = enrich.recommended_action
+          llmUsed     = true
+        }
+      }
       const titleWithSiblings = siblings.length > 0
-        ? `${title} · +${siblings.length} more signal${siblings.length > 1 ? 's' : ''} today`
-        : title
+        ? `${finalTitle} · +${siblings.length} more today`
+        : finalTitle
 
-      return {
+      rows.push({
         user_id:           change.user_id,
         signal_id:         null,
         title:             titleWithSiblings,
@@ -326,7 +595,7 @@ Deno.serve(async (req) => {
         estimated_cpl:     cpl,
         recommended_budget: recBudget,
         confidence:        Math.round(confidence * 100) / 100,
-        recommended_action: suggestAction(change.change_type as string, score),
+        recommended_action: finalAction,
         reasoning: [
           `severity=${change.severity} (+${sevScore})`,
           `type=${change.change_type} (+${typeScore})`,
@@ -337,6 +606,8 @@ Deno.serve(async (req) => {
           priceBonus    ? `prices×${priceAfter} (+${priceBonus})` : null,
           siblingBonus  ? `same-day-siblings×${siblings.length} (+${siblingBonus})` : null,
           recency       ? `recency (+${recency})` : null,
+          vectorReason  ? `${vectorReason} (${vectorScoreDelta >= 0 ? '+' : ''}${vectorScoreDelta})` : null,
+          llmUsed       ? `llm_enriched` : null,
         ].filter(Boolean).join(' · '),
         signal_sources: [
           { type: 'detected_change', id: change.id },
@@ -352,9 +623,13 @@ Deno.serve(async (req) => {
           is_coordinated:      meta.is_coordinated ?? false,
           sibling_change_ids:  siblings.map((s) => s.id),
           sibling_types:       siblings.map((s) => s.change_type),
+          heuristic_score:     heuristicScore,
+          vector_score_delta:  vectorScoreDelta,
+          vector_reason:       vectorReason,
+          llm_enriched:        llmUsed,
         },
-      }
-    })
+      })
+    }
 
     // ── Plain insert — we already filtered out signal_ids that have an
     //    existing opportunity. The partial unique index is a safety net for
