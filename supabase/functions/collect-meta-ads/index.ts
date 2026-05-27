@@ -32,13 +32,18 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
 
-// Meta Ad Library — the public /ads_archive endpoint accepts an APP access
-// token, which is just `{APP_ID}|{APP_SECRET}`. No system-user token needed
-// for public ad data per Meta docs:
+// Meta Ad Library token resolution priority:
+//   1. Per-user token from ad_integrations (preferred — works once the user
+//      completes ID verification at https://www.facebook.com/id)
+//   2. Global META_APP_ACCESS_TOKEN / META_ACCESS_TOKEN env (for testing)
+//   3. App token built from META_APP_ID|META_APP_SECRET (last resort)
+//
+// The /ads_archive endpoint requires identity verification per Meta docs:
 // https://www.facebook.com/ads/library/api/?source=archive-landing-page
+// — there's no API workaround for that.
 const META_APP_ID     = Deno.env.get('META_APP_ID')     ?? ''
 const META_APP_SECRET = Deno.env.get('META_APP_SECRET') ?? ''
-const META_TOKEN      = Deno.env.get('META_APP_ACCESS_TOKEN')
+const FALLBACK_TOKEN  = Deno.env.get('META_APP_ACCESS_TOKEN')
   ?? Deno.env.get('META_ACCESS_TOKEN')
   ?? (META_APP_ID && META_APP_SECRET ? `${META_APP_ID}|${META_APP_SECRET}` : '')
 
@@ -78,8 +83,8 @@ interface AdRow {
   publisher_platforms?: string[]
 }
 
-async function fetchAds(brand: string, country: string): Promise<AdRow[]> {
-  if (!META_TOKEN) return []
+async function fetchAds(brand: string, country: string, token: string): Promise<{ ads: AdRow[]; error?: string }> {
+  if (!token) return { ads: [], error: 'no_token' }
   // ad_type=ALL is REQUIRED to get commercial ads — default is
   // POLITICAL_AND_ISSUE_ADS only, which would return empty for normal brands.
   const url = `${META_GRAPH}/ads_archive`
@@ -89,19 +94,27 @@ async function fetchAds(brand: string, country: string): Promise<AdRow[]> {
     + `&ad_type=ALL`
     + `&fields=id,ad_creative_body,ad_creation_time,ad_delivery_start_time,page_name,publisher_platforms`
     + `&limit=50`
-    + `&access_token=${encodeURIComponent(META_TOKEN)}`
+    + `&access_token=${encodeURIComponent(token)}`
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
     if (!res.ok) {
       const errBody = await res.text().catch(() => '')
-      console.warn(`Meta Ad Library ${brand} HTTP ${res.status}: ${errBody.slice(0, 200)}`)
-      return []
+      let detail = `HTTP ${res.status}`
+      try {
+        const parsed = JSON.parse(errBody) as { error?: { code?: number; error_subcode?: number; message?: string } }
+        if (parsed.error?.error_subcode === 2332002) detail = 'identity_verification_required'
+        else if (parsed.error?.error_subcode === 2332004) detail = 'app_role_required'
+        else if (parsed.error?.code === 190)             detail = 'invalid_token'
+        else if (parsed.error?.message)                  detail = parsed.error.message.slice(0, 80)
+      } catch { /* not JSON */ }
+      console.warn(`Meta Ad Library ${brand}: ${detail}`)
+      return { ads: [], error: detail }
     }
     const data = await res.json() as { data?: AdRow[] }
-    return data.data ?? []
+    return { ads: data.data ?? [] }
   } catch (err) {
     console.warn(`Meta Ad Library ${brand} threw:`, String(err).slice(0, 200))
-    return []
+    return { ads: [], error: 'fetch_failed' }
   }
 }
 
@@ -127,10 +140,6 @@ function offerKeywords(text: string): string[] {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
-  if (!META_TOKEN) {
-    return json({ error: 'Meta token unavailable. Set META_APP_ID + META_APP_SECRET (or META_APP_ACCESS_TOKEN) in Supabase secrets.' }, 503)
-  }
-
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -143,6 +152,19 @@ Deno.serve(async (req) => {
   const onlyUser       = body.user_id ?? null
   const onlyCompetitor = body.competitor_id ?? null
   const force          = body.force === true
+
+  // Resolve a per-user Meta token from ad_integrations. Keyed by user_id.
+  const { data: integrations } = await admin
+    .from('ad_integrations')
+    .select('user_id, access_token, token_expires_at, is_active')
+    .eq('platform', 'meta')
+    .eq('is_active', true)
+  const userTokens = new Map<string, string>()
+  for (const i of integrations ?? []) {
+    if (i.access_token && (!i.token_expires_at || new Date(i.token_expires_at as string) > new Date())) {
+      userTokens.set(i.user_id as string, i.access_token as string)
+    }
+  }
 
   let q = admin.from('competitors')
     .select('id, user_id, name, industry, website_url')
@@ -179,9 +201,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    const ads = await fetchAds(brand, country)
+    const token = userTokens.get(userId) ?? FALLBACK_TOKEN
+    if (!token) {
+      summary.push({ competitor: brand, ads: 0, signals: 0, reason: 'no_meta_token_for_user' })
+      continue
+    }
+    const { ads, error: fetchErr } = await fetchAds(brand, country, token)
     if (ads.length === 0) {
-      summary.push({ competitor: brand, ads: 0, signals: 0, reason: 'no_public_ads' })
+      summary.push({ competitor: brand, ads: 0, signals: 0, reason: fetchErr ?? 'no_public_ads' })
       continue
     }
 
