@@ -7,14 +7,15 @@
  * and pre-fills generate-campaign with the right context.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
-  ArrowRight, Filter, Search, RefreshCcw, X, Loader2,
+  ArrowRight, Filter, Search, RefreshCcw, X, Loader2, Radio,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
+import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { CampaignModal } from '../components/campaigns/CampaignModal'
 import type { Opportunity, DetectedChangeWithCompetitor } from '../types/database.types'
@@ -43,8 +44,17 @@ function OpportunityCard({
   onDismiss: (opp: Opportunity) => void
   busy: boolean
 }) {
+  // NEW badge for opportunities created in the last 5 minutes — the realtime
+  // subscription will push these in without a refresh.
+  const ageMs = Date.now() - new Date(opp.created_at).getTime()
+  const isNew = ageMs < 5 * 60 * 1000
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow relative">
+    <div className={`bg-white border ${isNew ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-gray-200'} rounded-2xl p-5 hover:shadow-md transition-shadow relative`}>
+      {isNew && (
+        <span className="absolute -top-2 -left-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-sm">
+          New
+        </span>
+      )}
       {/* Dismiss button */}
       <button
         onClick={() => onDismiss(opp)}
@@ -107,11 +117,42 @@ export function OpportunityFeedPage() {
   const [statusFilter] = useState<'open'>('open')
   const { data: opportunities = [], isLoading, refetch } = useOpportunities({ status: statusFilter })
   const queryClient = useQueryClient()
+  const { user } = useAuth()
 
   // Active campaign-launch context: the opportunity we're acting on + the
   // detected_change row we resolved from metadata.source_change_id
   const [activeChange, setActiveChange] = useState<DetectedChangeWithCompetitor | null>(null)
+  const [activeOppHint, setActiveOppHint] = useState<{
+    title?: string
+    recommended_budget?: number | null
+    expected_leads?:     number | null
+    estimated_cpc?:      number | null
+    estimated_cpl?:      number | null
+    confidence?:         number | null
+    industry?:           string | null
+  } | undefined>(undefined)
   const [loadingOppId, setLoadingOppId] = useState<string | null>(null)
+  const [livePulse, setLivePulse] = useState(false)
+
+  // MVP 2.0 §Phase 3 — Realtime Opportunity Feed.
+  // Supabase realtime subscription on `opportunities`: new opps pop in
+  // without refresh. We invalidate the React Query cache on any change.
+  useEffect(() => {
+    if (!user?.id) return
+    const channel = supabase
+      .channel(`opportunities-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'opportunities', filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+          setLivePulse(true)
+          setTimeout(() => setLivePulse(false), 2500)
+        },
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id, queryClient])
 
   // Fetch the source detected_change and open the campaign modal
   async function handleLaunch(opp: Opportunity) {
@@ -135,6 +176,17 @@ export function OpportunityFeedPage() {
         return
       }
       setActiveChange(data as DetectedChangeWithCompetitor)
+      // Carry the Opportunity Radar projections into the campaign modal
+      // so it pre-fills the budget / lead expectations panel.
+      setActiveOppHint({
+        title:              opp.title,
+        recommended_budget: opp.recommended_budget ?? null,
+        expected_leads:     opp.expected_leads     ?? null,
+        estimated_cpc:      opp.estimated_cpc      ?? null,
+        estimated_cpl:      opp.estimated_cpl      ?? null,
+        confidence:         opp.confidence         ?? null,
+        industry:           opp.industry           ?? null,
+      })
     } finally {
       setLoadingOppId(null)
     }
@@ -160,6 +212,17 @@ export function OpportunityFeedPage() {
             <h1 className="text-2xl font-bold text-gray-900">Opportunity Radar</h1>
             <span className="text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-violet-500 to-indigo-500 text-white px-2 py-0.5 rounded">
               Beta
+            </span>
+            <span
+              title={livePulse ? 'New signal just received' : 'Live — listening for new signals'}
+              className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-all ${
+                livePulse
+                  ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-300 animate-pulse'
+                  : 'bg-emerald-50 text-emerald-600'
+              }`}
+            >
+              <Radio size={10} className={livePulse ? 'animate-pulse' : ''} />
+              {livePulse ? 'New signal' : 'Live'}
             </span>
           </div>
           <p className="text-sm text-gray-500">
@@ -234,12 +297,14 @@ export function OpportunityFeedPage() {
         </div>
       )}
 
-      {/* Campaign generation modal — same one Changes page uses */}
+      {/* Campaign generation modal — same one Changes page uses, now
+          pre-filled with the Opportunity Radar projections. */}
       {activeChange && (
         <CampaignModal
           change={activeChange}
           open={!!activeChange}
-          onClose={() => setActiveChange(null)}
+          onClose={() => { setActiveChange(null); setActiveOppHint(undefined) }}
+          opportunityHint={activeOppHint}
         />
       )}
     </div>
