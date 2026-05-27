@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   ExternalLink, GitCompare, Tag, DollarSign, FileText, BookOpen,
   Megaphone, Edit3, ArrowRight, PlusCircle, MinusCircle, Rocket,
-  TrendingDown, TrendingUp, Zap, Eye, ChevronRight,
+  TrendingDown, TrendingUp, Zap, Eye, ChevronRight, Crosshair,
 } from 'lucide-react'
 import { Card, CardContent } from '../ui/Card'
 import { Badge, ChangeTypeBadge, SeverityBadge } from '../ui/Badge'
@@ -262,6 +262,45 @@ function CardPreview({ change }: { change: DetectedChangeWithCompetitor }) {
   return null
 }
 
+// ── Deep-link helper ───────────────────────────────────────────────────────
+// Build a Chrome/Edge/Safari "text fragment" URL that auto-scrolls + highlights
+// the changed text on the live page. Browsers without support just ignore the
+// fragment, so it degrades to a normal URL.
+//
+// Spec: https://wicg.github.io/scroll-to-text-fragment/
+// Syntax: <url>#:~:text=<startText>[,<endText>]
+function buildDeepLink(
+  url: string | undefined,
+  change: DetectedChangeWithCompetitor,
+): string | null {
+  if (!url) return null
+  const meta = change.metadata
+  const candidates: (string | undefined)[] = [
+    // Best anchors first: added content, promo codes, post-change price, title
+    ...(meta?.added_content ?? []),
+    ...(meta?.promo_codes ?? []),
+    ...(meta?.price_after ?? []),
+    ...(meta?.promo_keywords ?? []),
+    change.title,
+  ]
+  const snippet = candidates
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 3)
+    .map(s => s.trim())
+    .find(s => s.length > 0)
+  if (!snippet) return null
+
+  // Trim to a short, distinctive phrase. Long fragments rarely match because
+  // of whitespace / DOM splitting; 5–8 words is the sweet spot.
+  const words = snippet.replace(/\s+/g, ' ').split(' ').slice(0, 8).join(' ')
+  // Strip characters that break the fragment grammar (`,` `&` `-`).
+  const safe = words.replace(/[,&#]/g, '').trim()
+  if (safe.length < 4) return null
+
+  // Append fragment. If the URL already has a hash, replace it.
+  const base = url.split('#')[0]
+  return `${base}#:~:text=${encodeURIComponent(safe)}`
+}
+
 // ── Main card ──────────────────────────────────────────────────────────────
 
 export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor }) {
@@ -369,6 +408,7 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
           const compName = change.competitors?.name ?? 'Unknown'
           const compSite = change.competitors?.website_url ?? ''
           const favicon  = compSite ? `https://www.google.com/s2/favicons?domain=${(() => { try { return new URL(compSite).hostname } catch { return '' } })()}&sz=64` : null
+          const deepLink = buildDeepLink(pageUrl, change)
           return (
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 mb-5">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Where this changed</p>
@@ -399,11 +439,48 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
                     <span className="text-xs text-gray-400">{timeAgo(change.detected_at)}</span>
                   </div>
                 </div>
+                <div className="hidden sm:flex flex-col gap-1.5 shrink-0">
+                  {deepLink && (
+                    <a
+                      href={deepLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Opens the page and scrolls to the changed text (Chrome / Edge / Safari)"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors"
+                    >
+                      <Crosshair size={12} />
+                      Jump to change
+                    </a>
+                  )}
+                  <a
+                    href={pageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
+                    <ExternalLink size={12} />
+                    Open page
+                  </a>
+                </div>
+              </div>
+              {/* Mobile-friendly buttons (full-width below) */}
+              <div className="sm:hidden flex gap-2 mt-3">
+                {deepLink && (
+                  <a
+                    href={deepLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg"
+                  >
+                    <Crosshair size={12} />
+                    Jump to change
+                  </a>
+                )}
                 <a
                   href={pageUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="hidden sm:inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg"
                 >
                   <ExternalLink size={12} />
                   Open page
