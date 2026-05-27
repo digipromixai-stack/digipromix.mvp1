@@ -269,36 +269,71 @@ function CardPreview({ change }: { change: DetectedChangeWithCompetitor }) {
 //
 // Spec: https://wicg.github.io/scroll-to-text-fragment/
 // Syntax: <url>#:~:text=<startText>[,<endText>]
+//
+// Returns { url, searchText } — searchText is shown in the button tooltip so
+// the user can see what we're hunting for on the live page.
 function buildDeepLink(
   url: string | undefined,
   change: DetectedChangeWithCompetitor,
-): string | null {
+): { url: string; searchText: string } | null {
   if (!url) return null
   const meta = change.metadata
-  const candidates: (string | undefined)[] = [
-    // Best anchors first: added content, promo codes, post-change price, title
-    ...(meta?.added_content ?? []),
-    ...(meta?.promo_codes ?? []),
-    ...(meta?.price_after ?? []),
-    ...(meta?.promo_keywords ?? []),
+
+  // Collect every potential anchor string we have.
+  const raw: (string | undefined)[] = [
+    ...(meta?.added_content   ?? []),
+    ...(meta?.promo_codes     ?? []),
+    ...(meta?.price_after     ?? []),
+    ...(meta?.promo_keywords  ?? []),
     change.title,
   ]
-  const snippet = candidates
-    .filter((s): s is string => typeof s === 'string' && s.trim().length > 3)
-    .map(s => s.trim())
-    .find(s => s.length > 0)
-  if (!snippet) return null
 
-  // Trim to a short, distinctive phrase. Long fragments rarely match because
-  // of whitespace / DOM splitting; 5–8 words is the sweet spot.
-  const words = snippet.replace(/\s+/g, ' ').split(' ').slice(0, 8).join(' ')
-  // Strip characters that break the fragment grammar (`,` `&` `-`).
-  const safe = words.replace(/[,&#]/g, '').trim()
-  if (safe.length < 4) return null
+  // Clean each candidate and score it for "how findable it is on the live page".
+  // Higher score = more likely to match a single, unique DOM text node.
+  const candidates = raw
+    .filter((s): s is string => typeof s === 'string')
+    .map(s => s.replace(/\s+/g, ' ').trim())
+    .filter(s => s.length >= 6)
+    // Skip concatenated nav-junk like "HomeAboutUsServicesResources" or
+    // "HomeAbout UsServicesResources" — strings with 2+ direct CamelCase
+    // glue points are usually merged menu items. They exist in the crawler's
+    // collapsed text but never appear as a single DOM text node on the live
+    // site, so Chrome will never find them.
+    .filter(s => (s.match(/[a-z][A-Z]/g) ?? []).length < 2)
+    // Strip characters that break the fragment grammar
+    .map(s => s.replace(/[,&#]/g, '').trim())
+    .filter(s => s.length >= 6)
 
-  // Append fragment. If the URL already has a hash, replace it.
+  if (candidates.length === 0) return null
+
+  // Prefer the candidate with the MOST words (more distinctive → less chance
+  // of matching the wrong section). Tie-break by raw length.
+  const ranked = candidates
+    .map(s => ({ s, words: s.split(' ').length, len: s.length }))
+    .sort((a, b) => (b.words - a.words) || (b.len - a.len))
+
+  const winner = ranked[0].s
+
+  // Build the fragment. For phrases ≥10 words use the `textStart,textEnd`
+  // range syntax so Chrome highlights the whole block, not just the first
+  // word. Cap each end at 5 words to keep the URL short and matchable.
+  const allWords = winner.split(' ')
+  let fragment: string
+  let searchText: string
+  if (allWords.length >= 10) {
+    const start = allWords.slice(0, 5).join(' ')
+    const end   = allWords.slice(-5).join(' ')
+    fragment   = `${encodeURIComponent(start)},${encodeURIComponent(end)}`
+    searchText = `"${start}" → "${end}"`
+  } else {
+    // Up to 8 words, single match
+    const phrase = allWords.slice(0, 8).join(' ')
+    fragment   = encodeURIComponent(phrase)
+    searchText = `"${phrase}"`
+  }
+
   const base = url.split('#')[0]
-  return `${base}#:~:text=${encodeURIComponent(safe)}`
+  return { url: `${base}#:~:text=${fragment}`, searchText }
 }
 
 // ── Main card ──────────────────────────────────────────────────────────────
@@ -442,10 +477,10 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
                 <div className="hidden sm:flex flex-col gap-1.5 shrink-0">
                   {deepLink && (
                     <a
-                      href={deepLink}
+                      href={deepLink.url}
                       target="_blank"
                       rel="noreferrer"
-                      title="Opens the page and scrolls to the changed text (Chrome / Edge / Safari)"
+                      title={`Scrolls to ${deepLink.searchText} on the live page (Chrome / Edge / Safari).`}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors"
                     >
                       <Crosshair size={12} />
@@ -467,9 +502,10 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
               <div className="sm:hidden flex gap-2 mt-3">
                 {deepLink && (
                   <a
-                    href={deepLink}
+                    href={deepLink.url}
                     target="_blank"
                     rel="noreferrer"
+                    title={`Scrolls to ${deepLink.searchText} on the live page.`}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg"
                   >
                     <Crosshair size={12} />
