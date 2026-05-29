@@ -256,6 +256,21 @@ export interface Lead {
   source: string
   score: number
   status: LeadStatus
+  // MVP 2.0 intent-scoring columns (migration 013)
+  score_type: LeadIntentScore | null
+  recommended_action: string | null
+  intent_level: 'hot' | 'medium' | 'low' | null
+  intent_score: number | null
+  intent_signals: Record<string, unknown> | null
+  time_on_page_seconds: number | null
+  scroll_depth_pct: number | null
+  click_count: number | null
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+  utm_content: string | null
+  utm_term: string | null
+  referrer: string | null
   created_at: string
   updated_at: string
 }
