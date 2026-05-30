@@ -79,6 +79,14 @@ verify_jwt = false
 [functions.score-opportunities]
 verify_jwt = false
 
+# collect-meta-ads is called by pg_cron — internal only, no user auth.
+[functions.collect-meta-ads]
+verify_jwt = false
+
+# collect-google-trends is called by pg_cron — internal only, no user auth.
+[functions.collect-google-trends]
+verify_jwt = false
+
 # embed-campaign is invoked internally by generate-campaign (and backfill
 # scripts) via the admin_token bypass. No user-facing auth.
 [functions.embed-campaign]
