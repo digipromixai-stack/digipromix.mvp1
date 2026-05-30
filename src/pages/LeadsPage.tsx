@@ -70,7 +70,7 @@ function LeadCard({ lead }: { lead: LeadWithCampaign }) {
                 )}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <IntentBadge scoreType={(lead as { intent_level?: string; score_type?: string }).intent_level ?? (lead as { score_type?: string }).score_type} />
+                <IntentBadge scoreType={lead.intent_level ?? lead.score_type} />
                 <ScoreDot score={lead.score} />
                 <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.color}`}>
                   {cfg.label}
@@ -99,9 +99,9 @@ function LeadCard({ lead }: { lead: LeadWithCampaign }) {
               </p>
             )}
 
-            {(lead as { recommended_action?: string }).recommended_action && (
+            {lead.recommended_action && (
               <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md mt-1.5">
-                {(lead as { recommended_action?: string }).recommended_action}
+                {lead.recommended_action}
               </p>
             )}
 
