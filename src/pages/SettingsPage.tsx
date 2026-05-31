@@ -222,6 +222,67 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* ── Signal Intelligence API Keys ─────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-sm font-semibold text-gray-900">Signal Intelligence — API Keys</h2>
+          <p className="text-xs text-gray-400 mt-0.5">These keys power the Opportunity Radar. Add them in Supabase → Settings → Edge Function Secrets.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[
+            {
+              name: 'SERPAPI_KEY',
+              label: 'SerpAPI (Google Trends — premium)',
+              status: 'optional',
+              desc: 'Without this, Trends uses the free RSS fallback (less accurate). Get a free key at',
+              link: 'https://serpapi.com',
+              linkLabel: 'serpapi.com',
+              impact: 'Better keyword-level growth %',
+            },
+            {
+              name: 'META_APP_ACCESS_TOKEN',
+              label: 'Meta Ad Library token',
+              status: 'required',
+              desc: 'Required for competitor ad volume signals. Get from',
+              link: 'https://developers.facebook.com/tools/explorer',
+              linkLabel: 'Facebook Graph Explorer',
+              impact: 'AD_VOLUME_SPIKE, NEW_CREATIVE, OFFER_REPEAT signals',
+            },
+            {
+              name: 'GEMINI_API_KEY',
+              label: 'Gemini API (AI enrichment)',
+              status: 'required',
+              desc: 'Used for opportunity title generation and vector embeddings. Get free key at',
+              link: 'https://aistudio.google.com/app/apikey',
+              linkLabel: 'Google AI Studio',
+              impact: 'AI-generated opportunity titles + RAG memory',
+            },
+          ].map(k => (
+            <div key={k.name} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <code className="text-xs font-mono font-bold text-gray-800">{k.name}</code>
+                  <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${
+                    k.status === 'required' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
+                  }`}>{k.status}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">{k.label}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {k.desc}{' '}
+                  <a href={k.link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">{k.linkLabel}</a>
+                </p>
+                <p className="text-[10px] text-gray-400 mt-0.5 italic">Enables: {k.impact}</p>
+              </div>
+            </div>
+          ))}
+          <div className="text-xs text-gray-400 bg-blue-50 border border-blue-100 rounded-lg p-3">
+            <p className="font-medium text-blue-700 mb-1">How to add secrets</p>
+            <p>Supabase Dashboard → Project Settings → Edge Functions → Secrets → Add new secret</p>
+            <p className="mt-1">Or via CLI: <code className="font-mono bg-blue-100 px-1 rounded">supabase secrets set KEY=value --project-ref kvsjzsmlcycgfoazfunb</code></p>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <h2 className="text-sm font-semibold text-gray-900">Webhook Notifications</h2>

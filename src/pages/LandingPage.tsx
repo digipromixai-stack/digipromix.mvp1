@@ -259,6 +259,20 @@ function useEngagementSignals() {
   }), [])
 }
 
+// Detect returning visitors via localStorage — a revisit signals higher intent.
+// Key is per-slug so different campaigns don't interfere.
+function useReturnVisitor(slug: string | undefined): boolean {
+  const [isReturning, setIsReturning] = useState(false)
+  useEffect(() => {
+    if (!slug) return
+    const key = `dp_v_${slug}`
+    const prev = localStorage.getItem(key)
+    if (prev) setIsReturning(true)
+    localStorage.setItem(key, String(Date.now()))
+  }, [slug])
+  return isReturning
+}
+
 // Read UTM and referrer once on mount
 function useAttribution() {
   const [attribution] = useState(() => {
@@ -285,8 +299,9 @@ export function LandingPage() {
   const [phone,     setPhone]     = useState('')
   const [message,   setMessage]   = useState('')
   const [formError, setFormError] = useState<string | null>(null)
-  const getEngagement = useEngagementSignals()
-  const attribution   = useAttribution()
+  const getEngagement  = useEngagementSignals()
+  const attribution    = useAttribution()
+  const isReturning    = useReturnVisitor(slug)
 
   useEffect(() => {
     if (!slug) { setState('not_found'); return }
@@ -313,10 +328,11 @@ export function LandingPage() {
     const engagement = getEngagement()
     const { error } = await invokeFunction('submit-lead', {
       slug,
-      name:    name.trim()    || null,
-      email:   email.trim()   || null,
-      phone:   phone.trim()   || null,
-      message: message.trim() || null,
+      name:                 name.trim()    || null,
+      email:                email.trim()   || null,
+      phone:                phone.trim()   || null,
+      message:              message.trim() || null,
+      is_returning_visitor: isReturning,
       ...engagement,
       ...attribution,
     })

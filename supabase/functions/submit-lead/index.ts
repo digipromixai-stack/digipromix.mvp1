@@ -44,7 +44,7 @@ interface ScoringInput {
  * Combines form quality with engagement signals + UTM context to classify
  * leads as HOT / MEDIUM / LOW. Output: { score: 0-100, score_type, recommended_action }
  */
-function scoreLeadIntent(i: ScoringInput): { score: number; score_type: 'HOT' | 'MEDIUM' | 'LOW'; recommended_action: string } {
+function scoreLeadIntent(i: ScoringInput & { is_returning_visitor?: boolean | null }): { score: number; score_type: 'HOT' | 'MEDIUM' | 'LOW'; recommended_action: string } {
   let s = 0
 
   // ── Form quality (max 50) ──
@@ -52,6 +52,9 @@ function scoreLeadIntent(i: ScoringInput): { score: number; score_type: 'HOT' | 
   if (i.email?.trim())   s += 15
   if (i.phone?.trim())   s += 20
   if (i.message?.trim()) s += 10
+
+  // ── Return visitor bonus (+15) — came back = high intent ──
+  if (i.is_returning_visitor) s += 15
 
   // ── Engagement quality (max 30) ──
   const time = i.time_on_page_seconds ?? 0
@@ -130,12 +133,13 @@ Deno.serve(async (req) => {
       time_on_page_seconds = null,
       scroll_depth_pct     = null,
       click_count          = null,
-      utm_source           = null,
-      utm_medium           = null,
-      utm_campaign         = null,
-      utm_content          = null,
-      utm_term             = null,
-      referrer             = null,
+      utm_source             = null,
+      utm_medium             = null,
+      utm_campaign           = null,
+      utm_content            = null,
+      utm_term               = null,
+      referrer               = null,
+      is_returning_visitor   = false,
     } = body
 
     if (!slug) return json({ error: 'slug is required' }, 400)
@@ -155,6 +159,7 @@ Deno.serve(async (req) => {
       name, email, phone, message,
       time_on_page_seconds, scroll_depth_pct, click_count,
       utm_source, utm_medium, referrer,
+      is_returning_visitor,
     })
 
     // MVP 2.0 §Phase 6 Lead Intent Engine — store the same score on the new
@@ -175,6 +180,7 @@ Deno.serve(async (req) => {
         has_phone:   !!(phone   && String(phone).trim()),
         has_message: !!(message && String(message).trim()),
       },
+      is_returning_visitor: is_returning_visitor ?? false,
       scored_at: new Date().toISOString(),
     }
 
