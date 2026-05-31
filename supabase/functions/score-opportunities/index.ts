@@ -743,11 +743,189 @@ Deno.serve(async (req) => {
       return json({ error: 'Insert failed', detail: insertErr.message, code: insertErr.code }, 500)
     }
 
+    // ── Phase 2: Standalone signal-driven opportunities ──────────────────
+    //
+    // The doc's core vision: "AI predicts market movement BEFORE competitors
+    // dominate." This phase generates opportunities directly from Google Trends
+    // SEARCH_SPIKE and Meta AD_VOLUME_SPIKE signals — no competitor change
+    // required. If searches for "luxury apartments" jump 40% this week, an
+    // opportunity appears even if we haven't detected a competitor move yet.
+    //
+    // Only processes signals from the last 24 h with growth_pct >= 25.
+    // Deduped via signal_id column — one opportunity per signal, idempotent.
+
+    let sigInserted = 0
+    try {
+      const sigSince = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+      let sigQ = admin
+        .from('signals')
+        .select('id, user_id, signal_type, source, industry, location, keyword, competitor_id, payload, growth_pct, weight, collected_at')
+        .in('signal_type', ['SEARCH_SPIKE', 'AD_VOLUME_SPIKE'])
+        .gte('collected_at', sigSince)
+        .gte('growth_pct', 25)
+        .order('growth_pct', { ascending: false })
+        .limit(100)
+
+      if (onlyUser) sigQ = sigQ.eq('user_id', onlyUser)
+      const { data: freshSignals } = await sigQ
+
+      if (freshSignals && freshSignals.length > 0) {
+        const freshIds = freshSignals.map((s) => s.id as string)
+
+        // Skip signals that already have an opportunity
+        const { data: existingOps } = await admin
+          .from('opportunities')
+          .select('signal_id')
+          .in('signal_id', freshIds)
+
+        const usedSigIds = new Set((existingOps ?? []).map((o) => o.signal_id as string))
+        const toScore = freshSignals.filter((s) => !usedSigIds.has(s.id as string))
+
+        const sigRows: Record<string, unknown>[] = []
+
+        for (const sig of toScore) {
+          const growth   = Number(sig.growth_pct ?? 25)
+          const industry = sig.industry as string | null
+          const location = sig.location as string | null
+          const keyword  = sig.keyword  as string | null
+          const isTrend  = (sig.signal_type as string) === 'SEARCH_SPIKE'
+          const payload  = (sig.payload as Record<string, unknown> | null) ?? {}
+
+          // Score: base (35 trend / 40 ad-volume) + growth bonus + industry bonus
+          const score = Math.min(100, Math.max(0,
+            (isTrend ? 35 : 40)
+            + Math.min(35, (growth / 100) * 50)
+            + (industry ? 8 : 0)
+            + (location ? 5 : 0),
+          ))
+
+          // Only emit opportunities above a minimum bar — low-growth signals
+          // that don't reach this threshold are only useful as cross-source boost
+          if (score < 35) continue
+
+          const baseline  = baselineFor(industry)
+          const oppFactor = 0.5 + (score / 100) * 0.8
+          const adjCpc    = baseline.cpc * (2 - oppFactor)
+          const recBudget = Math.max(10, Math.round(adjCpc * 30))
+          const expLeads  = Math.max(0, Math.round(
+            ((recBudget * 7) / adjCpc) * baseline.conversion_rate,
+          ))
+          const cpl = expLeads > 0
+            ? Math.round((recBudget * 7 / expLeads) * 100) / 100
+            : 0
+
+          let confidence = 0.38
+          if (industry)     confidence += 0.12
+          if (location)     confidence += 0.05
+          if (growth >= 40) confidence += 0.12
+          if (growth >= 70) confidence += 0.10
+          confidence = Math.min(0.88, confidence)
+
+          const kw = keyword ?? industry ?? 'market demand'
+
+          let title: string
+          let action: string
+          let description: string
+
+          if (isTrend) {
+            const backend = (payload.backend as string | null) ?? 'google_trends'
+            const source  = backend === 'serpapi' ? 'Google Trends' : 'Trending searches'
+            title       = `Search demand for "${kw}" spiking +${growth}% — act before CPCs rise`
+            description = `${source} detected a ${growth}% surge in searches for "${kw}"${location ? ` in ${location}` : ''}. This window closes as competitors respond and CPCs climb.`
+            action      = growth >= 50
+              ? `Launch a targeted campaign NOW — demand is surging and CPCs will rise within days.`
+              : `Strong search demand signal — launch within the week to get ahead of competitors.`
+          } else {
+            const recentCount = (payload.recent_count as number | null) ?? 0
+            const baseCount   = (payload.baseline_count as number | null) ?? 0
+            title       = `Competitor ad spend surging +${growth}%${industry ? ` in ${industry}` : ''} — counter before they dominate`
+            description = `Meta Ad Library shows a ${growth}% spike in competitor ad volume${industry ? ` in the ${industry} space` : ''}${location ? ` (${location})` : ''}${recentCount ? ` — ${recentCount} ads active vs baseline of ${baseCount}` : ''}. They are scaling aggressively.`
+            action      = `Launch a counter-campaign now while their CPCs are still manageable.`
+          }
+
+          // Try to find the most recent competitor change in the same industry
+          // so the "Launch Campaign" button has a source_change_id to work with.
+          // Purely opportunistic — not required for the opportunity to appear.
+          let linkedChangeId: string | null = null
+          if (industry) {
+            const { data: recentChange } = await admin
+              .from('detected_changes')
+              .select('id')
+              .eq('user_id', sig.user_id as string)
+              .gte('detected_at', new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString())
+              .order('detected_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            linkedChangeId = (recentChange as { id: string } | null)?.id ?? null
+          }
+
+          sigRows.push({
+            user_id:            sig.user_id,
+            signal_id:          sig.id,
+            title,
+            description,
+            industry,
+            location,
+            market_name:        [industry, location].filter(Boolean).join(' · ') || null,
+            opportunity_score:  Math.round(score * 10) / 10,
+            expected_leads:     expLeads,
+            estimated_cpc:      Math.round(adjCpc * 100) / 100,
+            estimated_cpl:      cpl,
+            recommended_budget: recBudget,
+            confidence:         Math.round(confidence * 100) / 100,
+            recommended_action: action,
+            reasoning:          [
+              `signal=${sig.signal_type as string}`,
+              `growth=+${growth}%`,
+              `keyword=${kw}`,
+              industry ? `industry=${industry}` : null,
+              location ? `location=${location}` : null,
+            ].filter(Boolean).join(' · '),
+            signal_sources: [{
+              type:        'signal',
+              id:          sig.id,
+              signal_type: sig.signal_type,
+              source:      sig.source,
+              growth_pct:  growth,
+              keyword:     kw,
+            }],
+            status:    'open',
+            expires_at: expiresAt,
+            metadata: {
+              source_signal_id:  sig.id,
+              source_change_id:  linkedChangeId,  // best-effort: linked for Launch button
+              signal_type:       sig.signal_type,
+              source:            sig.source,
+              keyword,
+              growth_pct:        growth,
+              location,
+              industry,
+              is_standalone:     true,             // UI uses this to show signal badge
+            },
+          })
+        }
+
+        if (sigRows.length > 0) {
+          const { data: sigData, error: sigErr } = await admin
+            .from('opportunities')
+            .insert(sigRows)
+            .select('id')
+          if (!sigErr) sigInserted = sigData?.length ?? 0
+          // 23505 = unique violation on signal_id race — safe to ignore
+        }
+      }
+    } catch (sigPhaseErr) {
+      // Phase 2 failures are non-fatal — change-based opps still got inserted
+      console.warn('signal-phase error (non-fatal):', String(sigPhaseErr).slice(0, 200))
+    }
+
     return json({
-      scored:     inserted?.length ?? 0,
-      considered: changes.length,
-      skipped:    changes.length - todo.length,
-      top: (inserted ?? [])
+      scored:           (inserted?.length ?? 0) + sigInserted,
+      change_based:     inserted?.length ?? 0,
+      signal_based:     sigInserted,
+      considered:       changes.length,
+      skipped:          changes.length - todo.length,
+      top: [...(inserted ?? [])]
         .sort((a, b) => (b.opportunity_score as number) - (a.opportunity_score as number))
         .slice(0, 5)
         .map((o) => ({ id: o.id, score: o.opportunity_score, title: (o.title as string)?.slice(0, 60) })),
