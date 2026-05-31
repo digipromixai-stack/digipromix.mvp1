@@ -2,7 +2,8 @@ import { useState } from 'react'
 import {
   Rocket, Search, Globe, Share2, Trash2, Play, Pause,
   CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
-  AlertTriangle,
+  AlertTriangle, TrendingDown, ZapOff, DollarSign, Sparkles, RefreshCw,
+  Target, Brain, X, Check, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '../components/ui/Card'
@@ -10,6 +11,12 @@ import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign } from '../hooks/useCampaigns'
+import {
+  useAiRecommendations,
+  useApplyRecommendation,
+  useDismissRecommendation,
+  type AiRecommendationWithCampaign,
+} from '../hooks/useAiRecommendations'
 import { timeAgo } from '../lib/utils'
 import type { Campaign, CampaignStatus } from '../types/database.types'
 
@@ -41,6 +48,150 @@ function StatusBadge({ status }: { status: CampaignStatus }) {
     </span>
   )
 }
+
+// ── AI Recommendations panel ──────────────────────────────────────────────────
+
+const ACTION_META: Record<string, {
+  icon: React.ElementType
+  label: string
+  color: string       // text colour
+  bg: string          // background
+  border: string      // border
+}> = {
+  rising_cpc:       { icon: TrendingUp,   label: 'Rising CPC',        color: 'text-red-700',    bg: 'bg-red-50',     border: 'border-red-200'    },
+  declining_ctr:    { icon: TrendingDown, label: 'Declining CTR',     color: 'text-orange-700', bg: 'bg-orange-50',  border: 'border-orange-200' },
+  conversion_drop:  { icon: Target,       label: 'Conversion Drop',   color: 'text-red-700',    bg: 'bg-red-50',     border: 'border-red-200'    },
+  ad_fatigue:       { icon: ZapOff,       label: 'Ad Fatigue',        color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200' },
+  pause_campaign:   { icon: Pause,        label: 'Pause Suggested',   color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200' },
+  scale_campaign:   { icon: TrendingUp,   label: 'Scale Up',          color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
+  adjust_budget:    { icon: DollarSign,   label: 'Adjust Budget',     color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
+  change_creative:  { icon: Sparkles,     label: 'Refresh Creative',  color: 'text-violet-700', bg: 'bg-violet-50',  border: 'border-violet-200' },
+  change_audience:  { icon: Users,        label: 'Change Audience',   color: 'text-indigo-700', bg: 'bg-indigo-50',  border: 'border-indigo-200' },
+  reactivate:       { icon: RefreshCw,    label: 'Reactivate',        color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
+  launch_campaign:  { icon: Rocket,       label: 'Launch Now',        color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
+}
+
+const FALLBACK_META = { icon: Brain, label: 'AI Insight', color: 'text-gray-700', bg: 'bg-gray-50', border: 'border-gray-200' }
+
+function PriorityBadge({ priority }: { priority: number }) {
+  if (priority >= 5) return <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-100 text-red-700">Urgent</span>
+  if (priority >= 4) return <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">High</span>
+  if (priority >= 3) return <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">Medium</span>
+  return null
+}
+
+function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
+  const [expanded, setExpanded] = useState(false)
+  const { mutate: apply,   isPending: applying   } = useApplyRecommendation()
+  const { mutate: dismiss, isPending: dismissing } = useDismissRecommendation()
+  const meta = ACTION_META[rec.action_type] ?? FALLBACK_META
+  const Icon = meta.icon
+
+  return (
+    <div className={`border ${meta.border} ${meta.bg} rounded-xl p-4`}>
+      <div className="flex items-start gap-3">
+        {/* Icon */}
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${meta.bg} border ${meta.border}`}>
+          <Icon size={15} className={meta.color} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Header row */}
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className={`text-xs font-bold ${meta.color}`}>{meta.label}</span>
+            <PriorityBadge priority={rec.priority} />
+            {rec.confidence != null && (
+              <span className="text-[10px] text-gray-400 font-mono">{Math.round(rec.confidence * 100)}% confidence</span>
+            )}
+            {rec.campaigns && (
+              <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
+                · {rec.campaigns.campaign_name}
+              </span>
+            )}
+          </div>
+
+          {/* Recommendation text */}
+          <p className="text-sm font-semibold text-gray-900 leading-snug">{rec.recommendation}</p>
+
+          {/* Rationale (expandable) */}
+          {rec.rationale && (
+            <div className="mt-1">
+              {expanded ? (
+                <p className="text-xs text-gray-500">{rec.rationale}</p>
+              ) : null}
+              <button
+                onClick={() => setExpanded(v => !v)}
+                className="text-[11px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 mt-0.5"
+              >
+                {expanded ? <><ChevronUp size={11} /> Less</> : <><ChevronDown size={11} /> Why?</>}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={() => apply(rec.id)}
+            disabled={applying || dismissing}
+            title="Mark as applied"
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+          >
+            {applying ? '...' : <><Check size={11} /> Apply</>}
+          </button>
+          <button
+            onClick={() => dismiss(rec.id)}
+            disabled={applying || dismissing}
+            title="Dismiss"
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-white hover:text-gray-600 transition-colors disabled:opacity-50"
+          >
+            {dismissing ? '...' : <X size={13} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AiRecommendationsPanel() {
+  const { data: recs = [], isLoading } = useAiRecommendations()
+  const [collapsed, setCollapsed] = useState(false)
+
+  if (isLoading || recs.length === 0) return null
+
+  const urgentCount = recs.filter(r => r.priority >= 4).length
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      {/* Panel header */}
+      <button
+        onClick={() => setCollapsed(v => !v)}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <Brain size={16} className="text-violet-600" />
+          <span className="text-sm font-bold text-gray-900">AI Campaign Insights</span>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${urgentCount > 0 ? 'bg-red-100 text-red-700' : 'bg-violet-100 text-violet-700'}`}>
+            {recs.length} {recs.length === 1 ? 'insight' : 'insights'}{urgentCount > 0 ? ` · ${urgentCount} urgent` : ''}
+          </span>
+        </div>
+        {collapsed ? <ChevronDown size={15} className="text-gray-400" /> : <ChevronUp size={15} className="text-gray-400" />}
+      </button>
+
+      {/* Recommendation list */}
+      {!collapsed && (
+        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 pt-4">
+          <p className="text-xs text-gray-400">
+            Generated by DigiPromix AI from your live campaign metrics. Dismiss to hide, Apply to mark done.
+          </p>
+          {recs.map(rec => <RecommendationCard key={rec.id} rec={rec} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Campaign card ─────────────────────────────────────────────────────────────
 
 function CampaignCard({ campaign }: { campaign: Campaign }) {
   const { mutate: updateStatus, isPending: updatingStatus } = useUpdateCampaignStatus()
@@ -244,6 +395,9 @@ export function CampaignsPage() {
           ))}
         </div>
       )}
+
+      {/* AI Recommendations panel — only visible when optimize-campaigns has flagged issues */}
+      <AiRecommendationsPanel />
 
       {/* Filter tabs */}
       {campaigns.length > 0 && (
