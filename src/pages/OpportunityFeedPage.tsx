@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
   ArrowRight, Filter, Search, RefreshCcw, X, Loader2, Radio,
-  BarChart2, ChevronDown, ChevronUp,
+  BarChart2, ChevronDown, ChevronUp, TrendingUp as TrendUp,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
@@ -241,6 +241,36 @@ function OpportunityCard({
 
       {/* Budget scenarios */}
       <BudgetTiers opp={opp} />
+
+      {/* Competitor activity count */}
+      {(() => {
+        const meta = opp.metadata as Record<string, unknown> | null
+        const count = meta?.competitor_activity_7d as number | undefined
+        return count != null && count > 0 ? (
+          <p className="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
+            <Target size={11} className="text-orange-500 shrink-0" />
+            <span><span className="font-semibold text-gray-700">{count} competitor move{count !== 1 ? 's' : ''}</span> detected in this market this week</span>
+          </p>
+        ) : null
+      })()}
+
+      {/* CPC prediction */}
+      {(() => {
+        const meta = opp.metadata as Record<string, unknown> | null
+        const pred = meta?.cpc_prediction as string | undefined
+        if (!pred) return null
+        const isUrgent = opp.opportunity_score >= 65
+        return (
+          <p className={`text-xs mb-3 flex items-start gap-1.5 px-2.5 py-2 rounded-lg border ${
+            isUrgent
+              ? 'bg-orange-50 border-orange-200 text-orange-800'
+              : 'bg-blue-50 border-blue-100 text-blue-700'
+          }`}>
+            <TrendUp size={12} className="shrink-0 mt-0.5" />
+            <span>{pred}</span>
+          </p>
+        )
+      })()}
 
       {opp.recommended_action && (
         <p className="text-sm text-blue-700 mb-3 flex items-start gap-1.5">
