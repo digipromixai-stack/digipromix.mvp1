@@ -115,6 +115,34 @@ function suggestAction(changeType: string, score: number): string {
   return 'Watch & learn — track the trend before committing budget.'
 }
 
+// ── CPC prediction text ──────────────────────────────────────────────────────
+// Forward-looking sentence shown on opportunity cards — one of the key
+// differentiators the MVP 2 doc calls out vs competitor tools.
+function cpcPrediction(
+  score: number,
+  hasSearchSpike: boolean,
+  hasAdVolume: boolean,
+  activityCount: number,
+): string {
+  const multiSignal = (hasSearchSpike ? 1 : 0) + (hasAdVolume ? 1 : 0) + (activityCount >= 3 ? 1 : 0)
+
+  if (score >= 75) {
+    if (hasAdVolume && activityCount >= 3)
+      return `Competitor spend surging + ${activityCount} moves this week — CPCs rising NOW. Window closing fast.`
+    if (hasSearchSpike && hasAdVolume)
+      return `Demand spike + ad volume surge detected — CPCs will rise within 24–48 hours.`
+    if (hasSearchSpike)
+      return `Search demand surging — CPCs likely to rise within 3–5 days as advertisers respond.`
+    return `High-urgency signal — act within 48 hours before CPCs escalate.`
+  }
+  if (score >= 50) {
+    if (multiSignal >= 2)
+      return `Multiple signals agree — CPCs likely rising this week. Launch within 3–5 days.`
+    return `Moderate opportunity — CPCs stable for now but trending up. Launch this week.`
+  }
+  return `Watch this space — CPCs stable. Consider launching if more signals emerge.`
+}
+
 // ── Page-type weight (homepage / pricing page changes matter more) ──────────
 const PAGE_TYPE_WEIGHT: Record<string, number> = {
   homepage:    8,
@@ -530,6 +558,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Pre-compute 7-day competitor activity counts per (user_id, industry) ──
+    // Stored in opportunity metadata so the card can show "3 moves this week"
+    // without a separate query in the frontend.
+    const activitySince = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+    const { data: activityRows } = await admin
+      .from('detected_changes')
+      .select('user_id, competitor_id, competitors(industry)')
+      .gte('detected_at', activitySince)
+
+    // Build: userId → industry (lowercase) → count
+    const activityMap = new Map<string, number>()
+    for (const row of activityRows ?? []) {
+      const industry = ((row.competitors as { industry: string | null } | null)?.industry ?? '').toLowerCase().trim()
+      const key = `${row.user_id as string}|${industry}`
+      activityMap.set(key, (activityMap.get(key) ?? 0) + 1)
+    }
+
     // ── Skip groups whose primary change is already represented in opportunities
     const primaryIds = Array.from(groups.values()).map((g) => g.primary.id)
     const { data: existing } = await admin
@@ -675,6 +720,15 @@ Deno.serve(async (req) => {
         ? `${finalTitle} · +${siblings.length} more today`
         : finalTitle
 
+      // 7-day competitor activity count for this (user, industry) pair
+      const industryKey = `${change.user_id as string}|${(industry ?? '').toLowerCase().trim()}`
+      const competitorActivity7d = activityMap.get(industryKey) ?? 0
+
+      // CPC prediction — uses cross-source signal types for context
+      const hasSearchSpike = cs.signalTypes.includes('SEARCH_SPIKE')
+      const hasAdVolume    = cs.signalTypes.includes('AD_VOLUME_SPIKE')
+      const cpcPred = cpcPrediction(score, hasSearchSpike, hasAdVolume, competitorActivity7d)
+
       rows.push({
         user_id:           change.user_id,
         signal_id:         null,
@@ -726,7 +780,9 @@ Deno.serve(async (req) => {
           cross_source_reasons:   cs.reasons,
           cross_source_signal_ids: cs.signalIds,
           cross_source_signal_types: cs.signalTypes,
-          llm_enriched:           llmUsed,
+          llm_enriched:               llmUsed,
+          competitor_activity_7d:     competitorActivity7d,
+          cpc_prediction:             cpcPred,
         },
       })
     }
@@ -843,6 +899,16 @@ Deno.serve(async (req) => {
             action      = `Launch a counter-campaign now while their CPCs are still manageable.`
           }
 
+          // 7-day activity count for this industry
+          const sigIndustryKey = `${sig.user_id as string}|${(industry ?? '').toLowerCase().trim()}`
+          const sigActivity7d  = activityMap.get(sigIndustryKey) ?? 0
+          const sigCpcPred     = cpcPrediction(
+            score,
+            (sig.signal_type as string) === 'SEARCH_SPIKE',
+            (sig.signal_type as string) === 'AD_VOLUME_SPIKE',
+            sigActivity7d,
+          )
+
           // Try to find the most recent competitor change in the same industry
           // so the "Launch Campaign" button has a source_change_id to work with.
           // Purely opportunistic — not required for the opportunity to appear.
@@ -900,7 +966,9 @@ Deno.serve(async (req) => {
               growth_pct:        growth,
               location,
               industry,
-              is_standalone:     true,             // UI uses this to show signal badge
+              is_standalone:          true,
+              competitor_activity_7d: sigActivity7d,
+              cpc_prediction:         sigCpcPred,
             },
           })
         }
