@@ -205,6 +205,7 @@ export interface Campaign {
   slug: string | null
   published: boolean
   leads_count: number
+  views_count: number
   landing_page_url: string | null
   // Ad platform IDs
   meta_campaign_id: string | null
