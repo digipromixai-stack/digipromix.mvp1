@@ -266,11 +266,21 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                   })}
                 </div>
               )}
-              {/* Leads count */}
+              {/* Views + leads + conversion rate */}
+              {campaign.views_count > 0 && (
+                <div className="flex items-center gap-1 text-xs text-gray-400">
+                  <span>{campaign.views_count} view{campaign.views_count !== 1 ? 's' : ''}</span>
+                </div>
+              )}
               {campaign.leads_count > 0 && (
                 <div className="flex items-center gap-1 text-xs text-green-600 font-semibold">
                   <Users size={12} />
                   {campaign.leads_count} lead{campaign.leads_count !== 1 ? 's' : ''}
+                  {campaign.views_count > 0 && (
+                    <span className="text-gray-400 font-normal ml-0.5">
+                      ({Math.round((campaign.leads_count / campaign.views_count) * 100)}% CVR)
+                    </span>
+                  )}
                 </div>
               )}
               <span className="text-xs text-gray-400">{timeAgo(campaign.created_at)}</span>

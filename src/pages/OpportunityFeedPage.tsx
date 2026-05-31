@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
   ArrowRight, Filter, Search, RefreshCcw, X, Loader2, Radio,
+  BarChart2, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
@@ -19,6 +20,131 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { CampaignModal } from '../components/campaigns/CampaignModal'
 import type { Opportunity, DetectedChangeWithCompetitor } from '../types/database.types'
+
+// ── Signal source badge ───────────────────────────────────────────────────────
+// Shows where this opportunity came from: Google Trends, Meta Ads, or a
+// competitor website change. Read from metadata.is_standalone + signal_sources.
+
+function SignalSourceBadge({ opp }: { opp: Opportunity }) {
+  const meta = opp.metadata as Record<string, unknown> | null
+  const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>
+
+  const hasSearchSpike  = sources.some(s => s.signal_type === 'SEARCH_SPIKE')
+  const hasAdSpike      = sources.some(s => s.signal_type === 'AD_VOLUME_SPIKE')
+  const hasNewCreative  = sources.some(s => s.signal_type === 'NEW_CREATIVE')
+  const hasOfferRepeat  = sources.some(s => s.signal_type === 'OFFER_REPEAT')
+  const isStandalone    = meta?.is_standalone === true
+
+  // Build small signal chips — one per distinct source type
+  const chips: { label: string; icon: React.ElementType; cls: string }[] = []
+
+  if (isStandalone && hasSearchSpike) {
+    chips.push({ label: 'Google Trends', icon: TrendingUp, cls: 'bg-green-50 text-green-700 border-green-200' })
+  }
+  if (isStandalone && hasAdSpike) {
+    chips.push({ label: 'Meta Ad Spike', icon: BarChart2, cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' })
+  }
+  if (!isStandalone && meta?.source_competitor) {
+    chips.push({ label: `${meta.source_competitor} change`, icon: Target, cls: 'bg-orange-50 text-orange-700 border-orange-200' })
+  }
+  if (hasAdSpike && !isStandalone) {
+    chips.push({ label: 'Ad spike corroborates', icon: TrendingUp, cls: 'bg-green-50 text-green-700 border-green-200' })
+  }
+  if (hasNewCreative) chips.push({ label: 'New creative', icon: Sparkles, cls: 'bg-violet-50 text-violet-700 border-violet-200' })
+  if (hasOfferRepeat) chips.push({ label: 'Offer repeating', icon: Zap, cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' })
+
+  if (chips.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1 mb-3">
+      {chips.map(({ label, icon: Icon, cls }) => (
+        <span key={label} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cls}`}>
+          <Icon size={9} />
+          {label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ── Budget tier simulator ─────────────────────────────────────────────────────
+// Shows three budget scenarios (conservative / recommended / aggressive) so
+// users see the MVP 2 doc's "€15/day → weak, €40/day → optimal, €100/day →
+// diminishing returns" without leaving the feed.
+
+function BudgetTiers({ opp }: { opp: Opportunity }) {
+  const [open, setOpen] = useState(false)
+  const recBudget = opp.recommended_budget
+  const expLeads  = opp.expected_leads
+  const cpc       = opp.estimated_cpc
+
+  if (!recBudget || !cpc || cpc <= 0) return null
+
+  // Three tiers — lead count scales with budget but with diminishing returns above optimal
+  const tiers = [
+    {
+      label: 'Conservative',
+      budget: Math.round(recBudget * 0.4),
+      cls: 'text-gray-600',
+      dot: 'bg-gray-400',
+      tag: 'Weak impact',
+    },
+    {
+      label: 'Recommended',
+      budget: recBudget,
+      cls: 'text-blue-700 font-bold',
+      dot: 'bg-blue-500',
+      tag: 'Optimal',
+    },
+    {
+      label: 'Aggressive',
+      budget: Math.round(recBudget * 2.5),
+      cls: 'text-gray-600',
+      dot: 'bg-gray-400',
+      tag: 'Diminishing returns',
+    },
+  ]
+
+  const leadsFor = (budget: number) => {
+    if (!expLeads) return '—'
+    const ratio = budget / recBudget
+    // diminishing returns above 2×: sqrt scaling above optimal
+    const scale = ratio <= 1 ? ratio : 1 + Math.sqrt(ratio - 1) * 0.7
+    return Math.max(1, Math.round(expLeads * scale))
+  }
+
+  return (
+    <div className="mb-3">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+      >
+        <DollarSign size={11} />
+        Budget scenarios
+        {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+      </button>
+
+      {open && (
+        <div className="mt-2 rounded-lg border border-gray-100 overflow-hidden text-xs">
+          <div className="grid grid-cols-3 bg-gray-50 text-[10px] uppercase tracking-wide text-gray-400 px-2 py-1.5 border-b border-gray-100">
+            <span>Budget/wk</span><span className="text-center">Est. leads</span><span className="text-right">Impact</span>
+          </div>
+          {tiers.map(t => (
+            <div key={t.label} className={`grid grid-cols-3 px-2 py-2 border-b border-gray-50 last:border-0 ${t.label === 'Recommended' ? 'bg-blue-50/40' : ''}`}>
+              <span className={`flex items-center gap-1.5 ${t.cls}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${t.dot} shrink-0`} />
+                ${t.budget}/wk
+              </span>
+              <span className={`text-center ${t.cls}`}>{leadsFor(t.budget)}</span>
+              <span className={`text-right text-[10px] ${t.cls}`}>{t.tag}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Score badge ───────────────────────────────────────────────────────────────
 
 function ScoreBadge({ score }: { score: number }) {
   let bg = 'bg-gray-100 text-gray-700'
@@ -33,6 +159,8 @@ function ScoreBadge({ score }: { score: number }) {
   )
 }
 
+// ── Opportunity card ──────────────────────────────────────────────────────────
+
 function OpportunityCard({
   opp,
   onLaunch,
@@ -44,10 +172,14 @@ function OpportunityCard({
   onDismiss: (opp: Opportunity) => void
   busy: boolean
 }) {
-  // NEW badge for opportunities created in the last 5 minutes — the realtime
-  // subscription will push these in without a refresh.
   const ageMs = Date.now() - new Date(opp.created_at).getTime()
   const isNew = ageMs < 5 * 60 * 1000
+
+  // Derive growth % from signal_sources for display
+  const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>
+  const topSignal = sources.find(s => s.growth_pct != null)
+  const growthPct = topSignal?.growth_pct as number | undefined
+
   return (
     <div className={`bg-white border ${isNew ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-gray-200'} rounded-2xl p-5 hover:shadow-md transition-shadow relative`}>
       {isNew && (
@@ -55,7 +187,6 @@ function OpportunityCard({
           New
         </span>
       )}
-      {/* Dismiss button */}
       <button
         onClick={() => onDismiss(opp)}
         title="Dismiss this opportunity"
@@ -64,21 +195,34 @@ function OpportunityCard({
         <X size={14} />
       </button>
 
-      <div className="flex items-start justify-between gap-3 mb-3 pr-6">
+      {/* Market + score */}
+      <div className="flex items-start justify-between gap-3 mb-2 pr-6">
         <div className="min-w-0">
-          <p className="text-xs font-mono uppercase text-gray-400 tracking-wider mb-1">
-            {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
-          </p>
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <p className="text-xs font-mono uppercase text-gray-400 tracking-wider">
+              {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
+            </p>
+            {/* Growth % chip — only for signal-driven opps */}
+            {growthPct != null && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+                <TrendingUp size={9} />+{Math.round(growthPct)}%
+              </span>
+            )}
+          </div>
           <h3 className="font-semibold text-gray-900 text-base leading-snug">{opp.title}</h3>
         </div>
         <ScoreBadge score={opp.opportunity_score} />
       </div>
 
+      {/* Signal source chips */}
+      <SignalSourceBadge opp={opp} />
+
       {opp.description && (
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">{opp.description}</p>
       )}
 
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="bg-gray-50 rounded-lg p-2 text-center">
           <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Leads</div>
           <div className="text-sm font-bold text-gray-900">{opp.expected_leads ?? '—'}</div>
@@ -94,6 +238,9 @@ function OpportunityCard({
           </div>
         </div>
       </div>
+
+      {/* Budget scenarios */}
+      <BudgetTiers opp={opp} />
 
       {opp.recommended_action && (
         <p className="text-sm text-blue-700 mb-3 flex items-start gap-1.5">
@@ -154,13 +301,21 @@ export function OpportunityFeedPage() {
     return () => { supabase.removeChannel(channel) }
   }, [user?.id, queryClient])
 
-  // Fetch the source detected_change and open the campaign modal
+  // Fetch the source detected_change and open the campaign modal.
+  // For standalone signal-based opportunities, score-opportunities stores the
+  // most-recent competitor change as a best-effort source_change_id so we can
+  // still open the campaign modal with real context.
   async function handleLaunch(opp: Opportunity) {
-    const sourceId = (opp.metadata as Record<string, unknown> | null)?.source_change_id as string | undefined
+    const meta     = (opp.metadata as Record<string, unknown> | null) ?? {}
+    const sourceId = meta.source_change_id as string | undefined
+
     if (!sourceId) {
+      // Pure signal opportunity with no competitor change at all — redirect the
+      // user to the Timeline so they can pick the most relevant signal.
       alert(
-        'This opportunity has no linked competitor signal yet — it was scored from aggregate data. '
-        + 'Open Changes to act on a specific competitor signal.',
+        'This opportunity is based on a market demand signal (e.g. Google Trends spike). '
+        + 'To launch a campaign, go to the Timeline, find a competitor move to counter, '
+        + 'and click "Launch Counter Campaign".',
       )
       return
     }

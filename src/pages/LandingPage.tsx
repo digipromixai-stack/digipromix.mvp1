@@ -296,6 +296,9 @@ export function LandingPage() {
         if (error || !data) { setState('not_found'); return }
         setCampaign(data as Campaign)
         setState('ready')
+        // Track page view — non-blocking, best-effort
+        supabase.rpc('increment_campaign_views_count', { campaign_id_param: data.id })
+          .then(() => {}) // fire-and-forget
       })
   }, [slug])
 
