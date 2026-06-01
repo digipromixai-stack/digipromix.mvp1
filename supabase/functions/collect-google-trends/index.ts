@@ -36,25 +36,57 @@ const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY') ?? ''
 // verticals (real estate, retail, healthcare, b2b saas, restaurants).
 // Locations are pulled from the user's competitors when available.
 const INDUSTRY_SEEDS: Record<string, string[]> = {
+  // Real estate
   'real-estate':     ['apartments for rent', 'luxury apartments', 'homes for sale'],
   'real estate':     ['apartments for rent', 'luxury apartments', 'homes for sale'],
+  // Retail / ecommerce
   'retail':          ['online shopping deals', 'discount sale today'],
   'ecommerce':       ['online shopping deals', 'discount sale today', 'buy online'],
   'e-commerce':      ['online shopping deals', 'discount sale today', 'buy online'],
+  // Health
   'healthcare':      ['family doctor near me', 'urgent care', 'medical appointment'],
   'medical':         ['family doctor near me', 'urgent care', 'medical appointment'],
   'dental':          ['dentist near me', 'teeth cleaning'],
-  'b2b saas':        ['crm software', 'project management software'],
+  // SaaS / software — broad and specific variants
+  'b2b saas':        ['crm software', 'project management software', 'business automation'],
+  'saas':            ['best saas tools', 'business software 2025'],
   'software':        ['software for small business', 'business automation tools'],
+  'productivity saas': ['productivity app', 'task management app', 'best productivity tools'],
+  'productivity':    ['productivity app', 'task management software', 'to-do app'],
+  'project management': ['project management software', 'team management tools', 'best project management app'],
+  'crm':             ['crm software', 'best crm for small business', 'sales crm'],
+  'crm & marketing saas': ['crm software', 'email marketing software', 'marketing automation'],
+  'marketing saas':  ['email marketing software', 'marketing automation tools'],
+  'payments saas':   ['online payment gateway', 'accept payments online', 'stripe alternative'],
+  'payments':        ['online payment gateway', 'best payment processor', 'stripe alternative'],
+  'fintech':         ['online payment gateway', 'digital banking', 'fintech app'],
+  // Food / hospitality
   'restaurant':      ['restaurants near me', 'food delivery'],
   'restaurants':     ['restaurants near me', 'food delivery'],
+  'food & beverage': ['restaurants near me', 'food delivery app', 'food near me'],
+  'hospitality':     ['hotel booking', 'best hotels near me'],
+  // Education
   'education':       ['online courses', 'best online classes'],
   'school':          ['online courses', 'best online classes'],
-  'finance':         ['business loan', 'mortgage rates'],
+  'edtech':          ['online learning platform', 'best edtech apps', 'online courses'],
+  // Finance / legal
+  'finance':         ['business loan', 'mortgage rates', 'personal finance app'],
   'legal':           ['lawyer near me', 'free legal consultation'],
-  'automotive':      ['used cars near me', 'car deals'],
+  // Automotive
+  'automotive':      ['used cars near me', 'car deals', 'best car deals'],
+  // Local / home services
   'local services':  ['plumber near me', 'electrician near me', 'home services'],
   'plumbing':        ['plumber near me', 'emergency plumber'],
+  'home services':   ['home cleaning service', 'handyman near me', 'home repair'],
+  // Fitness / wellness
+  'fitness':         ['gym near me', 'best fitness app', 'personal trainer near me'],
+  'fitness & wellness': ['gym near me', 'fitness app', 'yoga classes near me'],
+  'wellness':        ['wellness app', 'mental health app', 'meditation app'],
+  // Travel
+  'travel':          ['cheap flights', 'best travel deals', 'hotels near me'],
+  // Generic fallback
+  'technology':      ['best tech tools', 'software for business'],
+  'tech':            ['best tech tools', 'business software'],
 }
 
 function seedsFor(industry: string | null | undefined): string[] {
