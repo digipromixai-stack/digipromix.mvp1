@@ -464,19 +464,19 @@ Deno.serve(async (req) => {
 
     // containsEuPoliticalAdvertising: proto enum NOT_EU_POLITICAL_ADVERTISING = 2
     // REST API v20 requires this field. Integer 2 = NOT_EU_POLITICAL_ADVERTISING.
-    // MAXIMIZE_CLICKS — Smart Bidding that works without conversion tracking.
-    // Google automatically adjusts bids to get the most clicks within your budget.
-    // cpcBidCeilingMicros caps the max CPC so budget isn't blown on one click.
-    // Upgrade to MAXIMIZE_CONVERSIONS once Google Ads conversion tracking is set up.
-    const maxCpcMicros = String(Math.round(Math.min(budgetUsd * 0.3, 5) * 1_000_000)) // cap at 30% of daily budget or $5
+    // TARGET_SPEND (Maximize Clicks) — Smart Bidding, no conversion tracking needed.
+    // Google automatically sets bids to get the most clicks within the daily budget.
+    // cpcBidCeilingMicros caps the max CPC so budget isn't blown on a single click.
+    // REST API v20 field name is "targetSpend" (not "maximizeClicks").
+    const maxCpcMicros = String(Math.round(Math.min(budgetUsd * 0.3, 5) * 1_000_000))
 
     const campaignRes = await mutate(ctx, '/campaigns:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} ${Date.now()}`).slice(0, 255),
         status: 'ENABLED',
         advertisingChannelType: 'SEARCH',
-        // Maximize Clicks — no conversion tracking required, still Smart Bidding
-        maximizeClicks: {
+        // targetSpend = Maximize Clicks strategy in REST API v20
+        targetSpend: {
           cpcBidCeilingMicros: maxCpcMicros,
         },
         campaignBudget: budgetRN,
@@ -500,7 +500,7 @@ Deno.serve(async (req) => {
     const gCampaignId = gCampaignRN.split('/').pop()!
 
     // ── 3. Ad Group ────────────────────────────────────────────────────────────
-    // No cpcBidMicros with MAXIMIZE_CLICKS — Smart Bidding sets bids automatically.
+    // No cpcBidMicros with targetSpend — Smart Bidding sets bids automatically.
     const adGroupRes = await mutate(ctx, '/adGroups:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} - Ad Group`).slice(0, 255),
