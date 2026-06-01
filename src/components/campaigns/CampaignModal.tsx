@@ -4,6 +4,7 @@ import {
   Rocket, Loader2, Copy, Check, Zap, Globe, Share2,
   Search, CheckCircle2, ChevronDown, ChevronUp, X,
   ExternalLink, Link2, DollarSign, Layout, Sparkles, Shield,
+  Pencil, Save, Plus, RotateCcw,
 } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -112,6 +113,87 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
   // Launch mode per channel: 'self' = user's connected account, 'managed' = DigiPromix runs it via MCC
   const [launchModes, setLaunchModes] = useState<Record<string, 'self' | 'managed'>>({ meta: 'managed', google: 'managed' })
   const [managedBusinessName, setManagedBusinessName] = useState('')
+
+  // ── Inline editor state ───────────────────────────────────────────────────
+  const [editing,    setEditing]    = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editSaved,  setEditSaved]  = useState(false)
+  const [newKeyword, setNewKeyword] = useState('')
+  // Local editable copy — seeded from campaign when edit mode opens
+  const [draft, setDraft] = useState<{
+    headline:            string
+    ad_copy:             string
+    offer:               string
+    social_copy:         string
+    keywords:            string[]
+    landing_page_title:  string
+    landing_page_body:   string
+    landing_page_cta:    string
+  } | null>(null)
+
+  function openEditor() {
+    if (!campaign) return
+    setDraft({
+      headline:           campaign.headline            ?? '',
+      ad_copy:            campaign.ad_copy             ?? '',
+      offer:              campaign.offer               ?? '',
+      social_copy:        campaign.social_copy         ?? '',
+      keywords:           campaign.keywords            ?? [],
+      landing_page_title: campaign.landing_page_title ?? '',
+      landing_page_body:  campaign.landing_page_body  ?? '',
+      landing_page_cta:   campaign.landing_page_cta   ?? '',
+    })
+    setEditing(true)
+    setEditSaved(false)
+  }
+
+  function cancelEditor() {
+    setEditing(false)
+    setDraft(null)
+    setNewKeyword('')
+  }
+
+  async function saveEdits() {
+    if (!campaign || !draft) return
+    setSavingEdit(true)
+    try {
+      const { error } = await supabase.from('campaigns').update({
+        headline:            draft.headline,
+        ad_copy:             draft.ad_copy,
+        offer:               draft.offer    || null,
+        social_copy:         draft.social_copy || null,
+        keywords:            draft.keywords,
+        landing_page_title:  draft.landing_page_title || null,
+        landing_page_body:   draft.landing_page_body  || null,
+        landing_page_cta:    draft.landing_page_cta   || null,
+      }).eq('id', campaign.id)
+      if (error) throw error
+      // Reflect edits in the live campaign object so the preview updates
+      Object.assign(campaign, draft)
+      qc.invalidateQueries({ queryKey: ['campaigns'] })
+      setEditSaved(true)
+      setEditing(false)
+      setDraft(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  function addKeyword() {
+    const kw = newKeyword.trim()
+    if (!kw || !draft) return
+    if (!draft.keywords.includes(kw)) {
+      setDraft({ ...draft, keywords: [...draft.keywords, kw] })
+    }
+    setNewKeyword('')
+  }
+
+  function removeKeyword(kw: string) {
+    if (!draft) return
+    setDraft({ ...draft, keywords: draft.keywords.filter(k => k !== kw) })
+  }
 
   const handleClose = () => {
     setStep('generate'); setError(null); setCampaign(null); setMetaResult(null); setGoogleResult(null)
@@ -355,31 +437,204 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
             </div>
           )}
 
-          <Field label="Headline (Google / Search)" value={campaign.headline} />
-          <Field label="Ad Copy" value={campaign.ad_copy} />
-          {campaign.offer     && <Field label="Offer" value={campaign.offer} />}
-          {campaign.social_copy && <Field label="Social Post (Instagram / Facebook)" value={campaign.social_copy} multiline />}
+          {/* ── Edit / Save toolbar ─────────────────────────────────────── */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-400">Review your AI-generated content before launching</p>
+            <div className="flex items-center gap-2 shrink-0">
+              {editSaved && !editing && (
+                <span className="text-xs text-green-600 flex items-center gap-1">
+                  <Check size={11} /> Saved
+                </span>
+              )}
+              {editing ? (
+                <>
+                  <button
+                    onClick={cancelEditor}
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                  >
+                    <RotateCcw size={11} /> Cancel
+                  </button>
+                  <button
+                    onClick={saveEdits}
+                    disabled={savingEdit}
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {savingEdit ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                    {savingEdit ? 'Saving…' : 'Save changes'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={openEditor}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                >
+                  <Pencil size={11} /> Edit
+                </button>
+              )}
+            </div>
+          </div>
 
-          {campaign.keywords.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-3">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">Keywords to target</span>
-              <div className="flex flex-wrap gap-1.5">
-                {campaign.keywords.map(kw => (
-                  <span key={kw} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">{kw}</span>
-                ))}
+          {/* ── Ad content (view or edit) ────────────────────────────────── */}
+          {editing && draft ? (
+            <div className="space-y-3 border border-blue-200 bg-blue-50/30 rounded-xl p-4">
+              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+                <Pencil size={11} /> Editing — changes save to DB and update your live landing page
+              </p>
+
+              {/* Headline */}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center justify-between mb-1">
+                  Headline (Google Search — max 30 chars)
+                  <span className={`font-mono ${draft.headline.length > 30 ? 'text-red-500' : 'text-gray-300'}`}>
+                    {draft.headline.length}/30
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={50}
+                  value={draft.headline}
+                  onChange={e => setDraft({ ...draft, headline: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {draft.headline.length > 30 && (
+                  <p className="text-[10px] text-orange-600 mt-0.5">Google Ads truncates headlines at 30 chars — first 30 will be used</p>
+                )}
+              </div>
+
+              {/* Ad Copy */}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center justify-between mb-1">
+                  Ad Copy
+                  <span className="font-mono text-gray-300">{draft.ad_copy.length} chars</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={draft.ad_copy}
+                  onChange={e => setDraft({ ...draft, ad_copy: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Offer */}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1 block">Offer</label>
+                <input
+                  type="text"
+                  value={draft.offer}
+                  onChange={e => setDraft({ ...draft, offer: e.target.value })}
+                  placeholder="e.g. 20% off this week only"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Social Copy */}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1 block">
+                  Social Post (Instagram / Facebook)
+                </label>
+                <textarea
+                  rows={3}
+                  value={draft.social_copy}
+                  onChange={e => setDraft({ ...draft, social_copy: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Keywords */}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5 block">
+                  Keywords to target
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {draft.keywords.map(kw => (
+                    <span key={kw} className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                      {kw}
+                      <button onClick={() => removeKeyword(kw)} className="hover:text-red-600 ml-0.5">
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newKeyword}
+                    onChange={e => setNewKeyword(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addKeyword() } }}
+                    placeholder="Add keyword…"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={addKeyword}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  >
+                    <Plus size={11} /> Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Landing Page */}
+              <div className="space-y-2 border-t border-blue-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Landing Page</p>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Hero Title</label>
+                  <input
+                    type="text"
+                    value={draft.landing_page_title}
+                    onChange={e => setDraft({ ...draft, landing_page_title: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Body Text</label>
+                  <textarea
+                    rows={3}
+                    value={draft.landing_page_body}
+                    onChange={e => setDraft({ ...draft, landing_page_body: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">CTA Button Text</label>
+                  <input
+                    type="text"
+                    value={draft.landing_page_cta}
+                    onChange={e => setDraft({ ...draft, landing_page_cta: e.target.value })}
+                    placeholder="e.g. Get My Free Quote"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
             </div>
-          )}
+          ) : (
+            <div className="space-y-3">
+              <Field label="Headline (Google / Search)" value={campaign.headline} />
+              <Field label="Ad Copy" value={campaign.ad_copy} />
+              {campaign.offer && <Field label="Offer" value={campaign.offer} />}
+              {campaign.social_copy && <Field label="Social Post (Instagram / Facebook)" value={campaign.social_copy} multiline />}
 
-          {campaign.landing_page_title && (
-            <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide block">Landing Page</span>
-              <Field label="Hero Title" value={campaign.landing_page_title} />
-              {campaign.landing_page_body && <Field label="Body" value={campaign.landing_page_body} />}
-              {campaign.landing_page_cta && (
-                <span className="inline-block text-sm bg-green-600 text-white px-4 py-1.5 rounded-lg font-semibold">
-                  {campaign.landing_page_cta}
-                </span>
+              {campaign.keywords.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">Keywords to target</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {campaign.keywords.map(kw => (
+                      <span key={kw} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">{kw}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {campaign.landing_page_title && (
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide block">Landing Page</span>
+                  <Field label="Hero Title" value={campaign.landing_page_title} />
+                  {campaign.landing_page_body && <Field label="Body" value={campaign.landing_page_body} />}
+                  {campaign.landing_page_cta && (
+                    <span className="inline-block text-sm bg-green-600 text-white px-4 py-1.5 rounded-lg font-semibold">
+                      {campaign.landing_page_cta}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           )}
