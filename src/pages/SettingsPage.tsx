@@ -222,6 +222,42 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* ── Google Ads Conversion Tracking ───────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-sm font-semibold text-gray-900">Google Ads Conversion Tracking</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Required to unlock MAXIMIZE_CONVERSIONS Smart Bidding (gets more leads for the same budget)</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs font-semibold text-amber-800 mb-1">Why this matters</p>
+            <p className="text-xs text-amber-700">Currently your campaigns use <strong>Maximize Clicks</strong> bidding. Once conversion tracking is set up, DigiPromix will automatically switch to <strong>Maximize Conversions</strong> — Google's AI will optimise for actual leads, not just clicks. This typically reduces cost-per-lead by 30–50%.</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-700">Setup in 3 steps:</p>
+            {[
+              { step: '1', text: 'Go to Google Ads → Tools → Conversions → + New conversion action → Website' },
+              { step: '2', text: 'Choose "Submit lead form" as the conversion event. Copy the Conversion ID and Label shown.' },
+              { step: '3', text: 'Add the Google tag to your landing page (paste before </head> tag or tell me and I\'ll add it automatically).' },
+            ].map(({ step, text }) => (
+              <div key={step} className="flex gap-2.5 text-xs text-gray-600">
+                <span className="w-5 h-5 rounded-full bg-gray-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">{step}</span>
+                <p className="mt-0.5">{text}</p>
+              </div>
+            ))}
+          </div>
+          <a
+            href="https://ads.google.com/aw/conversions"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline font-medium"
+          >
+            Open Google Ads Conversions →
+          </a>
+          <p className="text-[10px] text-gray-400">Once set up, share your Conversion ID with us and we'll wire it into your campaigns automatically.</p>
+        </CardContent>
+      </Card>
+
       {/* ── Signal Intelligence API Keys ─────────────────────────────────────── */}
       <Card>
         <CardHeader>
