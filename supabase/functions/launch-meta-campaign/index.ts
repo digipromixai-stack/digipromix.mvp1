@@ -445,7 +445,7 @@ Deno.serve(async (req) => {
       status:           'active',
       channels:         [...new Set([...((campaign.channels as string[]) ?? []), 'meta'])],
       landing_page_url: adUrl,
-      daily_budget:     budgetUsd,
+      daily_budget:     budgetInput,
     }).eq('id', campaign_id)
 
     return json({
