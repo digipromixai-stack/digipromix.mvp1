@@ -79,6 +79,21 @@ export function useUpdateCampaignStatus() {
   })
 }
 
+export function useUpdateCampaignBudget() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, daily_budget }: { id: string; daily_budget: number }) => {
+      // Update DB — takes effect on next campaign re-launch or Meta/Google sync
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ daily_budget })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
 export function useDeleteCampaign() {
   const qc = useQueryClient()
   return useMutation({

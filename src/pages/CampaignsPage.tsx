@@ -3,20 +3,21 @@ import {
   Rocket, Search, Globe, Share2, Trash2, Play, Pause,
   CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
   AlertTriangle, TrendingDown, ZapOff, DollarSign, Sparkles, RefreshCw,
-  Target, Brain, X, Check, ChevronDown, ChevronUp,
+  Target, Brain, X, Check, ChevronDown, ChevronUp, BarChart2, Pencil,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
-import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign } from '../hooks/useCampaigns'
+import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useUpdateCampaignBudget } from '../hooks/useCampaigns'
 import {
   useAiRecommendations,
   useApplyRecommendation,
   useDismissRecommendation,
   type AiRecommendationWithCampaign,
 } from '../hooks/useAiRecommendations'
+import { useCampaignMetrics } from '../hooks/useCampaignMetrics'
 import { timeAgo } from '../lib/utils'
 import type { Campaign, CampaignStatus } from '../types/database.types'
 
@@ -193,9 +194,91 @@ function AiRecommendationsPanel() {
 
 // ── Campaign card ─────────────────────────────────────────────────────────────
 
+// ── Campaign performance metrics panel ───────────────────────────────────────
+function MetricsPanel({ campaignId }: { campaignId: string }) {
+  const { data: m } = useCampaignMetrics(campaignId)
+
+  if (!m?.has_data) {
+    return (
+      <p className="text-[11px] text-gray-400 italic mt-1">
+        Performance data collected nightly — check back after 24h of running
+      </p>
+    )
+  }
+
+  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n))
+
+  return (
+    <div className="grid grid-cols-4 gap-1.5 mt-2">
+      {[
+        { label: 'Spend',       value: `$${m.total_spend.toFixed(2)}`,            color: 'text-gray-900' },
+        { label: 'Clicks',      value: fmt(m.total_clicks),                        color: 'text-blue-700' },
+        { label: 'Impressions', value: fmt(m.total_impressions),                   color: 'text-gray-700' },
+        { label: 'CTR',         value: m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '—', color: 'text-green-700' },
+      ].map(({ label, value, color }) => (
+        <div key={label} className="bg-gray-50 rounded-lg p-1.5 text-center">
+          <div className="text-[9px] uppercase tracking-wide text-gray-400">{label}</div>
+          <div className={`text-xs font-bold ${color} mt-0.5`}>{value}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Budget edit inline ────────────────────────────────────────────────────────
+function BudgetEdit({ campaign }: { campaign: Campaign }) {
+  const [editing, setEditing]   = useState(false)
+  const [value,   setValue]     = useState(String(campaign.daily_budget ?? ''))
+  const { mutate: updateBudget, isPending } = useUpdateCampaignBudget()
+
+  const save = () => {
+    const n = Number(value)
+    if (!Number.isFinite(n) || n < 1) return
+    updateBudget({ id: campaign.id, daily_budget: n }, {
+      onSuccess: () => setEditing(false),
+    })
+  }
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+      >
+        <DollarSign size={10} />
+        {campaign.daily_budget ? `$${campaign.daily_budget}/day` : 'Set budget'}
+        <Pencil size={9} className="ml-0.5" />
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-gray-400">$</span>
+      <input
+        type="number"
+        min={1}
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+        autoFocus
+        className="w-16 border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+      />
+      <span className="text-xs text-gray-400">/day</span>
+      <button onClick={save} disabled={isPending} className="text-[10px] text-green-600 font-semibold hover:underline">
+        {isPending ? '…' : 'Save'}
+      </button>
+      <button onClick={() => setEditing(false)} className="text-[10px] text-gray-400 hover:text-gray-600">Cancel</button>
+    </div>
+  )
+}
+
+// ── Campaign card ─────────────────────────────────────────────────────────────
+
 function CampaignCard({ campaign }: { campaign: Campaign }) {
   const { mutate: updateStatus, isPending: updatingStatus } = useUpdateCampaignStatus()
   const { mutate: deleteCampaign, isPending: deleting } = useDeleteCampaign()
+  const [showMetrics, setShowMetrics] = useState(false)
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -256,7 +339,12 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
               </div>
             )}
 
-            <div className="flex items-center gap-3 mt-3 flex-wrap">
+            {/* Budget edit */}
+            <div className="mt-2">
+              <BudgetEdit campaign={campaign} />
+            </div>
+
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
               {/* Channels */}
               {campaign.channels.length > 0 && (
                 <div className="flex items-center gap-1">
@@ -284,6 +372,18 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                 </div>
               )}
               <span className="text-xs text-gray-400">{timeAgo(campaign.created_at)}</span>
+
+              {/* Performance toggle */}
+              {(campaign.meta_campaign_id || campaign.google_campaign_id) && (
+                <button
+                  onClick={() => setShowMetrics(v => !v)}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 transition-colors"
+                >
+                  <BarChart2 size={11} />
+                  {showMetrics ? 'Hide stats' : 'Stats'}
+                  {showMetrics ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                </button>
+              )}
 
               {/* Actions */}
               <div className="flex items-center gap-1.5 ml-auto">
@@ -351,6 +451,16 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
               </div>
             </div>
           </div>
+
+          {/* Performance metrics panel */}
+          {showMetrics && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5 flex items-center gap-1">
+                <BarChart2 size={10} /> Performance (last 30 days · updated nightly)
+              </p>
+              <MetricsPanel campaignId={campaign.id} />
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
