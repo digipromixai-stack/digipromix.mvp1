@@ -300,7 +300,7 @@ Deno.serve(async (req) => {
     const campaignRes = await mutate(ctx, '/campaigns:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} ${Date.now()}`).slice(0, 255),
-        status: 'PAUSED',                    // safety — user reviews and enables in Google Ads
+        status: 'ENABLED',
         advertisingChannelType: 'SEARCH',
         manualCpc: { enhancedCpcEnabled: false },
         campaignBudget: budgetRN,
@@ -327,7 +327,7 @@ Deno.serve(async (req) => {
     const adGroupRes = await mutate(ctx, '/adGroups:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} - Ad Group`).slice(0, 255),
-        status: 'PAUSED',                    // safety
+        status: 'ENABLED',
         campaign: gCampaignRN,
         type: 'SEARCH_STANDARD',
         cpcBidMicros: '1000000',
@@ -362,7 +362,7 @@ Deno.serve(async (req) => {
     const adRes = await mutate(ctx, '/adGroupAds:mutate', [{
       create: {
         adGroup: gAdGroupRN,
-        status: 'PAUSED',                    // safety
+        status: 'ENABLED',
         ad: {
           finalUrls: [finalUrl],
           responsiveSearchAd: {
@@ -417,7 +417,7 @@ Deno.serve(async (req) => {
       google_campaign_id: gCampaignId,
       google_ad_group_id: gAdGroupId,
       google_ad_id:       gAdId,
-      message: 'Campaign created on Google Ads as PAUSED. Review and activate in Google Ads. Requires Basic Access developer token to serve.',
+      message: 'Campaign created and ENABLED on Google Ads. Manage it from your app.',
     })
   } catch (err) {
     console.error(err)
