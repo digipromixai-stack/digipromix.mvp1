@@ -683,7 +683,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
               <p className="text-xs text-blue-600">
                 Campaign ID: <code className="font-mono">{metaResult.meta_campaign_id}</code>
               </p>
-              <p className="text-xs text-blue-600 mt-1">Status: <span className="font-semibold">PAUSED</span> — review and activate in Meta Ads Manager.</p>
+              <p className="text-xs text-green-600 mt-1">Status: <span className="font-semibold">ACTIVE</span> — running now. Pause or delete anytime from Campaigns.</p>
               <a
                 href="https://business.facebook.com/adsmanager"
                 target="_blank"
@@ -705,7 +705,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
               <p className="text-xs text-red-600">
                 Campaign ID: <code className="font-mono">{googleResult.google_campaign_id}</code>
               </p>
-              <p className="text-xs text-red-600 mt-1">Status: <span className="font-semibold">PAUSED</span> — review and activate in Google Ads.</p>
+              <p className="text-xs text-green-600 mt-1">Status: <span className="font-semibold">ENABLED</span> — running now. Pause or delete anytime from Campaigns.</p>
               <a
                 href="https://ads.google.com/aw/campaigns"
                 target="_blank"

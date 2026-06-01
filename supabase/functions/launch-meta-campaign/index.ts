@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
     const metaCampaign = await metaPost(`/${accountId}/campaigns`, token, {
       name:                              campaign.campaign_name,
       objective:                         'OUTCOME_TRAFFIC',
-      status:                            'PAUSED',
+      status:                            'ACTIVE',
       buying_type:                       'AUCTION',
       special_ad_categories:             [],
       daily_budget:                      dailyBudgetCents,     // CBO — budget at campaign level
@@ -335,7 +335,7 @@ Deno.serve(async (req) => {
         age_min: 18,
         age_max: 65,
       },
-      status: 'PAUSED',
+      status: 'ACTIVE',
     })
 
     if (adSet.error) {
@@ -417,7 +417,7 @@ Deno.serve(async (req) => {
       name:      campaign.campaign_name,
       adset_id:  adSetId,
       creative:  { creative_id: creative.id },
-      status:    'PAUSED',
+      status:    'ACTIVE',
     })
 
     if (ad.error) {
@@ -453,7 +453,7 @@ Deno.serve(async (req) => {
       meta_campaign_id: metaCampaignId,
       meta_adset_id:    adSetId,
       meta_ad_id:       ad.id,
-      message:          'Campaign created on Meta as PAUSED. Review and activate in Meta Ads Manager.',
+      message:          'Campaign created and ACTIVE on Meta. Manage it from your app.',
     })
   } catch (err) {
     console.error('launch-meta-campaign error:', err)
