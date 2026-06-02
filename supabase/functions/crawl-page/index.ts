@@ -28,14 +28,67 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } },
 )
 
-// Anti-bot sites (Media Markt, Zalando, Saturn) sometimes hold the connection
-// open without ever responding, eating the full timeout. 12s × 1 retry + small
-// backoff fits inside the Supabase Edge Function 25s wall budget and prevents
-// "running" jobs hanging until the 5-min cron expiry sweeps them.
+// Anti-bot sites sometimes hold the connection open without responding.
+// 12s × 1 retry fits inside the Supabase Edge Function 25s wall budget.
 const CRAWL_TIMEOUT_MS = 12_000
 const MAX_RETRIES      = 1
 const MAX_BODY_BYTES   = 5 * 1024 * 1024
 const ENCODER          = new TextEncoder()
+
+// ── scrape.do integration ────────────────────────────────────────────────────
+// Domains that block direct HTTP crawling (WAF / Cloudflare / JS-heavy SPAs).
+// For these, we route through scrape.do which uses residential proxies +
+// real browser rendering, bypassing bot detection.
+const ANTI_BOT_DOMAINS = [
+  'flipkart.com',
+  'amazon.com', 'amazon.in',
+  'alibaba.com', 'aliexpress.com',
+  'instagram.com', 'facebook.com',
+  'linkedin.com',
+  'zalando.com', 'myntra.com',
+]
+
+function needsScrapeDo(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    return ANTI_BOT_DOMAINS.some(d => host === d || host.endsWith(`.${d}`))
+  } catch { return false }
+}
+
+/**
+ * Fetch a page via scrape.do — residential proxy + optional JS rendering.
+ * Returns the rendered HTML string or null on failure.
+ */
+async function fetchViaScrapeDoApi(url: string, apiKey: string): Promise<
+  { html: string; fetchMs: number } | { error: string }
+> {
+  const t0 = Date.now()
+  try {
+    // render=true → headless Chromium renders JavaScript (essential for SPAs)
+    // superProxy=true → residential rotating proxies (bypasses IP-level blocks)
+    // geoCode=in → Indian residential IP (for Flipkart / Myntra regional content)
+    const hostname = new URL(url).hostname
+    const isIndian = /flipkart|myntra|bigbasket|jio|snapdeal/.test(hostname)
+    const params = new URLSearchParams({
+      token:       apiKey,
+      url,
+      render:      'true',
+      superProxy:  'true',
+      ...(isIndian ? { geoCode: 'in' } : {}),
+    })
+    const res = await fetch(`https://api.scrape.do?${params.toString()}`, {
+      signal: AbortSignal.timeout(25_000),   // scrape.do rendering can take up to 20s
+    })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      return { error: `scrape.do HTTP ${res.status}: ${body.slice(0, 120)}` }
+    }
+    const html = await res.text()
+    return { html, fetchMs: Date.now() - t0 }
+  } catch (err) {
+    return { error: `scrape.do: ${err instanceof Error ? err.message : String(err)}`.slice(0, 200) }
+  }
+}
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -287,10 +340,39 @@ Deno.serve(async (req) => {
   const userId = (page.competitors as { user_id: string }).user_id
   const lastSnapshot = lastSnapshotRes.data
 
-  const result = await fetchWithRetry(page.url, MAX_RETRIES, {
-    etag: lastSnapshot?.etag ?? null,
-    lastModified: lastSnapshot?.last_modified ?? null,
-  })
+  // Route anti-bot domains through scrape.do (residential proxy + JS render).
+  // Falls back to direct fetch if no API key or if scrape.do itself fails.
+  const scrapeDoKey = Deno.env.get('SCRAPE_DO_API_KEY') ?? ''
+  let result: Awaited<ReturnType<typeof fetchWithRetry>>
+
+  if (scrapeDoKey && needsScrapeDo(page.url)) {
+    const sdRes = await fetchViaScrapeDoApi(page.url, scrapeDoKey)
+    if ('html' in sdRes) {
+      // Wrap scrape.do result into the same shape fetchWithRetry returns
+      result = {
+        html:         sdRes.html,
+        httpStatus:   200,
+        etag:         null,
+        lastModified: null,
+        bytes:        sdRes.html.length,
+        fetchMs:      sdRes.fetchMs,
+        truncated:    false,
+        contentType:  'text/html',
+      }
+    } else {
+      // scrape.do failed — log and fall back to direct fetch
+      console.warn(`scrape.do failed for ${page.url}: ${sdRes.error} — falling back to direct fetch`)
+      result = await fetchWithRetry(page.url, MAX_RETRIES, {
+        etag: lastSnapshot?.etag ?? null,
+        lastModified: lastSnapshot?.last_modified ?? null,
+      })
+    }
+  } else {
+    result = await fetchWithRetry(page.url, MAX_RETRIES, {
+      etag: lastSnapshot?.etag ?? null,
+      lastModified: lastSnapshot?.last_modified ?? null,
+    })
+  }
 
   // Failure
   if ('error' in result) {
