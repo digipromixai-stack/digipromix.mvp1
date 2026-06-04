@@ -10,7 +10,7 @@ import { useToast } from '../components/ui/Toast'
 import {
   Activity, Building2, Bell, TrendingUp,
   ExternalLink, Sparkles, Megaphone, DollarSign,
-  FileText, Layout, RefreshCw, ArrowRight,
+  FileText, Layout, RefreshCw, ArrowRight, Target, Radio,
 } from 'lucide-react'
 import type { DetectedChangeWithCompetitor, Competitor } from '../types/database.types'
 
@@ -187,12 +187,14 @@ export function DashboardPage() {
       const todayStart = new Date()
       todayStart.setHours(0, 0, 0, 0)
 
-      const [competitors, changesToday, changes7d, unreadAlerts, highSeverity] = await Promise.all([
+      const [competitors, changesToday, changes7d, unreadAlerts, highSeverity, openOpps, signals7d] = await Promise.all([
         supabase.from('competitors').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('is_active', true),
         supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).gte('detected_at', todayStart.toISOString()),
         supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).gte('detected_at', new Date(Date.now() - 7 * 86400000).toISOString()),
         supabase.from('alerts').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('channel', 'dashboard').eq('status', 'pending'),
         supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('severity', 'high').gte('detected_at', new Date(Date.now() - 7 * 86400000).toISOString()),
+        supabase.from('opportunities').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('status', 'open'),
+        supabase.from('signals').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).gte('collected_at', new Date(Date.now() - 7 * 86400000).toISOString()),
       ])
       return {
         competitors: competitors.count ?? 0,
@@ -200,6 +202,8 @@ export function DashboardPage() {
         changes7d: changes7d.count ?? 0,
         unreadAlerts: unreadAlerts.count ?? 0,
         highSeverity: highSeverity.count ?? 0,
+        openOpps: openOpps.count ?? 0,
+        signals7d: signals7d.count ?? 0,
       }
     },
     enabled: !!user,
@@ -306,11 +310,13 @@ export function DashboardPage() {
       </div>
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         <StatCard label="Competitors" value={stats?.competitors ?? 0} icon={Building2} color="bg-blue-500" />
         <StatCard label="Today's changes" value={stats?.changesToday ?? 0} icon={Activity} color="bg-green-500" sub={`${stats?.changes7d ?? 0} this week`} />
         <StatCard label="High severity" value={stats?.highSeverity ?? 0} icon={TrendingUp} color="bg-red-500" sub="last 7 days" />
         <StatCard label="Unread alerts" value={stats?.unreadAlerts ?? 0} icon={Bell} color="bg-orange-500" />
+        <StatCard label="Open opportunities" value={stats?.openOpps ?? 0} icon={Target} color="bg-violet-500" sub="Opportunity Radar" />
+        <StatCard label="Market signals" value={stats?.signals7d ?? 0} icon={Radio} color="bg-indigo-500" sub="last 7 days" />
       </div>
 
       {/* ── Main content ── */}
