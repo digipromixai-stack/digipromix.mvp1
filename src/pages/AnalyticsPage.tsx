@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PageSpinner } from '../components/ui/Spinner'
 import { ChangeTypeBadge } from '../components/ui/Badge'
-import { TrendingUp, Zap, AlertTriangle, BarChart2, Users, Rocket } from 'lucide-react'
+import { TrendingUp, Zap, AlertTriangle, BarChart2, Users, Rocket, Radio, Target } from 'lucide-react'
 import type { DetectedChangeWithCompetitor, Campaign, LeadWithCampaign } from '../types/database.types'
 
 // ── constants ────────────────────────────────────────────────────────────────
@@ -424,9 +424,203 @@ function CampaignsLeadsTab({ days }: { days: number }) {
   )
 }
 
+// ── Tab: Market Signals ───────────────────────────────────────────────────────
+// Shows Google Trends SEARCH_SPIKEs and Meta AD_VOLUME_SPIKEs collected
+// by the Phase 1 Signal Engine. This is the core MVP 2 proactive intelligence.
+
+function MarketSignalsTab() {
+  const { user } = useAuth()
+
+  const { data: signals = [], isLoading } = useQuery({
+    queryKey: ['signals_analytics', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('signals')
+        .select('id, signal_type, source, keyword, industry, location, growth_pct, collected_at, competitor_id')
+        .eq('user_id', user!.id)
+        .order('collected_at', { ascending: false })
+        .limit(200)
+      return data ?? []
+    },
+    enabled: !!user,
+  })
+
+  const spikes    = signals.filter(s => s.signal_type === 'SEARCH_SPIKE')
+  const rising    = signals.filter(s => s.signal_type === 'RISING_KEYWORD')
+  const adVolume  = signals.filter(s => s.signal_type === 'AD_VOLUME_SPIKE')
+  const newCreative = signals.filter(s => s.signal_type === 'NEW_CREATIVE')
+  const offerRepeat = signals.filter(s => s.signal_type === 'OFFER_REPEAT')
+
+  // Top growing keywords
+  const topGrowing = [...signals]
+    .filter(s => Number(s.growth_pct) > 0)
+    .sort((a, b) => Number(b.growth_pct) - Number(a.growth_pct))
+    .slice(0, 8)
+
+  // Industry breakdown
+  const industryMap: Record<string, number> = {}
+  for (const s of signals) {
+    if (s.industry) industryMap[s.industry] = (industryMap[s.industry] ?? 0) + 1
+  }
+  const industryData = Object.entries(industryMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, value]) => ({ name, value }))
+
+  const SIGNAL_COLORS: Record<string, string> = {
+    SEARCH_SPIKE:    '#10b981',
+    RISING_KEYWORD:  '#3b82f6',
+    AD_VOLUME_SPIKE: '#8b5cf6',
+    NEW_CREATIVE:    '#f59e0b',
+    OFFER_REPEAT:    '#ef4444',
+  }
+
+  const SIGNAL_LABELS: Record<string, string> = {
+    SEARCH_SPIKE:    '🔥 Search Spike',
+    RISING_KEYWORD:  '📈 Rising Keyword',
+    AD_VOLUME_SPIKE: '📣 Ad Volume Spike',
+    NEW_CREATIVE:    '✨ New Creative',
+    OFFER_REPEAT:    '🔁 Offer Repeat',
+  }
+
+  if (isLoading) return <PageSpinner />
+
+  if (signals.length === 0) return (
+    <div className="bg-gradient-to-br from-blue-50 to-violet-50 border border-blue-100 rounded-2xl p-12 text-center">
+      <Radio size={40} className="mx-auto mb-4 text-blue-400" />
+      <h2 className="text-lg font-bold text-gray-900 mb-2">Signals are being collected</h2>
+      <p className="text-sm text-gray-500 max-w-md mx-auto">
+        Google Trends runs every 6 hours. Meta Ad Library runs every 12 hours.
+        Your first signals will appear here soon.
+      </p>
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {[
+          { label: 'Search Spikes',    value: spikes.length,    icon: TrendingUp,   color: 'text-green-600'  },
+          { label: 'Rising Keywords',  value: rising.length,    icon: TrendingUp,   color: 'text-blue-600'   },
+          { label: 'Ad Vol. Spikes',   value: adVolume.length,  icon: BarChart2,    color: 'text-violet-600' },
+          { label: 'New Creatives',    value: newCreative.length, icon: Zap,        color: 'text-amber-600'  },
+          { label: 'Offer Repeats',    value: offerRepeat.length, icon: Target,     color: 'text-red-600'    },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="bg-white border border-gray-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Icon size={14} className={color} />
+              <span className="text-xs text-gray-500 truncate">{label}</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top growing keywords */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <TrendingUp size={14} className="text-green-500" /> Top Growing Keywords
+          </h2>
+          {topGrowing.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No positive growth signals yet</p>
+          ) : (
+            <div className="space-y-2.5">
+              {topGrowing.map(s => (
+                <div key={s.id} className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{s.keyword ?? s.industry ?? '—'}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">{s.industry ?? ''} · {s.location ?? 'Global'}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      Number(s.growth_pct) >= 30 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      +{Math.round(Number(s.growth_pct))}%
+                    </span>
+                    <span className="text-[10px] text-gray-400">{format(new Date(s.collected_at), 'MMM d')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Industry signal breakdown */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <BarChart2 size={14} className="text-blue-500" /> Signals by Industry
+          </h2>
+          {industryData.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No industry data yet</p>
+          ) : (
+            <div className="space-y-3">
+              {industryData.map(({ name, value }) => (
+                <div key={name} className="flex items-center gap-3">
+                  <p className="text-sm text-gray-700 w-40 truncate capitalize">{name}</p>
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-400 rounded-full"
+                      style={{ width: `${Math.round((value / (industryData[0]?.value || 1)) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500 w-6 text-right">{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent signals table */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-4">Recent Signals</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Type</th>
+                <th className="text-left text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Keyword</th>
+                <th className="text-left text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Industry</th>
+                <th className="text-left text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Location</th>
+                <th className="text-right text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Growth</th>
+                <th className="text-right text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Collected</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {signals.slice(0, 20).map(s => (
+                <tr key={s.id} className="hover:bg-gray-50/50">
+                  <td className="py-2 pr-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wide"
+                      style={{ color: SIGNAL_COLORS[s.signal_type] ?? '#6b7280' }}>
+                      {SIGNAL_LABELS[s.signal_type] ?? s.signal_type}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-gray-700 max-w-[140px] truncate">{s.keyword ?? '—'}</td>
+                  <td className="py-2 pr-3 text-gray-500 capitalize">{s.industry ?? '—'}</td>
+                  <td className="py-2 pr-3 text-gray-500">{s.location ?? 'Global'}</td>
+                  <td className="py-2 pr-3 text-right">
+                    {s.growth_pct != null ? (
+                      <span className={`text-xs font-bold ${Number(s.growth_pct) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {Number(s.growth_pct) >= 0 ? '+' : ''}{Math.round(Number(s.growth_pct))}%
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="py-2 text-right text-gray-400 text-xs">{format(new Date(s.collected_at), 'MMM d, HH:mm')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── main page ─────────────────────────────────────────────────────────────────
 
-type TabKey = 'intelligence' | 'campaigns'
+type TabKey = 'intelligence' | 'campaigns' | 'signals'
 
 export function AnalyticsPage() {
   const [days, setDays]   = useState(14)
@@ -462,10 +656,11 @@ export function AnalyticsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit flex-wrap">
         {([
           { key: 'intelligence', label: 'Competitor Intelligence', icon: Zap },
           { key: 'campaigns',    label: 'Campaigns & Leads',       icon: Users },
+          { key: 'signals',      label: 'Market Signals',          icon: Radio },
         ] as { key: TabKey; label: string; icon: React.ElementType }[]).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -478,12 +673,18 @@ export function AnalyticsPage() {
           >
             <Icon size={14} />
             {label}
+            {key === 'signals' && (
+              <span className="text-[9px] font-bold uppercase tracking-wider bg-gradient-to-r from-violet-500 to-indigo-500 text-white px-1.5 py-0.5 rounded-full ml-0.5">
+                AI
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {tab === 'intelligence' && <CompetitorTab days={days} />}
       {tab === 'campaigns'    && <CampaignsLeadsTab days={days} />}
+      {tab === 'signals'      && <MarketSignalsTab />}
     </div>
   )
 }
