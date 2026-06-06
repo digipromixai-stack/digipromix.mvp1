@@ -202,7 +202,6 @@ function OpportunityCard({
             <p className="text-xs font-mono uppercase text-gray-400 tracking-wider">
               {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
             </p>
-            {/* Growth % chip — only for signal-driven opps */}
             {growthPct != null && (
               <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
                 <TrendingUp size={9} />+{Math.round(growthPct)}%
@@ -211,7 +210,10 @@ function OpportunityCard({
           </div>
           <h3 className="font-semibold text-gray-900 text-base leading-snug">{opp.title}</h3>
         </div>
-        <ScoreBadge score={opp.opportunity_score} />
+        {/* Urgency ring on hot opportunities */}
+        <div className={opp.opportunity_score >= 75 ? 'ring-2 ring-red-300 animate-pulse rounded-full p-0.5' : ''}>
+          <ScoreBadge score={opp.opportunity_score} />
+        </div>
       </div>
 
       {/* Signal source chips */}
@@ -222,37 +224,56 @@ function OpportunityCard({
       )}
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="grid grid-cols-3 gap-2 mb-2">
         <div className="bg-gray-50 rounded-lg p-2 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Leads</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Customers</div>
           <div className="text-sm font-bold text-gray-900">{opp.expected_leads ?? '—'}</div>
         </div>
         <div className="bg-gray-50 rounded-lg p-2 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">CPC</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Cost/Lead</div>
           <div className="text-sm font-bold text-gray-900">${opp.estimated_cpc?.toFixed(2) ?? '—'}</div>
         </div>
         <div className="bg-gray-50 rounded-lg p-2 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Confidence</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">AI Confidence</div>
           <div className="text-sm font-bold text-gray-900">
             {opp.confidence != null ? `${Math.round(opp.confidence * 100)}%` : '—'}
           </div>
+          {opp.confidence != null && (
+            <div className="mt-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-violet-500 rounded-full transition-all"
+                style={{ width: `${Math.round(opp.confidence * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Budget scenarios */}
-      <BudgetTiers opp={opp} />
-
-      {/* Competitor activity count */}
+      {/* Competition Level + ROI estimate */}
       {(() => {
         const meta = opp.metadata as Record<string, unknown> | null
-        const count = meta?.competitor_activity_7d as number | undefined
-        return count != null && count > 0 ? (
-          <p className="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
-            <Target size={11} className="text-orange-500 shrink-0" />
-            <span><span className="font-semibold text-gray-700">{count} competitor move{count !== 1 ? 's' : ''}</span> detected in this market this week</span>
-          </p>
-        ) : null
+        const activityCount = meta?.competitor_activity_7d as number | undefined
+        const compLevel = activityCount == null ? null : activityCount === 0 ? 'Low' : activityCount <= 2 ? 'Medium' : 'High'
+        const compColor = compLevel === 'High' ? 'text-red-600 bg-red-50 border-red-200' : compLevel === 'Medium' ? 'text-orange-600 bg-orange-50 border-orange-200' : 'text-gray-500 bg-gray-50 border-gray-200'
+        const roi = opp.expected_leads && opp.estimated_cpc ? Math.round(opp.expected_leads * opp.estimated_cpc * 3) : null
+        return (
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {compLevel && (
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${compColor}`}>
+                <Target size={9} />Competition: {compLevel}
+              </span>
+            )}
+            {roi != null && roi > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
+                <TrendUp size={9} />Est. Revenue: ~${roi}
+              </span>
+            )}
+          </div>
+        )
       })()}
+
+      {/* Budget scenarios */}
+      <BudgetTiers opp={opp} />
 
       {/* CPC prediction */}
       {(() => {
@@ -273,18 +294,33 @@ function OpportunityCard({
       })()}
 
       {opp.recommended_action && (
-        <p className="text-sm text-blue-700 mb-3 flex items-start gap-1.5">
-          <Sparkles size={14} className="shrink-0 mt-0.5" />
+        <p className="text-sm text-violet-700 mb-3 flex items-start gap-1.5">
+          <Sparkles size={14} className="shrink-0 mt-0.5 text-violet-500" />
           <span>{opp.recommended_action}</span>
         </p>
       )}
 
+      {/* Dynamic launch button based on score */}
       <button
         onClick={() => onLaunch(opp)}
         disabled={busy}
-        className="w-full bg-gray-900 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+        className={`w-full disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
+          opp.opportunity_score >= 75
+            ? 'bg-red-600 hover:bg-red-700'
+            : opp.opportunity_score >= 50
+            ? 'bg-indigo-600 hover:bg-indigo-700'
+            : 'bg-gray-900 hover:bg-gray-800'
+        }`}
       >
-        {busy ? <><Loader2 size={14} className="animate-spin" /> Loading…</> : <>Launch Campaign <ArrowRight size={14} /></>}
+        {busy ? (
+          <><Loader2 size={14} className="animate-spin" /> Loading…</>
+        ) : opp.opportunity_score >= 75 ? (
+          <>🔥 Launch Now — Hot Market <ArrowRight size={14} /></>
+        ) : opp.opportunity_score >= 50 ? (
+          <>⚡ Launch Campaign <ArrowRight size={14} /></>
+        ) : (
+          <>Launch Campaign <ArrowRight size={14} /></>
+        )}
       </button>
     </div>
   )
@@ -428,10 +464,10 @@ export function OpportunityFeedPage() {
       {/* Quick stats row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Open opportunities', value: opportunities.length, icon: Target, color: 'blue' },
-          { label: 'High score (≥75)', value: opportunities.filter(o => o.opportunity_score >= 75).length, icon: TrendingUp, color: 'red' },
-          { label: 'Avg confidence', value: opportunities.length ? Math.round(opportunities.reduce((s, o) => s + (o.confidence ?? 0), 0) / opportunities.length * 100) + '%' : '—', icon: Sparkles, color: 'violet' },
-          { label: 'Total expected leads', value: opportunities.reduce((s, o) => s + (o.expected_leads ?? 0), 0), icon: DollarSign, color: 'green' },
+          { label: 'Revenue Opportunities', value: opportunities.length, icon: Target, color: 'blue' },
+          { label: 'Hot Market (≥75)', value: opportunities.filter(o => o.opportunity_score >= 75).length, icon: TrendingUp, color: 'red' },
+          { label: 'Avg AI Confidence', value: opportunities.length ? Math.round(opportunities.reduce((s, o) => s + (o.confidence ?? 0), 0) / opportunities.length * 100) + '%' : '—', icon: Sparkles, color: 'violet' },
+          { label: 'Potential Customers', value: opportunities.reduce((s, o) => s + (o.expected_leads ?? 0), 0), icon: DollarSign, color: 'green' },
         ].map(stat => {
           const Icon = stat.icon
           return (
@@ -491,6 +527,19 @@ export function OpportunityFeedPage() {
           onClose={() => { setActiveChange(null); setActiveOppHint(undefined) }}
           opportunityHint={activeOppHint}
         />
+      )}
+
+      {/* Mobile sticky action bar */}
+      {opportunities.length > 0 && (
+        <div className="fixed bottom-0 inset-x-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 lg:hidden z-30">
+          <button
+            onClick={() => opportunities[0] && handleLaunch(opportunities[0])}
+            disabled={!!loadingOppId}
+            className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg"
+          >
+            {loadingOppId ? <><Loader2 size={16} className="animate-spin" />Loading…</> : <>⚡ Launch Top Opportunity <ArrowRight size={16} /></>}
+          </button>
+        </div>
       )}
     </div>
   )

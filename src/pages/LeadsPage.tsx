@@ -31,9 +31,9 @@ function IntentBadge({ scoreType }: { scoreType: string | null | undefined }) {
   if (!scoreType) return null
   const key = scoreType.toUpperCase()
   const variants: Record<string, { Icon: typeof Flame; label: string; cls: string }> = {
-    HOT:    { Icon: Flame,     label: 'HOT',    cls: 'bg-red-50 text-red-700 border-red-200' },
-    MEDIUM: { Icon: Activity,  label: 'MEDIUM', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-    LOW:    { Icon: Snowflake, label: 'LOW',    cls: 'bg-slate-50 text-slate-600 border-slate-200' },
+    HOT:    { Icon: Flame,     label: '🔥 HOT',  cls: 'bg-red-50 text-red-700 border-red-200'     },
+    MEDIUM: { Icon: Activity,  label: '⚡ WARM', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    LOW:    { Icon: Snowflake, label: '❄ COLD', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
   }
   const v = variants[key] ?? variants.LOW
   const { Icon } = v
@@ -154,27 +154,42 @@ export function LeadsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Leads</h1>
+          <h1 className="text-xl font-bold text-gray-900">Potential Customers</h1>
           <p className="text-sm text-gray-500 mt-0.5">Captured from your campaign landing pages</p>
         </div>
       </div>
 
       {/* Stats row */}
       {stats && stats.total > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          <Card><CardContent className="py-3">
-            <p className="text-xs text-gray-500">Total Leads</p>
-            <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.total}</p>
-          </CardContent></Card>
-          <Card><CardContent className="py-3">
-            <p className="text-xs text-gray-500">Qualified</p>
-            <p className="text-2xl font-bold text-green-600 mt-0.5">{stats.qualified}</p>
-          </CardContent></Card>
-          <Card><CardContent className="py-3">
-            <p className="text-xs text-gray-500 flex items-center gap-1"><Star size={11} />Avg Score</p>
-            <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.avgScore}%</p>
-          </CardContent></Card>
-        </div>
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            <Card><CardContent className="py-3">
+              <p className="text-xs text-gray-500">Total Customers</p>
+              <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.total}</p>
+            </CardContent></Card>
+            <Card><CardContent className="py-3">
+              <p className="text-xs text-gray-500">Qualified</p>
+              <p className="text-2xl font-bold text-green-600 mt-0.5">{stats.qualified}</p>
+            </CardContent></Card>
+            <Card><CardContent className="py-3">
+              <p className="text-xs text-gray-500 flex items-center gap-1"><Star size={11} />Avg Score</p>
+              <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.avgScore}%</p>
+            </CardContent></Card>
+          </div>
+          {/* Intent quality summary */}
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-100 text-sm flex-wrap">
+            <span className="text-xs text-gray-500 font-medium">Lead Quality:</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 text-xs font-bold">
+              <Flame size={11} />🔥 HOT: {stats.hot ?? 0}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold">
+              <Activity size={11} />⚡ WARM: {stats.medium ?? 0}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 border border-slate-200 text-xs font-bold">
+              <Snowflake size={11} />❄ COLD: {stats.low ?? 0}
+            </span>
+          </div>
+        </>
       )}
 
       {/* Filter tabs */}
