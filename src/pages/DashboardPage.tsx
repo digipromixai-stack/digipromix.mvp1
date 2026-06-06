@@ -11,8 +11,9 @@ import {
   Activity, Building2, Bell, TrendingUp,
   ExternalLink, Sparkles, Megaphone, DollarSign,
   FileText, Layout, RefreshCw, ArrowRight, Target, Radio,
+  AlertTriangle, CheckCircle2, Users,
 } from 'lucide-react'
-import type { DetectedChangeWithCompetitor, Competitor } from '../types/database.types'
+import type { DetectedChangeWithCompetitor, Competitor, Opportunity } from '../types/database.types'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -209,6 +210,37 @@ export function DashboardPage() {
     enabled: !!user,
   })
 
+  // Top open opportunity (AI Opportunity Center)
+  const { data: topOpp } = useQuery<Opportunity | null>({
+    queryKey: ['top_opportunity', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('status', 'open')
+        .order('opportunity_score', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data as Opportunity | null
+    },
+    enabled: !!user,
+  })
+
+  // Weekly lead count for summary widget
+  const { data: weekLeads } = useQuery({
+    queryKey: ['week_leads_count', user?.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user!.id)
+        .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString())
+      return count ?? 0
+    },
+    enabled: !!user,
+  })
+
   // Full activity feed
   const { data: recentChanges = [], isLoading: changesLoading } = useQuery({
     queryKey: ['detected_changes', 'dashboard_feed', user?.id],
@@ -309,14 +341,94 @@ export function DashboardPage() {
         )}
       </div>
 
+      {/* ── AI Opportunity Center hero ── */}
+      {topOpp ? (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 p-5 text-white shadow-lg">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(255,255,255,0.12)_0%,_transparent_60%)]" />
+          <div className="relative flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-violet-200">Top Opportunity Today</span>
+                {topOpp.opportunity_score >= 75 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-400/30 text-red-100 border border-red-300/30">🔥 HOT</span>
+                )}
+              </div>
+              <h2 className="text-lg font-bold leading-snug line-clamp-1">{topOpp.title}</h2>
+              {topOpp.recommended_action && (
+                <p className="text-sm text-violet-100 mt-0.5 line-clamp-1">→ {topOpp.recommended_action}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              {topOpp.expected_leads != null && (
+                <div className="text-center px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm">
+                  <p className="text-xl font-black">{topOpp.expected_leads}</p>
+                  <p className="text-[10px] text-violet-200 uppercase tracking-wide">Est. Leads</p>
+                </div>
+              )}
+              <Link
+                to="/opportunities"
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-white text-violet-700 font-bold text-sm rounded-xl hover:bg-violet-50 transition-colors shadow"
+              >
+                View <ArrowRight size={14} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : hasData ? (
+        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-green-50 border border-green-200">
+          <CheckCircle2 size={20} className="text-green-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-green-800">No urgent threats today — all systems monitoring</p>
+            <p className="text-xs text-green-600 mt-0.5">New opportunities will appear here as competitor signals arrive.</p>
+          </div>
+          <Link to="/opportunities" className="ml-auto text-xs text-green-700 hover:underline flex items-center gap-0.5 shrink-0">
+            Opportunity Radar <ArrowRight size={11} />
+          </Link>
+        </div>
+      ) : null}
+
+      {/* ── Weekly AI Business Summary ── */}
+      {hasData && (
+        <div className="bg-violet-50 border border-violet-100 rounded-2xl px-5 py-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles size={14} className="text-violet-500" />
+            <span className="text-xs font-bold text-violet-700 uppercase tracking-wide">This Week's Business Summary</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div>
+              <span className="text-gray-500 text-xs">Competitor Moves</span>
+              <p className="font-bold text-gray-900">{stats?.changes7d ?? 0}</p>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">Revenue Opportunities</span>
+              <p className="font-bold text-gray-900">{stats?.openOpps ?? 0}</p>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">Customers Captured</span>
+              <p className="font-bold text-gray-900">{weekLeads ?? 0}</p>
+            </div>
+            <div>
+              <span className="text-gray-500 text-xs">Market Signals</span>
+              <p className="font-bold text-gray-900">{stats?.signals7d ?? 0}</p>
+            </div>
+          </div>
+          {topOpp?.recommended_action && (
+            <p className="mt-2 text-xs text-violet-700 font-medium flex items-center gap-1">
+              <Sparkles size={11} />
+              Suggested: {topOpp.recommended_action}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <StatCard label="Competitors" value={stats?.competitors ?? 0} icon={Building2} color="bg-blue-500" />
-        <StatCard label="Today's changes" value={stats?.changesToday ?? 0} icon={Activity} color="bg-green-500" sub={`${stats?.changes7d ?? 0} this week`} />
-        <StatCard label="High severity" value={stats?.highSeverity ?? 0} icon={TrendingUp} color="bg-red-500" sub="last 7 days" />
-        <StatCard label="Unread alerts" value={stats?.unreadAlerts ?? 0} icon={Bell} color="bg-orange-500" />
-        <StatCard label="Open opportunities" value={stats?.openOpps ?? 0} icon={Target} color="bg-violet-500" sub="Opportunity Radar" />
-        <StatCard label="Market signals" value={stats?.signals7d ?? 0} icon={Radio} color="bg-indigo-500" sub="last 7 days" />
+        <StatCard label="Monitored Brands" value={stats?.competitors ?? 0} icon={Building2} color="bg-blue-500" />
+        <StatCard label="Competitor Moves Today" value={stats?.changesToday ?? 0} icon={Activity} color="bg-green-500" sub={`${stats?.changes7d ?? 0} this week`} />
+        <StatCard label="Urgent Threats" value={stats?.highSeverity ?? 0} icon={AlertTriangle} color="bg-red-500" sub="last 7 days" />
+        <StatCard label="Unread Alerts" value={stats?.unreadAlerts ?? 0} icon={Bell} color="bg-orange-500" />
+        <StatCard label="Revenue Opportunities" value={stats?.openOpps ?? 0} icon={Target} color="bg-violet-500" sub="Opportunity Radar" />
+        <StatCard label="Market Signals" value={stats?.signals7d ?? 0} icon={Radio} color="bg-indigo-500" sub="last 7 days" />
       </div>
 
       {/* ── Main content ── */}
@@ -327,7 +439,7 @@ export function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />
-              Live Intelligence Feed
+              Competitor Activity
             </h2>
             <Link to="/timeline" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
               View all <ArrowRight size={11} />

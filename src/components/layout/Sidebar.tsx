@@ -4,17 +4,17 @@ import { LayoutDashboard, Building2, Activity, Bell, Settings, BarChart2, Menu, 
 import { cn } from '../../lib/utils'
 
 const navItems = [
-  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard'    },
+  { to: '/dashboard',     icon: LayoutDashboard, label: 'AI Home'              },
   { to: '/opportunities', icon: Target,          label: 'Opportunities', highlight: true, badge: 'AI' },
-  { to: '/interception',  icon: Zap,             label: 'Interception' },
-  { to: '/competitors',   icon: Building2,       label: 'Competitors'  },
-  { to: '/timeline',      icon: Activity,        label: 'Timeline'     },
-  { to: '/campaigns',     icon: Rocket,          label: 'Campaigns'    },
-  { to: '/leads',         icon: Users,           label: 'Leads'        },
-  { to: '/clients',       icon: Briefcase,       label: 'Clients'      },
-  { to: '/analytics',     icon: BarChart2,       label: 'Analytics'    },
-  { to: '/alerts',        icon: Bell,            label: 'Alerts'       },
-  { to: '/settings',      icon: Settings,        label: 'Settings'     },
+  { to: '/interception',  icon: Zap,             label: 'Counter Campaign'     },
+  { to: '/competitors',   icon: Building2,       label: 'Competitors'          },
+  { to: '/timeline',      icon: Activity,        label: 'Change History'       },
+  { to: '/campaigns',     icon: Rocket,          label: 'Campaigns'            },
+  { to: '/leads',         icon: Users,           label: 'Potential Customers'  },
+  { to: '/clients',       icon: Briefcase,       label: 'Clients'              },
+  { to: '/analytics',     icon: BarChart2,       label: 'Analytics'            },
+  { to: '/alerts',        icon: Bell,            label: 'Alerts'               },
+  { to: '/settings',      icon: Settings,        label: 'Settings'             },
 ] as const
 
 export function Sidebar() {

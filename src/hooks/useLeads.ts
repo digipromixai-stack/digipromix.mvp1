@@ -57,6 +57,9 @@ export function useLeadStats() {
         qualified: all.filter(l => l.status === 'qualified').length,
         closed:    all.filter(l => l.status === 'closed').length,
         avgScore:  all.length ? Math.round(all.reduce((s, l) => s + (l.score ?? 0), 0) / all.length) : 0,
+        hot:    all.filter(l => (l.score ?? 0) >= 70).length,
+        medium: all.filter(l => (l.score ?? 0) >= 40 && (l.score ?? 0) < 70).length,
+        low:    all.filter(l => (l.score ?? 0) < 40).length,
       }
     },
   })

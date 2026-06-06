@@ -95,10 +95,10 @@ function SignalCard({
           <Button
             size="sm"
             onClick={() => onIntercept(change)}
-            className="shrink-0 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 border-0 text-white shadow"
+            className="shrink-0 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 border-0 text-white shadow px-3"
           >
             <Zap size={13} className="mr-1" />
-            Intercept
+            Counter This
           </Button>
         )}
       </div>
@@ -131,9 +131,16 @@ function AIRecommendation({
             → Launch an interception campaign now while demand is hot
           </p>
         </div>
-        <Button size="sm" onClick={onAct} className="shrink-0">
-          <Zap size={12} className="mr-1" />Act Now
-        </Button>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <Button
+            size="sm"
+            onClick={onAct}
+            className="shrink-0 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border-0 text-white shadow-md px-4"
+          >
+            <Zap size={12} className="mr-1.5" />⚡ One-Click AI Campaign
+          </Button>
+          <p className="text-[10px] text-indigo-600 font-medium">AI auto-selects audience, budget &amp; channels — you just approve.</p>
+        </div>
       </div>
     </div>
   )
@@ -180,20 +187,20 @@ export function InterceptionPage() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Zap size={20} className="text-orange-500" />
-          <h1 className="text-xl font-bold text-gray-900">Interception Engine</h1>
+          <h1 className="text-xl font-bold text-gray-900">Counter Campaign Engine</h1>
           <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold ml-1">LIVE</span>
         </div>
         <p className="text-sm text-gray-500">
-          Detect competitor moves → launch counter-campaigns → capture leads before they do.
+          Spot a competitor move → AI builds your counter campaign → capture their customers.
         </p>
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MetricCard label="Signals (30d)"    value={recentChanges.length}          icon={AlertTriangle} color="text-orange-500" sub="competitor events" />
-        <MetricCard label="Campaigns (30d)"  value={recentCampaigns.length}        icon={Rocket}        color="text-blue-500"   sub="launched" />
-        <MetricCard label="Intercept Score"  value={`${interceptScore}%`}          icon={Percent}       color={interceptScore >= 50 ? 'text-green-600' : 'text-yellow-500'} sub="signals acted on" />
-        <MetricCard label="Total Leads"      value={leadStats?.total ?? 0}         icon={Users}         color="text-green-600"  sub={`${leadStats?.qualified ?? 0} qualified`} />
+        <MetricCard label="Competitor Moves (30d)" value={recentChanges.length}      icon={AlertTriangle} color="text-orange-500" sub="competitor events" />
+        <MetricCard label="Campaigns (30d)"       value={recentCampaigns.length}   icon={Rocket}        color="text-blue-500"   sub="launched" />
+        <MetricCard label="Response Rate"         value={`${interceptScore}%`}     icon={Percent}       color={interceptScore >= 50 ? 'text-green-600' : 'text-yellow-500'} sub="moves acted on" />
+        <MetricCard label="Customers Captured"    value={leadStats?.total ?? 0}    icon={Users}         color="text-green-600"  sub={`${leadStats?.qualified ?? 0} qualified`} />
       </div>
 
       {/* AI Recommendation */}
@@ -207,7 +214,7 @@ export function InterceptionPage() {
       {/* Signal feed */}
       <div>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h2 className="text-sm font-semibold text-gray-700">🔥 Live Signals</h2>
+          <h2 className="text-sm font-semibold text-gray-700">🔥 Competitor Moves</h2>
           <div className="flex gap-1.5">
             {(['all', 'high', 'medium', 'low'] as const).map(s => (
               <button
