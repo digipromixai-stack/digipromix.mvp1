@@ -7,7 +7,7 @@
  * and pre-fills generate-campaign with the right context.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
@@ -328,6 +328,9 @@ function OpportunityCard({
 
 export function OpportunityFeedPage() {
   const [statusFilter] = useState<'open'>('open')
+  const [scoreFilter, setScoreFilter] = useState<'all' | 'hot' | 'medium' | 'watch'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
   const { data: opportunities = [], isLoading, refetch } = useOpportunities({ status: statusFilter })
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -413,6 +416,24 @@ export function OpportunityFeedPage() {
     }
   }
 
+  // Client-side filtering by score tier + search query
+  const filteredOpportunities = useMemo(() => {
+    let list = opportunities
+    if (scoreFilter === 'hot')    list = list.filter(o => o.opportunity_score >= 75)
+    else if (scoreFilter === 'medium') list = list.filter(o => o.opportunity_score >= 50 && o.opportunity_score < 75)
+    else if (scoreFilter === 'watch')  list = list.filter(o => o.opportunity_score < 50)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      list = list.filter(o =>
+        (o.title ?? '').toLowerCase().includes(q) ||
+        (o.industry ?? '').toLowerCase().includes(q) ||
+        (o.location ?? '').toLowerCase().includes(q) ||
+        (o.market_name ?? '').toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [opportunities, scoreFilter, searchQuery])
+
   // Dismiss → flip status to 'dismissed' so it falls out of the open feed
   async function handleDismiss(opp: Opportunity) {
     await supabase
@@ -451,15 +472,58 @@ export function OpportunityFeedPage() {
           </p>
         </div>
 
-        <div className="flex gap-2 shrink-0">
-          <button className="border border-gray-200 hover:border-gray-300 rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5">
+        <div className="flex gap-2 shrink-0 flex-wrap">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search opportunities…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-sm w-48 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            className={`border rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${
+              showFilters || scoreFilter !== 'all'
+                ? 'border-blue-400 text-blue-700 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
             <Filter size={14} /> Filters
+            {scoreFilter !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 ml-0.5" />}
           </button>
           <button onClick={() => refetch()} className="border border-gray-200 hover:border-gray-300 rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5">
             <RefreshCcw size={14} /> Refresh
           </button>
         </div>
       </div>
+
+      {/* Score filter chips */}
+      {showFilters && (
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <span className="text-xs text-gray-500 font-medium">Score:</span>
+          {([
+            { value: 'all',    label: 'All' },
+            { value: 'hot',    label: '🔥 Hot (≥75)' },
+            { value: 'medium', label: '⚡ Medium (50–74)' },
+            { value: 'watch',  label: 'Watch (<50)' },
+          ] as const).map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setScoreFilter(value)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                scoreFilter === value
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Quick stats row */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
@@ -487,6 +551,12 @@ export function OpportunityFeedPage() {
           <Search className="mx-auto mb-3 animate-pulse" size={32} />
           Scanning signals…
         </div>
+      ) : filteredOpportunities.length === 0 && opportunities.length > 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          <Filter size={28} className="mx-auto mb-2 text-gray-300" />
+          <p className="text-sm font-medium">No opportunities match your filters.</p>
+          <button onClick={() => { setScoreFilter('all'); setSearchQuery('') }} className="mt-2 text-xs text-blue-600 hover:underline">Clear filters</button>
+        </div>
       ) : opportunities.length === 0 ? (
         <div className="bg-gradient-to-br from-blue-50 via-violet-50 to-pink-50 border border-blue-100 rounded-2xl p-12 text-center">
           <Zap size={48} className="mx-auto mb-4 text-blue-500" />
@@ -506,7 +576,7 @@ export function OpportunityFeedPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {opportunities.map(opp => (
+          {filteredOpportunities.map(opp => (
             <OpportunityCard
               key={opp.id}
               opp={opp}

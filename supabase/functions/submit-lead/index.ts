@@ -155,6 +155,25 @@ Deno.serve(async (req) => {
 
     if (campErr || !campaign) return json({ error: 'Landing page not found' }, 404)
 
+    // Rate-limit: same email OR phone on same campaign within last 5 minutes → silent success
+    if (email || phone) {
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+      const dupQuery = admin
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', campaign.id)
+        .gte('created_at', fiveMinAgo)
+      if (email && phone) {
+        dupQuery.or(`email.eq.${email},phone.eq.${phone}`)
+      } else if (email) {
+        dupQuery.eq('email', email)
+      } else {
+        dupQuery.eq('phone', phone)
+      }
+      const { count: dupCount } = await dupQuery
+      if ((dupCount ?? 0) > 0) return json({ success: true })
+    }
+
     const { score, score_type, recommended_action } = scoreLeadIntent({
       name, email, phone, message,
       time_on_page_seconds, scroll_depth_pct, click_count,
