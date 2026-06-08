@@ -8,10 +8,10 @@ import { PageSpinner } from '../components/ui/Spinner'
 import { timeAgo, formatUrl } from '../lib/utils'
 import { useToast } from '../components/ui/Toast'
 import {
-  Activity, Building2, Bell, TrendingUp,
+  Activity, Building2, Bell,
   ExternalLink, Sparkles, Megaphone, DollarSign,
   FileText, Layout, RefreshCw, ArrowRight, Target, Radio,
-  AlertTriangle, CheckCircle2, Users,
+  AlertTriangle, CheckCircle2,
 } from 'lucide-react'
 import type { DetectedChangeWithCompetitor, Competitor, Opportunity } from '../types/database.types'
 
