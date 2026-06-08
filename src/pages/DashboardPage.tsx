@@ -286,6 +286,16 @@ export function DashboardPage() {
 
   const grouped = useMemo(() => groupByDay(recentChanges), [recentChanges])
 
+  const weeklySummaryNarrative = useMemo(() => {
+    if (!stats) return null
+    const parts: string[] = []
+    if (stats.changes7d > 0) parts.push(`${stats.changes7d} competitor move${stats.changes7d !== 1 ? 's' : ''} detected`)
+    if (stats.openOpps > 0) parts.push(`${stats.openOpps} revenue opportunit${stats.openOpps !== 1 ? 'ies' : 'y'} open`)
+    if ((weekLeads ?? 0) > 0) parts.push(`${weekLeads} customer${weekLeads !== 1 ? 's' : ''} captured`)
+    if (parts.length === 0) return 'Monitoring is active — signals will appear as competitors move.'
+    return parts.join(' · ') + '.'
+  }, [stats, weekLeads])
+
   // Per-competitor change counts and last change
   const competitorStats = useMemo(() => {
     const map: Record<string, { count: number; last: DetectedChangeWithCompetitor | undefined }> = {}
@@ -394,6 +404,9 @@ export function DashboardPage() {
             <Sparkles size={14} className="text-violet-500" />
             <span className="text-xs font-bold text-violet-700 uppercase tracking-wide">This Week's Business Summary</span>
           </div>
+          {weeklySummaryNarrative && (
+            <p className="text-sm font-semibold text-violet-900 mb-3">{weeklySummaryNarrative}</p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div>
               <span className="text-gray-500 text-xs">Competitor Moves</span>
