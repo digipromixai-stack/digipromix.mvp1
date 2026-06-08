@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
   ArrowRight, Filter, Search, RefreshCcw, X, Loader2, Radio,
-  BarChart2, ChevronDown, ChevronUp, TrendingUp as TrendUp,
+  BarChart2, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
@@ -223,75 +223,31 @@ function OpportunityCard({
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">{opp.description}</p>
       )}
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mb-2">
-        <div className="bg-gray-50 rounded-lg p-2 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Customers</div>
-          <div className="text-sm font-bold text-gray-900">{opp.expected_leads ?? '—'}</div>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-2 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Cost/Lead</div>
-          <div className="text-sm font-bold text-gray-900">${opp.estimated_cpc?.toFixed(2) ?? '—'}</div>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-2 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">AI Confidence</div>
-          <div className="text-sm font-bold text-gray-900">
-            {opp.confidence != null ? `${Math.round(opp.confidence * 100)}%` : '—'}
-          </div>
-          {opp.confidence != null && (
-            <div className="mt-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-violet-500 rounded-full transition-all"
-                style={{ width: `${Math.round(opp.confidence * 100)}%` }}
-              />
+      {/* Compact stats strip */}
+      <div className="flex items-center gap-x-4 gap-y-1 text-sm mb-3 flex-wrap">
+        {opp.expected_leads != null && (
+          <span className="text-gray-500">
+            <span className="font-bold text-gray-900">{opp.expected_leads}</span> est. customers
+          </span>
+        )}
+        {opp.estimated_cpc != null && (
+          <span className="text-gray-500">
+            <span className="font-bold text-gray-900">${opp.estimated_cpc.toFixed(2)}</span>/lead
+          </span>
+        )}
+        {opp.confidence != null && (
+          <span className="flex items-center gap-1.5 text-gray-500">
+            <span className="font-bold text-gray-900">{Math.round(opp.confidence * 100)}%</span>
+            AI confidence
+            <div className="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.round(opp.confidence * 100)}%` }} />
             </div>
-          )}
-        </div>
+          </span>
+        )}
       </div>
-
-      {/* Competition Level + ROI estimate */}
-      {(() => {
-        const meta = opp.metadata as Record<string, unknown> | null
-        const activityCount = meta?.competitor_activity_7d as number | undefined
-        const compLevel = activityCount == null ? null : activityCount === 0 ? 'Low' : activityCount <= 2 ? 'Medium' : 'High'
-        const compColor = compLevel === 'High' ? 'text-red-600 bg-red-50 border-red-200' : compLevel === 'Medium' ? 'text-orange-600 bg-orange-50 border-orange-200' : 'text-gray-500 bg-gray-50 border-gray-200'
-        const roi = opp.expected_leads && opp.estimated_cpc ? Math.round(opp.expected_leads * opp.estimated_cpc * 3) : null
-        return (
-          <div className="flex items-center gap-2 flex-wrap mb-3">
-            {compLevel && (
-              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${compColor}`}>
-                <Target size={9} />Competition: {compLevel}
-              </span>
-            )}
-            {roi != null && roi > 0 && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
-                <TrendUp size={9} />Est. Revenue: ~${roi}
-              </span>
-            )}
-          </div>
-        )
-      })()}
 
       {/* Budget scenarios */}
       <BudgetTiers opp={opp} />
-
-      {/* CPC prediction */}
-      {(() => {
-        const meta = opp.metadata as Record<string, unknown> | null
-        const pred = meta?.cpc_prediction as string | undefined
-        if (!pred) return null
-        const isUrgent = opp.opportunity_score >= 65
-        return (
-          <p className={`text-xs mb-3 flex items-start gap-1.5 px-2.5 py-2 rounded-lg border ${
-            isUrgent
-              ? 'bg-orange-50 border-orange-200 text-orange-800'
-              : 'bg-blue-50 border-blue-100 text-blue-700'
-          }`}>
-            <TrendUp size={12} className="shrink-0 mt-0.5" />
-            <span>{pred}</span>
-          </p>
-        )
-      })()}
 
       {opp.recommended_action && (
         <p className="text-sm text-violet-700 mb-3 flex items-start gap-1.5">
