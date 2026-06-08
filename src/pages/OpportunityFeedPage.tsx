@@ -149,7 +149,7 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
 function ScoreBadge({ score }: { score: number }) {
   let bg = 'bg-gray-100 text-gray-700'
   let label = 'Low'
-  if (score >= 75) { bg = 'bg-red-100 text-red-700';     label = '🔥 High' }
+  if (score >= 75) { bg = 'bg-green-100 text-green-700';  label = '🔥 High' }
   else if (score >= 50) { bg = 'bg-amber-100 text-amber-700'; label = '⚡ Medium' }
   else if (score >= 25) { bg = 'bg-blue-100 text-blue-700';   label = 'Watch' }
   return (
@@ -211,7 +211,7 @@ function OpportunityCard({
           <h3 className="font-semibold text-gray-900 text-base leading-snug">{opp.title}</h3>
         </div>
         {/* Urgency ring on hot opportunities */}
-        <div className={opp.opportunity_score >= 75 ? 'ring-2 ring-red-300 animate-pulse rounded-full p-0.5' : ''}>
+        <div className={opp.opportunity_score >= 75 ? 'ring-2 ring-orange-300 animate-pulse rounded-full p-0.5' : ''}>
           <ScoreBadge score={opp.opportunity_score} />
         </div>
       </div>
@@ -306,7 +306,7 @@ function OpportunityCard({
         disabled={busy}
         className={`w-full disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
           opp.opportunity_score >= 75
-            ? 'bg-red-600 hover:bg-red-700'
+            ? 'bg-green-600 hover:bg-green-700'
             : opp.opportunity_score >= 50
             ? 'bg-indigo-600 hover:bg-indigo-700'
             : 'bg-gray-900 hover:bg-gray-800'
