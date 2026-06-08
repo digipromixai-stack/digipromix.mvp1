@@ -8,9 +8,9 @@ import { PageSpinner } from '../components/ui/Spinner'
 import { timeAgo, formatUrl } from '../lib/utils'
 import { useToast } from '../components/ui/Toast'
 import {
-  Activity, Building2, Bell,
+  Activity, Building2,
   ExternalLink, Sparkles, Megaphone, DollarSign,
-  FileText, Layout, RefreshCw, ArrowRight, Target, Radio,
+  FileText, Layout, RefreshCw, ArrowRight, Target,
   AlertTriangle, CheckCircle2,
 } from 'lucide-react'
 import type { DetectedChangeWithCompetitor, Competitor, Opportunity } from '../types/database.types'
@@ -435,13 +435,11 @@ export function DashboardPage() {
       )}
 
       {/* ── Stats ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <StatCard label="Monitored Brands" value={stats?.competitors ?? 0} icon={Building2} color="bg-blue-500" />
-        <StatCard label="Competitor Moves Today" value={stats?.changesToday ?? 0} icon={Activity} color="bg-green-500" sub={`${stats?.changes7d ?? 0} this week`} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label="Revenue Opportunities" value={stats?.openOpps ?? 0} icon={Target} color="bg-green-500" sub="Opportunity Radar" />
+        <StatCard label="Competitor Moves Today" value={stats?.changesToday ?? 0} icon={Activity} color="bg-orange-500" sub={`${stats?.changes7d ?? 0} this week`} />
         <StatCard label="Urgent Threats" value={stats?.highSeverity ?? 0} icon={AlertTriangle} color="bg-red-500" sub="last 7 days" />
-        <StatCard label="Unread Alerts" value={stats?.unreadAlerts ?? 0} icon={Bell} color="bg-orange-500" />
-        <StatCard label="Revenue Opportunities" value={stats?.openOpps ?? 0} icon={Target} color="bg-violet-500" sub="Opportunity Radar" />
-        <StatCard label="Market Signals" value={stats?.signals7d ?? 0} icon={Radio} color="bg-indigo-500" sub="last 7 days" />
+        <StatCard label="Monitored Brands" value={stats?.competitors ?? 0} icon={Building2} color="bg-blue-500" />
       </div>
 
       {/* ── Main content ── */}
