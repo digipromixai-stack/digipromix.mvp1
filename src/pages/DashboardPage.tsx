@@ -105,7 +105,7 @@ function FeedItem({ change }: { change: DetectedChangeWithCompetitor }) {
         <p className="text-sm font-semibold text-gray-900 mt-1 line-clamp-2">{change.title}</p>
 
         {change.description && (
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{change.description}</p>
+          <p className="hidden sm:block text-xs text-gray-500 mt-0.5 line-clamp-1">{change.description}</p>
         )}
 
         <div className="flex items-center gap-1.5 sm:gap-2 mt-2 flex-wrap">
@@ -405,26 +405,8 @@ export function DashboardPage() {
             <span className="text-xs font-bold text-violet-700 uppercase tracking-wide">This Week's Business Summary</span>
           </div>
           {weeklySummaryNarrative && (
-            <p className="text-sm font-semibold text-violet-900 mb-3">{weeklySummaryNarrative}</p>
+            <p className="text-sm font-semibold text-violet-900">{weeklySummaryNarrative}</p>
           )}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            <div>
-              <span className="text-gray-500 text-xs">Competitor Moves</span>
-              <p className="font-bold text-gray-900">{stats?.changes7d ?? 0}</p>
-            </div>
-            <div>
-              <span className="text-gray-500 text-xs">Revenue Opportunities</span>
-              <p className="font-bold text-gray-900">{stats?.openOpps ?? 0}</p>
-            </div>
-            <div>
-              <span className="text-gray-500 text-xs">Customers Captured</span>
-              <p className="font-bold text-gray-900">{weekLeads ?? 0}</p>
-            </div>
-            <div>
-              <span className="text-gray-500 text-xs">Market Signals</span>
-              <p className="font-bold text-gray-900">{stats?.signals7d ?? 0}</p>
-            </div>
-          </div>
           {topOpp?.recommended_action && (
             <p className="mt-2 text-xs text-violet-700 font-medium flex items-center gap-1">
               <Sparkles size={11} />
