@@ -224,6 +224,11 @@ export interface Campaign {
   launch_mode: 'self' | 'managed'
   managed_business_name: string | null
   managed_provision_status: 'not_required' | 'pending' | 'provisioning' | 'active' | 'failed'
+  // MVP 2.0 Budget Prediction Engine (predict-budget edge fn)
+  predicted_leads: number | null
+  predicted_cpc: number | null
+  predicted_cpl: number | null
+  confidence_score: number | null
   created_at: string
   updated_at: string
 }
