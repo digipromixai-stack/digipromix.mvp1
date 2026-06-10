@@ -34,10 +34,18 @@ export interface ChangeClassification {
   is_coordinated?: boolean  // set externally by detect-changes after DB query
 }
 
-const BLOG_PATH_REGEX    = /\/(blog|news|articles?|insights?|posts?)\//i
-const LANDING_PATH_REGEX = /\/(lp|landing|campaign|promo|offer)\//i
+// ── URL path patterns ─────────────────────────────────────────────────────
+// Blog/content: match /blog/, /news/, /guide/, /resources/, etc.
+const BLOG_PATH_REGEX    = /\/(blog|news|articles?|insights?|posts?|stories|guides?|resources?|learn|knowledge|updates?|press|media)\//i
+
+// Landing / campaign: match /lp/, /deals/, /sale/, /offers/, /clearance/, etc.
+const LANDING_PATH_REGEX = /\/(lp|landing|campaign|promo|offer|deals?|sale|clearance|discount|special|event|fest|festive|blackfriday|cybermonday|flash)\//i
+
+// UTM tracking — reliably signals paid campaign traffic
 const UTM_REGEX          = /[?&]utm_/i
-const BANNER_CLASS_REGEX = /class="[^"]*(?:hero|banner|announcement|promo-bar|sticky-bar|top-bar|notification-bar)[^"]*"/i
+
+// Banner / structural element class names
+const BANNER_CLASS_REGEX = /class="[^"]*(?:hero|banner|announcement|promo-bar|sticky-bar|top-bar|notification-bar|sale-banner|offer-strip|deal-bar|flash-banner|ribbon|badge|ticker|marquee)[^"]*"/i
 
 export function classifyChange(
   beforeHtml: string,

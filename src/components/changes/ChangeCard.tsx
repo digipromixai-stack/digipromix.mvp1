@@ -583,15 +583,58 @@ export function ChangeCard({ change }: { change: DetectedChangeWithCompetitor })
             </div>
           )}
 
-          {/* Inline page diff — show what actually changed on the competitor page */}
-          {change.diff_storage_path && (
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <GitCompare size={12} />Exact Page Changes
-              </p>
+          {/* Exact Page Changes — always visible.
+              • When a diff file was stored (HTML snapshot path): render DiffViewer.
+              • When only content-delta is available (normalised-text path): render a
+                lightweight inline diff so the section is never empty.
+              • When neither is present: show a subtle "not available" note. */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <GitCompare size={12} />Exact Page Changes
+            </p>
+            {change.diff_storage_path ? (
               <DiffViewer diffStoragePath={change.diff_storage_path} />
-            </div>
-          )}
+            ) : hasContentDelta ? (
+              /* Inline diff — mirrors DiffViewer's dark mono style */
+              <div className="rounded-xl overflow-hidden border border-gray-800">
+                {/* toolbar */}
+                <div className="flex items-center gap-4 px-4 py-2 bg-gray-950 border-b border-gray-800 text-xs">
+                  <span className="text-gray-400 font-medium font-mono">content delta</span>
+                  <span className="ml-auto flex items-center gap-3">
+                    {removedContent.length > 0 && (
+                      <span className="flex items-center gap-1 text-red-400">
+                        <MinusCircle size={10} />{removedContent.length} removed
+                      </span>
+                    )}
+                    {addedContent.length > 0 && (
+                      <span className="flex items-center gap-1 text-green-400">
+                        <PlusCircle size={10} />{addedContent.length} added
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {/* diff lines */}
+                <div className="font-mono text-xs bg-gray-950 text-gray-200 max-h-80 overflow-y-auto">
+                  {removedContent.map((line, i) => (
+                    <div key={`r${i}`} className="flex hover:bg-red-900/20">
+                      <span className="select-none w-7 shrink-0 text-center py-1 leading-5 font-bold text-red-500 border-r border-gray-800">−</span>
+                      <span className="flex-1 py-1 px-3 leading-5 whitespace-pre-wrap break-all text-red-300 bg-red-500/10">{line}</span>
+                    </div>
+                  ))}
+                  {addedContent.map((line, i) => (
+                    <div key={`a${i}`} className="flex hover:bg-green-900/20">
+                      <span className="select-none w-7 shrink-0 text-center py-1 leading-5 font-bold text-green-500 border-r border-gray-800">+</span>
+                      <span className="flex-1 py-1 px-3 leading-5 whitespace-pre-wrap break-all text-green-300 bg-green-500/10">{line}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-12 rounded-lg bg-gray-50 border border-gray-200 text-gray-400 text-xs gap-1.5">
+                <GitCompare size={12} />Snapshot diff not stored for this change
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Action buttons */}

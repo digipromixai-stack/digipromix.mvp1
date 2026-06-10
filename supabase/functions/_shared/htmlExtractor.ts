@@ -10,17 +10,48 @@ const COMMENT_RE = /<!--[\s\S]*?-->/g
 const PRICE_REGEX = /(?:[\$€£¥][\d,]+\.?\d{0,2}|\d+[.,]\d{2}\s*(?:USD|EUR|GBP|CAD|AUD))/g
 
 const PROMOTION_KEYWORDS = [
-  '% off', 'save $', 'save £', 'save €',
-  'limited time', 'today only', 'flash sale', 'sale ends',
-  'promo code', 'coupon code', 'use code',
-  'buy one get one', 'bogo', 'free trial', 'free shipping',
-  'exclusive offer', 'special offer', 'exclusive deal',
-  'up to % off', 'starting from', 'as low as',
+  // ── Price / discount ──────────────────────────────────────────────────────
+  '% off', 'save $', 'save £', 'save €', 'save ₹',
+  'flat off', 'flat ₹', 'flat $', 'extra ₹', 'extra $', 'extra off',
+  'up to % off', 'upto % off', 'starting from', 'as low as',
+  'min ₹ off', 'min $ off', 'get ₹ off', 'get $ off',
+  'price drop', 'price cut', 'lowest price', 'best price',
+  'additional discount', 'extra discount', 'instant discount',
+  'cashback', 'bank cashback', 'wallet cashback',
+
+  // ── Sale events ───────────────────────────────────────────────────────────
+  'flash sale', 'sale ends', 'mega sale', 'big sale', 'super sale',
+  'grand sale', 'clearance sale', 'end of season', 'season sale',
+  'festival sale', 'festive offer', 'holiday sale', 'weekend sale',
+  'biggest sale', 'largest sale', 'annual sale',
+
+  // ── Urgency / time ────────────────────────────────────────────────────────
+  'limited time', 'today only', 'today\'s deal', 'deal of the day',
+  'limited period', 'limited period offer', 'offer ends today',
+  'while stocks last', 'while supplies last', 'few left',
+
+  // ── Codes / vouchers ──────────────────────────────────────────────────────
+  'promo code', 'coupon code', 'use code', 'voucher code', 'discount code',
+  'apply code', 'redeem code',
+
+  // ── Buy / bundle deals ────────────────────────────────────────────────────
+  'buy one get one', 'bogo', 'buy 2 get', 'buy 3 get',
+  'combo offer', 'bundle offer', 'pack of',
+
+  // ── Shipping / trial ──────────────────────────────────────────────────────
+  'free shipping', 'free delivery', 'free trial',
+  'no cost emi', 'emi offer', 'easy emi', '0% emi',
+
+  // ── Generic offers ────────────────────────────────────────────────────────
+  'exclusive offer', 'special offer', 'exclusive deal', 'limited offer',
+  'bank offer', 'card offer', 'upi offer', 'wallet offer',
+  'member price', 'member exclusive', 'subscriber offer',
 ]
 
 const PROMO_STRUCTURAL_PATTERNS = [
-  /class="[^"]*(?:promo|banner|offer|sale|campaign|announcement|deal|coupon)[^"]*"/i,
-  /id="[^"]*(?:promo|banner|offer|sale|campaign|announcement|deal|coupon)[^"]*"/i,
+  /class="[^"]*(?:promo|banner|offer|sale|campaign|announcement|deal|coupon|discount|badge|strip|ribbon|ticker|flash)[^"]*"/i,
+  /id="[^"]*(?:promo|banner|offer|sale|campaign|announcement|deal|coupon|discount|flash|ribbon|ticker)[^"]*"/i,
+  /data-[a-z-]*(?:promo|offer|sale|campaign|discount)[^=]*=/i,
 ]
 
 export function stripNoise(html: string): string {
@@ -167,14 +198,26 @@ export function extractCampaignSignals(html: string): CampaignSignals {
 
   // Urgency words
   const urgencyWords = [
+    // Classic
     'urgent', 'hurry', 'act now', 'last chance', "don't miss",
     'expires', 'limited seats', 'selling fast',
+    // Scarcity
+    'only left', 'only remaining', 'almost gone', 'nearly sold out',
+    'going fast', 'selling out', 'low stock', 'few left', 'limited stock',
+    // Time pressure
+    'offer ends', 'sale ends', 'ends tonight', 'ends today', 'ends soon',
+    'today only', 'midnight deadline', 'closing soon', 'time running out',
+    // Indian e-commerce
+    'limited period', 'limited period offer', 'offer valid till', 'while stocks last',
+    'deal ends', 'today\'s deal', 'day deal', 'flash deal',
+    // FOMO
+    "don't wait", 'miss out', 'now or never', 'exclusive access', 'be quick',
   ]
   const urgencyScore = urgencyWords.filter((w) => lower.includes(w)).length
-  score += Math.min(urgencyScore * 4, 12)
+  score += Math.min(urgencyScore * 4, 20)  // raised cap to 20 given larger list
 
   // CTA buttons with buying intent
-  const ctaRe = /<(?:button|a)[^>]*>([^<]*(?:buy|shop|claim|get|grab|order|subscribe)[^<]*)<\/(?:button|a)>/gi
+  const ctaRe = /<(?:button|a)[^>]*>([^<]*(?:buy|shop|claim|get|grab|order|subscribe|add to cart|add to bag|shop now|explore|avail|redeem|activate|start free|try free|book now|sign up|register now)[^<]*)<\/(?:button|a)>/gi
   const newCtaButtons: string[] = []
   while ((m = ctaRe.exec(html)) !== null) {
     const label = m[1].trim()
