@@ -82,8 +82,24 @@ export function useUpdateCampaignStatus() {
 export function useUpdateCampaignBudget() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, daily_budget }: { id: string; daily_budget: number }) => {
-      // Update DB — takes effect on next campaign re-launch or Meta/Google sync
+    mutationFn: async ({ id, daily_budget, metaCampaignId, googleCampaignId }: {
+      id: string
+      daily_budget: number
+      metaCampaignId?: string | null
+      googleCampaignId?: string | null
+    }) => {
+      // If linked to Meta, sync budget there first (it also updates DB on success)
+      if (metaCampaignId) {
+        await callEdgeFunction('manage-meta-campaign', {
+          campaign_id: id,
+          action: 'update_budget',
+          daily_budget,
+        })
+        return
+      }
+      // If linked to Google (future), add similar call here
+
+      // DB-only update for unlinked campaigns
       const { error } = await supabase
         .from('campaigns')
         .update({ daily_budget })
