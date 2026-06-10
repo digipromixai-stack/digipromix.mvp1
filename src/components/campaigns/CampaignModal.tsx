@@ -217,6 +217,25 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
         if (data.insights.suggested_template) setTemplate(data.insights.suggested_template as LandingTemplate)
       }
       setStep('preview')
+      // Fire predict-budget (non-blocking) — writes predictions back to DB and
+      // updates the preview so the user sees estimated leads/CPC before launching.
+      invokeFunction<{
+        predicted_leads: number; predicted_cpc: number
+        predicted_cpl: number; confidence_score: number
+      }>('predict-budget', {
+        campaign_id: data.campaign.id,
+        days: 7,
+      }).then(({ data: pred }) => {
+        if (pred) {
+          setCampaign(prev => prev ? {
+            ...prev,
+            predicted_leads:  pred.predicted_leads,
+            predicted_cpc:    pred.predicted_cpc,
+            predicted_cpl:    pred.predicted_cpl,
+            confidence_score: pred.confidence_score,
+          } : prev)
+        }
+      }).catch(() => { /* non-fatal — predictions are best-effort */ })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Generation failed. Check that GEMINI_API_KEY is configured.')
     } finally { setLoading(false) }
@@ -420,6 +439,41 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
               Counter to: {campaign.competitor_event}
             </span>
           </div>
+
+          {/* Budget predictions (arrive shortly after generation via predict-budget) */}
+          {(campaign.predicted_leads != null || campaign.predicted_cpc != null) && (
+            <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Sparkles size={12} className="text-violet-600" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">AI Budget Prediction — 7-day outlook</span>
+                {campaign.confidence_score != null && (
+                  <span className="ml-auto text-[10px] text-violet-600 font-semibold">
+                    {Math.round(campaign.confidence_score * 100)}% confidence
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {campaign.predicted_leads != null && (
+                  <div className="bg-white/70 rounded-lg p-2 text-center">
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. leads</div>
+                    <div className="text-sm font-bold text-gray-900">{campaign.predicted_leads}</div>
+                  </div>
+                )}
+                {campaign.predicted_cpc != null && (
+                  <div className="bg-white/70 rounded-lg p-2 text-center">
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPC</div>
+                    <div className="text-sm font-bold text-gray-900">${campaign.predicted_cpc.toFixed(2)}</div>
+                  </div>
+                )}
+                {campaign.predicted_cpl != null && (
+                  <div className="bg-white/70 rounded-lg p-2 text-center">
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Cost/lead</div>
+                    <div className="text-sm font-bold text-gray-900">${campaign.predicted_cpl.toFixed(2)}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* AI insights */}
           {insights && (insights.competitor_offer || insights.offer_justification) && (

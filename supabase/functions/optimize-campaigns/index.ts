@@ -459,6 +459,55 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Kickoff recommendations ──────────────────────────────────────────
+    // For any active campaign that has NEVER received a recommendation,
+    // generate a helpful starter recommendation so the UI isn't empty.
+    // This also surfaces when a user hasn't connected their ad account yet.
+    const { data: activeCampaigns } = await admin
+      .from('campaigns')
+      .select('id, user_id, campaign_name, status, created_at, daily_budget, meta_campaign_id, google_campaign_id')
+      .in('status', ['active', 'paused'])
+
+    for (const c of (activeCampaigns ?? [])) {
+      // Skip if already has any recommendation
+      const { count: recCount } = await admin
+        .from('ai_recommendations')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', c.id)
+      if ((recCount ?? 0) > 0) continue
+
+      const daysActive = Math.round(
+        (Date.now() - new Date(c.created_at as string).getTime()) / (1000 * 60 * 60 * 24)
+      )
+      const hasAdPlatform = !!(c.meta_campaign_id || c.google_campaign_id)
+
+      const rec = hasAdPlatform
+        ? {
+            action_type: 'performance_check',
+            recommendation: `Your campaign has been running for ${daysActive} day${daysActive !== 1 ? 's' : ''}. Once your ad account delivers at least 6 days of impressions, AI will automatically analyse CPC trends, CTR shifts, and conversion patterns here.`,
+            rationale:  'Campaign launched but not enough performance data has been collected yet for statistical analysis. AI optimization activates after 6 days of delivery data.',
+            priority:   2,
+            confidence: 1.0,
+            metadata:   { type: 'kickoff', days_active: daysActive, has_platform: true },
+          }
+        : {
+            action_type: 'setup_tracking',
+            recommendation: 'Connect your Meta or Google Ads account in Settings → Integrations to enable real-time performance monitoring and daily AI optimization for this campaign.',
+            rationale:  'No ad platform is linked to this campaign. AI optimization requires impression, click, and spend data from a connected ad account.',
+            priority:   4,
+            confidence: 1.0,
+            metadata:   { type: 'kickoff', days_active: daysActive, has_platform: false },
+          }
+
+      const { error: kickoffErr } = await admin.from('ai_recommendations').insert({
+        user_id:        c.user_id,
+        campaign_id:    c.id,
+        ...rec,
+      })
+      if (!kickoffErr) recsCreated++
+      else errors.push({ campaign_id: c.id as string, platform: 'kickoff', error: `${kickoffErr.code}:${kickoffErr.message}` })
+    }
+
     return json({
       campaigns_scanned:   campaignsScanned,
       metrics_ingested:    metricsIngested,
