@@ -314,7 +314,7 @@ interface CampaignUpdate {
 
 export type SignalType = 'competitor_change' | 'google_trends' | 'meta_ad_library' | 'seo_rank' | 'social_engagement'
 export type OpportunityStatus = 'open' | 'dismissed' | 'launched' | 'expired'
-export type RecommendationAction = 'launch_campaign' | 'adjust_budget' | 'pause_campaign' | 'change_creative' | 'change_audience' | 'scale_campaign' | 'reactivate'
+export type RecommendationAction = 'launch_campaign' | 'adjust_budget' | 'pause_campaign' | 'change_creative' | 'change_audience' | 'scale_campaign' | 'reactivate' | 'setup_tracking'
 export type LeadIntentScore = 'HOT' | 'MEDIUM' | 'LOW'
 
 export interface Signal {

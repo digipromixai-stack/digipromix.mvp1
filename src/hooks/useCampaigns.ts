@@ -82,7 +82,7 @@ export function useUpdateCampaignStatus() {
 export function useUpdateCampaignBudget() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, daily_budget, metaCampaignId, googleCampaignId }: {
+    mutationFn: async ({ id, daily_budget, metaCampaignId }: {
       id: string
       daily_budget: number
       metaCampaignId?: string | null
