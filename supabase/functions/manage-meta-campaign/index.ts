@@ -67,10 +67,13 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } },
     )
 
-    const { campaign_id, action } = await req.json()
+    const body = await req.json()
+    const { campaign_id, action, daily_budget } = body as {
+      campaign_id?: string; action?: string; daily_budget?: number
+    }
     if (!campaign_id) return json({ error: 'campaign_id required' }, 400)
-    if (!['pause', 'enable', 'delete'].includes(action)) {
-      return json({ error: 'action must be: pause | enable | delete' }, 400)
+    if (!['pause', 'enable', 'delete', 'update_budget'].includes(action ?? '')) {
+      return json({ error: 'action must be: pause | enable | delete | update_budget' }, 400)
     }
 
     // Fetch campaign
@@ -130,6 +133,63 @@ Deno.serve(async (req) => {
         return json({ success: true, warnings: errors, message: 'Deleted from app. Some Meta objects may need manual removal.' })
       }
       return json({ success: true, message: 'Campaign deleted from Meta and app.' })
+    }
+
+    // ── UPDATE BUDGET ─────────────────────────────────────────────────────────
+    if (action === 'update_budget') {
+      if (!metaCampaignId) {
+        // No Meta link — just update DB
+        if (daily_budget && daily_budget > 0) {
+          await admin.from('campaigns').update({ daily_budget }).eq('id', campaign_id)
+        }
+        return json({ success: true, message: 'Budget updated in app (no Meta campaign linked).' })
+      }
+
+      if (!daily_budget || daily_budget < 1) {
+        return json({ error: 'daily_budget must be at least 1' }, 400)
+      }
+
+      // Fetch Meta integration
+      const { data: integration, error: intErr } = await admin
+        .from('ad_integrations').select('*')
+        .eq('user_id', user.id).eq('platform', 'meta').eq('is_active', true).single()
+      if (intErr || !integration) {
+        return json({ error: 'Meta account not connected. Please reconnect in Settings.' }, 400)
+      }
+
+      const token = integration.access_token as string
+
+      // Get the account currency so we convert correctly
+      const acctRes = await fetch(`${GRAPH}/${metaCampaignId}?fields=daily_budget,status&access_token=${encodeURIComponent(token)}`)
+      const acctData = await acctRes.json() as Record<string, unknown> & { error?: { code?: number; message?: string } }
+      if (acctData.error) {
+        const expired = (acctData.error.code === 190 || acctData.error.code === 102)
+        if (expired) {
+          await admin.from('ad_integrations').update({ is_active: false }).eq('id', integration.id)
+          return json({ error: 'Meta token expired. Please reconnect in Settings.' }, 401)
+        }
+        return json({ error: acctData.error.message ?? 'Meta error fetching campaign' }, 400)
+      }
+
+      // Convert to cents (Meta expects smallest currency unit).
+      // We use 100× as a safe default for most currencies; for USD/EUR/GBP this is correct.
+      const dailyBudgetCents = Math.round(daily_budget * 100)
+
+      const updateRes = await metaPost(`/${metaCampaignId}`, token, {
+        daily_budget: dailyBudgetCents,
+      })
+      if (updateRes.error) {
+        const expired = (updateRes.error.code === 190 || updateRes.error.code === 102)
+        if (expired) {
+          await admin.from('ad_integrations').update({ is_active: false }).eq('id', integration.id)
+          return json({ error: 'Meta token expired. Please reconnect in Settings.' }, 401)
+        }
+        return json({ error: updateRes.error.message ?? 'Meta budget update failed' }, 400)
+      }
+
+      // Sync DB
+      await admin.from('campaigns').update({ daily_budget }).eq('id', campaign_id)
+      return json({ success: true, message: `Budget updated to ${daily_budget}/day on Meta and in app.` })
     }
 
     // ── PAUSE / ENABLE ────────────────────────────────────────────────────────

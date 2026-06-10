@@ -4,13 +4,16 @@ import {
   CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
   AlertTriangle, TrendingDown, ZapOff, DollarSign, Sparkles, RefreshCw,
   Target, Brain, X, Check, ChevronDown, ChevronUp, BarChart2, Pencil,
+  Settings, BarChart,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useToast } from '../components/ui/Toast'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useUpdateCampaignBudget } from '../hooks/useCampaigns'
+// useUpdateCampaignStatus also used inside RecommendationCard for pause_campaign action
 import {
   useAiRecommendations,
   useApplyRecommendation,
@@ -58,21 +61,24 @@ const ACTION_META: Record<string, {
   color: string       // text colour
   bg: string          // background
   border: string      // border
+  applyLabel?: string // custom button label
 }> = {
-  rising_cpc:       { icon: TrendingUp,   label: 'Rising CPC',        color: 'text-red-700',    bg: 'bg-red-50',     border: 'border-red-200'    },
-  declining_ctr:    { icon: TrendingDown, label: 'Declining CTR',     color: 'text-orange-700', bg: 'bg-orange-50',  border: 'border-orange-200' },
-  conversion_drop:  { icon: Target,       label: 'Conversion Drop',   color: 'text-red-700',    bg: 'bg-red-50',     border: 'border-red-200'    },
-  ad_fatigue:       { icon: ZapOff,       label: 'Ad Fatigue',        color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200' },
-  pause_campaign:   { icon: Pause,        label: 'Pause Suggested',   color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200' },
-  scale_campaign:   { icon: TrendingUp,   label: 'Scale Up',          color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
-  adjust_budget:    { icon: DollarSign,   label: 'Adjust Budget',     color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
-  change_creative:  { icon: Sparkles,     label: 'Refresh Creative',  color: 'text-violet-700', bg: 'bg-violet-50',  border: 'border-violet-200' },
-  change_audience:  { icon: Users,        label: 'Change Audience',   color: 'text-indigo-700', bg: 'bg-indigo-50',  border: 'border-indigo-200' },
-  reactivate:       { icon: RefreshCw,    label: 'Reactivate',        color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
-  launch_campaign:  { icon: Rocket,       label: 'Launch Now',        color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
+  rising_cpc:         { icon: TrendingUp,   label: 'Rising CPC',          color: 'text-red-700',    bg: 'bg-red-50',     border: 'border-red-200'    },
+  declining_ctr:      { icon: TrendingDown, label: 'Declining CTR',       color: 'text-orange-700', bg: 'bg-orange-50',  border: 'border-orange-200' },
+  conversion_drop:    { icon: Target,       label: 'Conversion Drop',     color: 'text-red-700',    bg: 'bg-red-50',     border: 'border-red-200'    },
+  ad_fatigue:         { icon: ZapOff,       label: 'Ad Fatigue',          color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200' },
+  pause_campaign:     { icon: Pause,        label: 'Pause Suggested',     color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200', applyLabel: 'Pause now' },
+  scale_campaign:     { icon: TrendingUp,   label: 'Scale Up',            color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
+  adjust_budget:      { icon: DollarSign,   label: 'Adjust Budget',       color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
+  change_creative:    { icon: Sparkles,     label: 'Refresh Creative',    color: 'text-violet-700', bg: 'bg-violet-50',  border: 'border-violet-200' },
+  change_audience:    { icon: Users,        label: 'Change Audience',     color: 'text-indigo-700', bg: 'bg-indigo-50',  border: 'border-indigo-200' },
+  reactivate:         { icon: RefreshCw,    label: 'Reactivate',          color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
+  launch_campaign:    { icon: Rocket,       label: 'Launch Now',          color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
+  setup_tracking:     { icon: Settings,     label: 'Connect Ad Account',  color: 'text-violet-700', bg: 'bg-violet-50',  border: 'border-violet-200', applyLabel: 'Go to Settings' },
+  performance_check:  { icon: BarChart,     label: 'Performance Check',   color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200',   applyLabel: 'Got it' },
 }
 
-const FALLBACK_META = { icon: Brain, label: 'AI Insight', color: 'text-gray-700', bg: 'bg-gray-50', border: 'border-gray-200' }
+const FALLBACK_META = { icon: Brain, label: 'AI Insight', color: 'text-gray-700', bg: 'bg-gray-50', border: 'border-gray-200', applyLabel: undefined }
 
 function PriorityBadge({ priority }: { priority: number }) {
   if (priority >= 5) return <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-100 text-red-700">Urgent</span>
@@ -83,10 +89,57 @@ function PriorityBadge({ priority }: { priority: number }) {
 
 function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
   const [expanded, setExpanded] = useState(false)
-  const { mutate: apply,   isPending: applying   } = useApplyRecommendation()
-  const { mutate: dismiss, isPending: dismissing } = useDismissRecommendation()
+  const { mutate: applyMutation, isPending: applying   } = useApplyRecommendation()
+  const { mutate: dismiss,       isPending: dismissing } = useDismissRecommendation()
+  const { mutate: updateStatus,  isPending: pausing    } = useUpdateCampaignStatus()
+  const { toast } = useToast()
+  const navigate  = useNavigate()
   const meta = ACTION_META[rec.action_type] ?? FALLBACK_META
   const Icon = meta.icon
+
+  // ── Unified apply handler with per-type actions ───────────────────────────
+  const handleApply = () => {
+    const markDone = () =>
+      applyMutation(rec.id, {
+        onSuccess: () => toast('Insight marked as done', 'success'),
+        onError:   (e) => toast(`Could not mark done: ${(e as Error).message}`, 'error'),
+      })
+
+    switch (rec.action_type) {
+      // Navigate to Settings so the user can connect their ad account
+      case 'setup_tracking':
+        navigate('/settings')
+        markDone()
+        break
+
+      // Actually pause the linked campaign on Meta/Google
+      case 'pause_campaign':
+        if (!rec.campaign_id) { markDone(); break }
+        updateStatus(
+          {
+            id: rec.campaign_id,
+            status: 'paused',
+            metaCampaignId:   null,  // manage-meta-campaign fetches this from DB
+            googleCampaignId: null,
+          },
+          {
+            onSuccess: () => {
+              toast('Campaign paused', 'success')
+              markDone()
+            },
+            onError: (e) => toast(`Pause failed: ${(e as Error).message}`, 'error'),
+          },
+        )
+        break
+
+      // All other types → just mark done with a toast
+      default:
+        markDone()
+        break
+    }
+  }
+
+  const isBusy = applying || dismissing || pausing
 
   return (
     <div className={`border ${meta.border} ${meta.bg} rounded-xl p-4`}>
@@ -117,9 +170,7 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
           {/* Rationale (expandable) */}
           {rec.rationale && (
             <div className="mt-1">
-              {expanded ? (
-                <p className="text-xs text-gray-500">{rec.rationale}</p>
-              ) : null}
+              {expanded && <p className="text-xs text-gray-500">{rec.rationale}</p>}
               <button
                 onClick={() => setExpanded(v => !v)}
                 className="text-[11px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 mt-0.5"
@@ -133,20 +184,23 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
         {/* Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={() => apply(rec.id)}
-            disabled={applying || dismissing}
-            title="Mark as applied"
+            onClick={handleApply}
+            disabled={isBusy}
+            title={meta.applyLabel ?? 'Mark as applied'}
             className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
           >
-            {applying ? '...' : <><Check size={11} /> Apply</>}
+            {isBusy ? '…' : <><Check size={11} /> {meta.applyLabel ?? 'Apply'}</>}
           </button>
           <button
-            onClick={() => dismiss(rec.id)}
-            disabled={applying || dismissing}
+            onClick={() => dismiss(rec.id, {
+              onSuccess: () => toast('Insight dismissed', 'info'),
+              onError:   (e) => toast(`Error: ${(e as Error).message}`, 'error'),
+            })}
+            disabled={isBusy}
             title="Dismiss"
             className="p-1.5 rounded-lg text-gray-400 hover:bg-white hover:text-gray-600 transition-colors disabled:opacity-50"
           >
-            {dismissing ? '...' : <X size={13} />}
+            {dismissing ? '…' : <X size={13} />}
           </button>
         </div>
       </div>
@@ -230,12 +284,27 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
   const [editing, setEditing]   = useState(false)
   const [value,   setValue]     = useState(String(campaign.daily_budget ?? ''))
   const { mutate: updateBudget, isPending } = useUpdateCampaignBudget()
+  const { toast } = useToast()
 
   const save = () => {
     const n = Number(value)
     if (!Number.isFinite(n) || n < 1) return
-    updateBudget({ id: campaign.id, daily_budget: n }, {
-      onSuccess: () => setEditing(false),
+    updateBudget({
+      id: campaign.id,
+      daily_budget: n,
+      metaCampaignId: campaign.meta_campaign_id,
+      googleCampaignId: campaign.google_campaign_id,
+    }, {
+      onSuccess: () => {
+        setEditing(false)
+        toast(
+          campaign.meta_campaign_id
+            ? `Budget updated to $${n}/day — synced to Meta`
+            : `Budget updated to $${n}/day`,
+          'success'
+        )
+      },
+      onError: (e) => toast(`Budget update failed: ${(e as Error).message}`, 'error'),
     })
   }
 
