@@ -42,6 +42,17 @@ export function AlertsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts'] }),
   })
 
+  const markOneRead = useMutation({
+    mutationFn: async (alertId: string) => {
+      await supabase
+        .from('alerts')
+        .update({ status: 'sent' as const })
+        .eq('id', alertId)
+        .eq('status', 'pending')
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts'] }),
+  })
+
   const unreadCount = alerts.filter((a) => a.status === 'pending').length
 
   return (
@@ -92,6 +103,9 @@ export function AlertsPage() {
             >
               <CardContent className="py-3.5 sm:py-4">
                 <div className="flex items-start gap-3">
+                  {alert.status === 'pending' && (
+                    <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                       {alert.detected_changes?.change_type && (
@@ -115,12 +129,21 @@ export function AlertsPage() {
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <Link
                         to={`/timeline/${alert.detected_changes?.competitor_id}`}
+                        onClick={() => { if (alert.status === 'pending') markOneRead.mutate(alert.id) }}
                         className="text-xs font-medium text-blue-600 hover:underline"
                       >
                         {alert.detected_changes?.competitors?.name}
                       </Link>
                       <span className="text-xs text-gray-300">·</span>
                       <span className="text-xs text-gray-400">{timeAgo(alert.created_at)}</span>
+                      {alert.status === 'pending' && (
+                        <button
+                          onClick={() => markOneRead.mutate(alert.id)}
+                          className="ml-auto text-xs text-blue-600 hover:underline"
+                        >
+                          Mark read
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
