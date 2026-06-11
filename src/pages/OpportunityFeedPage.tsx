@@ -227,24 +227,46 @@ function OpportunityCard({
       <div className="flex items-center gap-x-4 gap-y-1 text-sm mb-3 flex-wrap">
         {opp.expected_leads != null && (
           <span className="text-gray-500">
-            <span className="font-bold text-gray-900">{opp.expected_leads}</span> est. customers
+            <span className="font-bold text-gray-900">{opp.expected_leads}</span> est. leads
           </span>
         )}
         {opp.estimated_cpc != null && (
           <span className="text-gray-500">
-            <span className="font-bold text-gray-900">${opp.estimated_cpc.toFixed(2)}</span>/lead
+            <span className="font-bold text-gray-900">${opp.estimated_cpc.toFixed(2)}</span>/click
+          </span>
+        )}
+        {opp.estimated_cpl != null && (
+          <span className="text-gray-500">
+            <span className="font-bold text-gray-900">${opp.estimated_cpl.toFixed(0)}</span>/lead
+          </span>
+        )}
+        {/* Estimated ROI: if we have budget + leads, show approx multiplier */}
+        {opp.expected_leads != null && opp.recommended_budget != null && opp.recommended_budget > 0 && (
+          <span className="flex items-center gap-1 text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full text-xs font-bold">
+            <TrendingUp size={10} />
+            ~{Math.round((opp.expected_leads * 80) / (opp.recommended_budget * 4))}× ROI est.
           </span>
         )}
         {opp.confidence != null && (
           <span className="flex items-center gap-1.5 text-gray-500">
             <span className="font-bold text-gray-900">{Math.round(opp.confidence * 100)}%</span>
-            AI confidence
+            AI conf.
             <div className="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
               <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.round(opp.confidence * 100)}%` }} />
             </div>
           </span>
         )}
       </div>
+
+      {/* Urgency indicator */}
+      {opp.expires_at && (
+        <div className="flex items-center gap-1.5 mb-3 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
+          <Zap size={11} />
+          Expires {new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000)
+            ? 'in less than 24h'
+            : `${Math.round((new Date(opp.expires_at).getTime() - Date.now()) / 86400000)}d`}
+        </div>
+      )}
 
       {/* Budget scenarios */}
       <BudgetTiers opp={opp} />
