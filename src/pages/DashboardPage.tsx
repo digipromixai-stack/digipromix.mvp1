@@ -329,7 +329,6 @@ export function DashboardPage() {
 
   const highCount  = stats?.highSev7d ?? 0
   const totalCount = stats?.total7d ?? 0
-  const threat     = threatLevel(highCount, totalCount)
 
   const threatFactors = [
     ...(highCount > 0  ? [{ label: `${highCount} high-threat signal${highCount > 1 ? 's' : ''} this week`, color: '#e5484d' }] : []),
