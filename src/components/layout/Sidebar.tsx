@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Building2, Activity, Bell, Settings, BarChart2, Menu, X, Rocket, Zap, Users, Briefcase, Target } from 'lucide-react'
-import { Logo } from '../brand/Logo'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
