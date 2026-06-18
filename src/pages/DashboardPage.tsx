@@ -32,6 +32,7 @@ const TYPE_META: Record<string, { color: string; bg: string; label: string }> = 
   price_change:     { color: '#c2683a', bg: '#fbf0e8', label: 'Price Change' },
   campaign_launch:  { color: '#c43d3d', bg: '#fdeceb', label: 'Campaign Launch' },
   new_landing_page: { color: '#2563eb', bg: '#eaf1fe', label: 'New Landing Page' },
+  new_blog_post:    { color: '#2f8f7d', bg: '#e8f7f4', label: 'New Blog Post' },
   banner_change:    { color: '#7c5cd1', bg: '#f1ecfb', label: 'Banner Change' },
   content_change:   { color: '#667085', bg: '#f2f4f7', label: 'Content Change' },
 }
