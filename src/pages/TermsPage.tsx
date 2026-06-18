@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { FileText, ArrowLeft } from 'lucide-react'
-import { Logo } from '../components/brand/Logo'
 
 export function TermsPage() {
   const lastUpdated = 'May 7, 2026'

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Zap, Users, Rocket, AlertTriangle, ExternalLink, Target, Brain, ShieldAlert, CheckCircle2, ChevronRight } from 'lucide-react'
+import { Zap, Users, Rocket, AlertTriangle, ExternalLink, Target, Brain, ShieldAlert, CheckCircle2 } from 'lucide-react'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ChangeTypeBadge, SeverityBadge } from '../components/ui/Badge'

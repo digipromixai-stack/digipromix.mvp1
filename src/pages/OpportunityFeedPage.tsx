@@ -143,21 +143,6 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
   )
 }
 
-// ── Score badge ───────────────────────────────────────────────────────────────
-
-function ScoreBadge({ score }: { score: number }) {
-  let bg = 'bg-gray-100 text-gray-700'
-  let label = 'Low'
-  if (score >= 75) { bg = 'bg-green-100 text-green-700';  label = '🔥 High' }
-  else if (score >= 50) { bg = 'bg-amber-100 text-amber-700'; label = '⚡ Medium' }
-  else if (score >= 25) { bg = 'bg-blue-100 text-blue-700';   label = 'Watch' }
-  return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${bg}`}>
-      {label} · {Math.round(score)}
-    </span>
-  )
-}
-
 // ── Opportunity card ──────────────────────────────────────────────────────────
 
 function UrgencyBar({ score }: { score: number }) {
