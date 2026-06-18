@@ -86,10 +86,11 @@ export function Sidebar() {
       >
         {/* Brand */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-white/5">
-          <div className="flex items-center gap-2.5">
-            <Logo className="w-8 h-8 rounded-lg bg-white/10 p-1" />
-            <span className="text-lg font-bold tracking-tight">DigiPromix <span className="text-blue-400">AI</span></span>
-          </div>
+          <img
+            src="/digipromix-logo.png"
+            alt="DigiPromix AI"
+            className="h-9 w-auto object-contain"
+          />
           <button
             onClick={() => setOpen(false)}
             className="lg:hidden p-1.5 -mr-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
