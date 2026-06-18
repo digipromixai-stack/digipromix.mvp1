@@ -4,12 +4,10 @@ import {
   CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
   AlertTriangle, TrendingDown, ZapOff, DollarSign, Sparkles, RefreshCw,
   Target, Brain, X, Check, ChevronDown, ChevronUp, BarChart2, Pencil,
-  Settings, BarChart,
+  Settings, BarChart, Zap,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../components/ui/Toast'
-import { Card, CardContent } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useUpdateCampaignBudget } from '../hooks/useCampaigns'
@@ -208,38 +206,118 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
   )
 }
 
+function TopRecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
+  const { mutate: applyMutation, isPending: applying   } = useApplyRecommendation()
+  const { mutate: dismiss,       isPending: dismissing } = useDismissRecommendation()
+  const { mutate: updateStatus,  isPending: pausing    } = useUpdateCampaignStatus()
+  const { toast } = useToast()
+  const navigate  = useNavigate()
+
+  const handleApply = () => {
+    const markDone = () =>
+      applyMutation(rec.id, {
+        onSuccess: () => toast('Insight applied', 'success'),
+        onError:   (e) => toast(`Error: ${(e as Error).message}`, 'error'),
+      })
+    switch (rec.action_type) {
+      case 'setup_tracking': navigate('/settings'); markDone(); break
+      case 'pause_campaign':
+        if (!rec.campaign_id) { markDone(); break }
+        updateStatus({ id: rec.campaign_id, status: 'paused', metaCampaignId: null, googleCampaignId: null }, {
+          onSuccess: () => { toast('Campaign paused', 'success'); markDone() },
+          onError:   (e) => toast(`Pause failed: ${(e as Error).message}`, 'error'),
+        }); break
+      default: markDone(); break
+    }
+  }
+
+  return (
+    <TopAIAction
+      rec={rec}
+      onApply={handleApply}
+      onDismiss={() => dismiss(rec.id, {
+        onSuccess: () => toast('Insight dismissed', 'info'),
+        onError:   (e) => toast(`Error: ${(e as Error).message}`, 'error'),
+      })}
+      busy={applying || dismissing || pausing}
+    />
+  )
+}
+
+function TopAIAction({ rec, onApply, onDismiss, busy }: {
+  rec: AiRecommendationWithCampaign
+  onApply: () => void
+  onDismiss: () => void
+  busy: boolean
+}) {
+  const meta = ACTION_META[rec.action_type] ?? FALLBACK_META
+  return (
+    <div className="bg-gradient-to-r from-violet-50 via-indigo-50 to-blue-50 border border-violet-200 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
+      <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-violet-600 shrink-0 shadow-md">
+        <Brain size={22} className="text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-violet-600">AI Priority Action</span>
+          <PriorityBadge priority={rec.priority} />
+          {rec.confidence != null && (
+            <span className="text-[10px] text-violet-500 font-mono">{Math.round(rec.confidence * 100)}% confidence</span>
+          )}
+        </div>
+        <p className="text-base font-bold text-gray-900 leading-snug">{rec.recommendation}</p>
+        {rec.campaigns && (
+          <p className="text-xs text-gray-500 mt-0.5">Campaign: <span className="font-medium text-gray-700">{rec.campaigns.campaign_name}</span></p>
+        )}
+        <p className="text-xs text-violet-600 font-semibold mt-1.5 flex items-center gap-1">
+          <Zap size={11} /> {meta.label}
+        </p>
+      </div>
+      <div className="flex flex-col gap-2 shrink-0">
+        <button
+          onClick={onApply}
+          disabled={busy}
+          className="px-4 py-2 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50"
+        >
+          <Check size={13} /> {meta.applyLabel ?? 'Apply'}
+        </button>
+        <button
+          onClick={onDismiss}
+          disabled={busy}
+          className="px-3 py-1.5 text-xs text-violet-500 hover:text-violet-700 font-medium text-center disabled:opacity-50"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function AiRecommendationsPanel() {
   const { data: recs = [], isLoading } = useAiRecommendations()
-  const [collapsed, setCollapsed] = useState(false)
 
   if (isLoading || recs.length === 0) return null
 
   const urgentCount = recs.filter(r => r.priority >= 4).length
+  const [topRec, ...restRecs] = recs
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-      {/* Panel header */}
-      <button
-        onClick={() => setCollapsed(v => !v)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center gap-2.5">
-          <Brain size={16} className="text-violet-600" />
-          <span className="text-sm font-bold text-gray-900">AI Campaign Insights</span>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${urgentCount > 0 ? 'bg-red-100 text-red-700' : 'bg-violet-100 text-violet-700'}`}>
-            {recs.length} {recs.length === 1 ? 'insight' : 'insights'}{urgentCount > 0 ? ` · ${urgentCount} urgent` : ''}
-          </span>
-        </div>
-        {collapsed ? <ChevronDown size={15} className="text-gray-400" /> : <ChevronUp size={15} className="text-gray-400" />}
-      </button>
+    <div className="space-y-3">
+      {/* Top-priority violet hero card */}
+      <TopRecommendationCard rec={topRec} />
 
-      {/* Recommendation list */}
-      {!collapsed && (
-        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 pt-4">
-          <p className="text-xs text-gray-400">
-            Generated by DigiPromix AI from your live campaign metrics. Dismiss to hide, Apply to mark done.
-          </p>
-          {recs.map(rec => <RecommendationCard key={rec.id} rec={rec} />)}
+      {/* Remaining insights */}
+      {restRecs.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-2.5 px-5 py-3 border-b border-gray-100">
+            <Brain size={14} className="text-violet-600" />
+            <span className="text-sm font-bold text-gray-900">More AI Insights</span>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${urgentCount > 1 ? 'bg-red-100 text-red-700' : 'bg-violet-100 text-violet-700'}`}>
+              {restRecs.length}
+            </span>
+          </div>
+          <div className="px-5 pb-5 space-y-3 pt-4">
+            {restRecs.map(rec => <RecommendationCard key={rec.id} rec={rec} />)}
+          </div>
         </div>
       )}
     </div>
@@ -350,8 +428,8 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   const [showMetrics, setShowMetrics] = useState(false)
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="py-4">
+    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-sm transition-shadow">
+      <div className="p-4">
         <div className="flex items-start gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-orange-50 shrink-0 mt-0.5">
             <Rocket size={16} className="text-orange-500" />
@@ -531,8 +609,8 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -549,18 +627,23 @@ export function CampaignsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-3xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <Brain size={15} className="text-violet-500" />
+            <span className="text-xs font-bold uppercase tracking-widest text-violet-600">AI Campaign Intelligence</span>
+          </div>
           <h1 className="text-xl font-bold text-gray-900">Campaigns</h1>
           <p className="text-sm text-gray-500 mt-0.5">AI-generated counter-campaigns from competitor moves</p>
         </div>
-        <Link to="/dashboard">
-          <Button size="sm">
-            <Plus size={14} className="mr-1.5" />
-            New from signal
-          </Button>
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-1.5 px-3 py-2 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-colors shadow-sm shrink-0"
+        >
+          <Plus size={14} />
+          New from signal
         </Link>
       </div>
 
@@ -568,19 +651,17 @@ export function CampaignsPage() {
       {!isLoading && campaigns.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Total', value: stats.total,  icon: TrendingUp,  color: 'text-gray-700'  },
-            { label: 'Active', value: stats.active, icon: Play,        color: 'text-green-600' },
-            { label: 'Drafts', value: stats.draft,  icon: FileEdit,    color: 'text-gray-400'  },
+            { label: 'Total',  value: stats.total,  icon: TrendingUp, color: 'text-gray-700'  },
+            { label: 'Active', value: stats.active,  icon: Play,       color: 'text-green-600' },
+            { label: 'Drafts', value: stats.draft,   icon: FileEdit,   color: 'text-gray-400'  },
           ].map(({ label, value, icon: Icon, color }) => (
-            <Card key={label}>
-              <CardContent className="py-3">
-                <div className="flex items-center gap-2">
-                  <Icon size={15} className={color} />
-                  <span className="text-xs text-gray-500">{label}</span>
-                </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-              </CardContent>
-            </Card>
+            <div key={label} className="bg-white rounded-xl border border-gray-200 px-4 py-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Icon size={13} className={color} />
+                <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">{label}</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{value}</p>
+            </div>
           ))}
         </div>
       )}
@@ -595,9 +676,9 @@ export function CampaignsPage() {
             <button
               key={s}
               onClick={() => setFilter(s)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors capitalize ${
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize ${
                 filter === s
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}
             >
