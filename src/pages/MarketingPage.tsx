@@ -190,11 +190,8 @@ export function MarketingPage() {
       {/* ── Nav ──────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-brand flex items-center justify-center">
-              <Zap size={16} className="text-white" />
-            </div>
-            <span className="font-bold text-gray-900 text-lg tracking-tight">DigiPromix AI</span>
+          <div className="flex items-center">
+            <img src="/digipromix-logo.png" alt="DigiPromix AI" className="h-9 w-auto object-contain" />
           </div>
 
           <div className="hidden md:flex items-center gap-8">
@@ -661,11 +658,8 @@ export function MarketingPage() {
       <footer className="border-t border-gray-100 py-10 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-brand flex items-center justify-center">
-                <Zap size={13} className="text-white" />
-              </div>
-              <span className="font-bold text-gray-900">DigiPromix AI</span>
+            <div className="flex items-center">
+              <img src="/digipromix-logo.png" alt="DigiPromix AI" className="h-8 w-auto object-contain" />
             </div>
 
             <div className="flex items-center gap-6 text-sm text-gray-400 flex-wrap justify-center">
