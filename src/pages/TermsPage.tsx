@@ -14,9 +14,8 @@ export function TermsPage() {
             <ArrowLeft size={16} />
             <span className="text-sm font-medium">Back to home</span>
           </Link>
-          <Link to="/" className="flex items-center gap-2">
-            <Logo className="w-7 h-7 rounded-lg bg-white p-1 shadow-soft" />
-            <span className="text-base font-bold tracking-tight">DigiPromix <span className="text-blue-600">AI</span></span>
+          <Link to="/">
+            <img src="/digipromix-logo.png" alt="DigiPromix AI" className="h-8 w-auto object-contain" />
           </Link>
         </div>
       </header>

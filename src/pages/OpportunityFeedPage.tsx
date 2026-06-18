@@ -1,10 +1,9 @@
 /**
- * MVP 2.0 — Revenue Opportunity Feed (Opportunity Radar)
+ * MVP 2.0 — AI Revenue Opportunity Intelligence Feed
  *
  * Reads from `opportunities` (filled hourly by score-opportunities cron).
- * Clicking "Launch Campaign" opens the same CampaignModal used by the
- * Changes page — it pulls the source detected_change via metadata.source_change_id
- * and pre-fills generate-campaign with the right context.
+ * Each opportunity card shows revenue impact, market context, AI confidence,
+ * urgency, and a direct launch path into the campaign modal.
  */
 
 import { useEffect, useMemo, useState } from 'react'
@@ -12,7 +11,7 @@ import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
   ArrowRight, Filter, Search, RefreshCcw, X, Loader2, Radio,
-  BarChart2, ChevronDown, ChevronUp,
+  BarChart2, ChevronDown, ChevronUp, Brain, Clock, ShieldAlert,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
@@ -161,6 +160,22 @@ function ScoreBadge({ score }: { score: number }) {
 
 // ── Opportunity card ──────────────────────────────────────────────────────────
 
+function UrgencyBar({ score }: { score: number }) {
+  const level = score >= 75 ? 'URGENT' : score >= 50 ? 'MEDIUM' : 'LOW'
+  const pct = Math.min(100, score)
+  const color = score >= 75 ? 'bg-red-500' : score >= 50 ? 'bg-amber-500' : 'bg-blue-400'
+  const textColor = score >= 75 ? 'text-red-700' : score >= 50 ? 'text-amber-700' : 'text-blue-700'
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`text-[9px] font-black uppercase tracking-widest ${textColor} shrink-0`}>{level}</span>
+      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-[9px] font-bold text-gray-400">{Math.round(score)}</span>
+    </div>
+  )
+}
+
 function OpportunityCard({
   opp,
   onLaunch,
@@ -175,131 +190,180 @@ function OpportunityCard({
   const ageMs = Date.now() - new Date(opp.created_at).getTime()
   const isNew = ageMs < 5 * 60 * 1000
 
-  // Derive growth % from signal_sources for display
   const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>
   const topSignal = sources.find(s => s.growth_pct != null)
   const growthPct = topSignal?.growth_pct as number | undefined
 
-  return (
-    <div className={`bg-white border ${isNew ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-gray-200'} rounded-2xl p-5 hover:shadow-md transition-shadow relative`}>
-      {isNew && (
-        <span className="absolute -top-2 -left-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-sm">
-          New
-        </span>
-      )}
-      <button
-        onClick={() => onDismiss(opp)}
-        title="Dismiss this opportunity"
-        className="absolute top-3 right-3 text-gray-300 hover:text-gray-500 p-1 rounded"
-      >
-        <X size={14} />
-      </button>
+  // Revenue impact estimate: leads × avg lead value ($80)
+  const estRevenueValue = opp.expected_leads != null ? opp.expected_leads * 80 : null
+  const roiMultiplier = opp.expected_leads != null && opp.recommended_budget != null && opp.recommended_budget > 0
+    ? Math.round((opp.expected_leads * 80) / (opp.recommended_budget * 4))
+    : null
 
-      {/* Market + score */}
-      <div className="flex items-start justify-between gap-3 mb-2 pr-6">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            <p className="text-xs font-mono uppercase text-gray-400 tracking-wider">
-              {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
+  const isHot = opp.opportunity_score >= 75
+  const isMedium = opp.opportunity_score >= 50
+
+  return (
+    <div className={`bg-white border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow relative
+      ${isHot ? 'border-orange-200 ring-1 ring-orange-100' : isNew ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-gray-200'}`}>
+
+      {/* Hot market gradient header */}
+      {isHot && (
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-1.5 flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-1">
+            🔥 HOT MARKET — ACT NOW
+          </span>
+        </div>
+      )}
+      {isNew && !isHot && (
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-1.5">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white">⚡ NEW SIGNAL</span>
+        </div>
+      )}
+
+      <div className="p-5">
+        <button
+          onClick={() => onDismiss(opp)}
+          title="Dismiss"
+          className="absolute top-3 right-3 text-gray-300 hover:text-gray-500 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          <X size={14} />
+        </button>
+
+        {/* Market identifier */}
+        <div className="flex items-center gap-1.5 flex-wrap mb-1 pr-6">
+          <p className="text-[10px] font-mono uppercase text-gray-400 tracking-wider">
+            {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
+          </p>
+          {growthPct != null && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
+              <TrendingUp size={9} />+{Math.round(growthPct)}% demand
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <h3 className="font-bold text-gray-900 text-base leading-snug mb-2">{opp.title}</h3>
+
+        {/* Signal chips */}
+        <SignalSourceBadge opp={opp} />
+
+        {/* Description / WHY NOW */}
+        {opp.description && (
+          <p className="text-sm text-gray-600 mb-3 line-clamp-2">{opp.description}</p>
+        )}
+
+        {/* ── Revenue Impact Block ── */}
+        {(estRevenueValue != null || roiMultiplier != null || opp.recommended_budget != null) && (
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-green-700 mb-2 flex items-center gap-1">
+              <DollarSign size={10} /> Revenue Impact
             </p>
-            {growthPct != null && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
-                <TrendingUp size={9} />+{Math.round(growthPct)}%
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {opp.expected_leads != null && (
+                <div>
+                  <p className="text-lg font-black text-gray-900">{opp.expected_leads}</p>
+                  <p className="text-[10px] text-gray-500 uppercase">Pred. Leads</p>
+                </div>
+              )}
+              {estRevenueValue != null && (
+                <div>
+                  <p className="text-lg font-black text-green-700">
+                    ${estRevenueValue >= 1000 ? `${(estRevenueValue / 1000).toFixed(1)}k` : estRevenueValue}
+                  </p>
+                  <p className="text-[10px] text-gray-500 uppercase">Est. Value</p>
+                </div>
+              )}
+              {roiMultiplier != null && (
+                <div>
+                  <p className="text-lg font-black text-indigo-700">{roiMultiplier}×</p>
+                  <p className="text-[10px] text-gray-500 uppercase">ROI Est.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Urgency + Confidence row */}
+        <div className="space-y-1.5 mb-3">
+          <UrgencyBar score={opp.opportunity_score} />
+          {opp.confidence != null && (
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-violet-600 shrink-0 flex items-center gap-1">
+                <Brain size={9} /> AI CONF.
               </span>
+              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.round(opp.confidence * 100)}%` }} />
+              </div>
+              <span className="text-[9px] font-bold text-violet-600">{Math.round(opp.confidence * 100)}%</span>
+            </div>
+          )}
+        </div>
+
+        {/* Timing indicator */}
+        {opp.expires_at && (
+          <div className={`flex items-center gap-1.5 mb-3 text-xs font-semibold px-2.5 py-1.5 rounded-lg
+            ${new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000)
+              ? 'text-red-700 bg-red-50 border border-red-200'
+              : 'text-amber-700 bg-amber-50 border border-amber-200'}`}>
+            <Clock size={11} />
+            {new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000)
+              ? 'Expires in less than 24h — act now'
+              : `Window closes in ${Math.round((new Date(opp.expires_at).getTime() - Date.now()) / 86400000)}d`}
+          </div>
+        )}
+
+        {/* CPC / CPL details */}
+        {(opp.estimated_cpc != null || opp.estimated_cpl != null || opp.recommended_budget != null) && (
+          <div className="flex items-center gap-3 text-xs text-gray-500 mb-3 flex-wrap">
+            {opp.recommended_budget != null && (
+              <span><span className="font-bold text-gray-800">${opp.recommended_budget}</span>/wk budget</span>
+            )}
+            {opp.estimated_cpc != null && (
+              <span><span className="font-bold text-gray-800">${opp.estimated_cpc.toFixed(2)}</span>/click</span>
+            )}
+            {opp.estimated_cpl != null && (
+              <span><span className="font-bold text-gray-800">${opp.estimated_cpl.toFixed(0)}</span>/lead</span>
             )}
           </div>
-          <h3 className="font-semibold text-gray-900 text-base leading-snug">{opp.title}</h3>
-        </div>
-        {/* Urgency ring on hot opportunities */}
-        <div className={opp.opportunity_score >= 75 ? 'ring-2 ring-orange-300 animate-pulse rounded-full p-0.5' : ''}>
-          <ScoreBadge score={opp.opportunity_score} />
-        </div>
+        )}
+
+        {/* Budget scenarios */}
+        <BudgetTiers opp={opp} />
+
+        {/* AI recommended action */}
+        {opp.recommended_action && (
+          <div className="bg-violet-50 border border-violet-100 rounded-lg px-3 py-2 mb-3">
+            <p className="text-sm text-violet-800 flex items-start gap-1.5">
+              <Sparkles size={13} className="shrink-0 mt-0.5 text-violet-500" />
+              <span className="font-medium">{opp.recommended_action}</span>
+            </p>
+          </div>
+        )}
+
+        {/* Launch button */}
+        <button
+          onClick={() => onLaunch(opp)}
+          disabled={busy}
+          className={`w-full disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold py-3 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm ${
+            isHot
+              ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600'
+              : isMedium
+              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700'
+              : 'bg-gray-900 hover:bg-gray-800'
+          }`}
+        >
+          {busy ? (
+            <><Loader2 size={14} className="animate-spin" /> Loading…</>
+          ) : isHot ? (
+            <>🔥 Launch Now — Hot Market <ArrowRight size={14} /></>
+          ) : isMedium ? (
+            <>⚡ Launch AI Campaign <ArrowRight size={14} /></>
+          ) : (
+            <>Launch Campaign <ArrowRight size={14} /></>
+          )}
+        </button>
       </div>
-
-      {/* Signal source chips */}
-      <SignalSourceBadge opp={opp} />
-
-      {opp.description && (
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{opp.description}</p>
-      )}
-
-      {/* Compact stats strip */}
-      <div className="flex items-center gap-x-4 gap-y-1 text-sm mb-3 flex-wrap">
-        {opp.expected_leads != null && (
-          <span className="text-gray-500">
-            <span className="font-bold text-gray-900">{opp.expected_leads}</span> est. leads
-          </span>
-        )}
-        {opp.estimated_cpc != null && (
-          <span className="text-gray-500">
-            <span className="font-bold text-gray-900">${opp.estimated_cpc.toFixed(2)}</span>/click
-          </span>
-        )}
-        {opp.estimated_cpl != null && (
-          <span className="text-gray-500">
-            <span className="font-bold text-gray-900">${opp.estimated_cpl.toFixed(0)}</span>/lead
-          </span>
-        )}
-        {/* Estimated ROI: if we have budget + leads, show approx multiplier */}
-        {opp.expected_leads != null && opp.recommended_budget != null && opp.recommended_budget > 0 && (
-          <span className="flex items-center gap-1 text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full text-xs font-bold">
-            <TrendingUp size={10} />
-            ~{Math.round((opp.expected_leads * 80) / (opp.recommended_budget * 4))}× ROI est.
-          </span>
-        )}
-        {opp.confidence != null && (
-          <span className="flex items-center gap-1.5 text-gray-500">
-            <span className="font-bold text-gray-900">{Math.round(opp.confidence * 100)}%</span>
-            AI conf.
-            <div className="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.round(opp.confidence * 100)}%` }} />
-            </div>
-          </span>
-        )}
-      </div>
-
-      {/* Urgency indicator */}
-      {opp.expires_at && (
-        <div className="flex items-center gap-1.5 mb-3 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
-          <Zap size={11} />
-          Expires {new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000)
-            ? 'in less than 24h'
-            : `${Math.round((new Date(opp.expires_at).getTime() - Date.now()) / 86400000)}d`}
-        </div>
-      )}
-
-      {/* Budget scenarios */}
-      <BudgetTiers opp={opp} />
-
-      {opp.recommended_action && (
-        <p className="text-sm text-violet-700 mb-3 flex items-start gap-1.5">
-          <Sparkles size={14} className="shrink-0 mt-0.5 text-violet-500" />
-          <span>{opp.recommended_action}</span>
-        </p>
-      )}
-
-      {/* Dynamic launch button based on score */}
-      <button
-        onClick={() => onLaunch(opp)}
-        disabled={busy}
-        className={`w-full disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors ${
-          opp.opportunity_score >= 75
-            ? 'bg-green-600 hover:bg-green-700'
-            : opp.opportunity_score >= 50
-            ? 'bg-indigo-600 hover:bg-indigo-700'
-            : 'bg-gray-900 hover:bg-gray-800'
-        }`}
-      >
-        {busy ? (
-          <><Loader2 size={14} className="animate-spin" /> Loading…</>
-        ) : opp.opportunity_score >= 75 ? (
-          <>🔥 Launch Now — Hot Market <ArrowRight size={14} /></>
-        ) : opp.opportunity_score >= 50 ? (
-          <>⚡ Launch Campaign <ArrowRight size={14} /></>
-        ) : (
-          <>Launch Campaign <ArrowRight size={14} /></>
-        )}
-      </button>
     </div>
   )
 }
@@ -308,7 +372,7 @@ export function OpportunityFeedPage() {
   const [statusFilter] = useState<'open'>('open')
   const [scoreFilter, setScoreFilter] = useState<'all' | 'hot' | 'medium' | 'watch'>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [_showFilters, setShowFilters] = useState(false)
   const { data: opportunities = [], isLoading, refetch } = useOpportunities({ status: statusFilter })
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -421,15 +485,23 @@ export function OpportunityFeedPage() {
     queryClient.invalidateQueries({ queryKey: ['opportunities'] })
   }
 
+  // Market Intelligence Briefing computations
+  const hotCount    = opportunities.filter(o => o.opportunity_score >= 75).length
+  const totalLeads  = opportunities.reduce((s, o) => s + (o.expected_leads ?? 0), 0)
+  const avgConf     = opportunities.length
+    ? Math.round(opportunities.reduce((s, o) => s + (o.confidence ?? 0), 0) / opportunities.length * 100)
+    : 0
+  const totalRevEst = totalLeads * 80
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex items-start justify-between gap-4 mb-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Target size={20} className="text-blue-500" />
-            <h1 className="text-2xl font-bold text-gray-900">Opportunity Radar</h1>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <Brain size={18} className="text-violet-600" />
+            <h1 className="text-2xl font-bold text-gray-900">AI Revenue Intelligence</h1>
             <span className="text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-violet-500 to-indigo-500 text-white px-2 py-0.5 rounded">
               Beta
             </span>
@@ -446,7 +518,7 @@ export function OpportunityFeedPage() {
             </span>
           </div>
           <p className="text-sm text-gray-500">
-            AI-scored revenue opportunities based on competitor signals, search trends, and your campaign history.
+            AI-detected revenue opportunities ranked by urgency, confidence, and predicted business impact.
           </p>
         </div>
 
@@ -464,7 +536,7 @@ export function OpportunityFeedPage() {
           <button
             onClick={() => setShowFilters(v => !v)}
             className={`border rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${
-              showFilters || scoreFilter !== 'all'
+              scoreFilter !== 'all'
                 ? 'border-blue-400 text-blue-700 bg-blue-50'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
@@ -478,47 +550,73 @@ export function OpportunityFeedPage() {
         </div>
       </div>
 
-      {/* Score filter chips */}
-      {showFilters && (
-        <div className="flex items-center gap-2 flex-wrap mb-2">
-          <span className="text-xs text-gray-500 font-medium">Score:</span>
-          {([
-            { value: 'all',    label: 'All' },
-            { value: 'hot',    label: '🔥 Hot (≥75)' },
-            { value: 'medium', label: '⚡ Medium (50–74)' },
-            { value: 'watch',  label: 'Watch (<50)' },
-          ] as const).map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setScoreFilter(value)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                scoreFilter === value
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+      {/* Market Intelligence Briefing banner */}
+      {opportunities.length > 0 && (
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl p-5 mb-5 text-white">
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldAlert size={15} className="text-violet-400" />
+            <span className="text-xs font-bold uppercase tracking-widest text-violet-300">AI Market Intelligence Briefing</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <p className="text-2xl font-black">{opportunities.length}</p>
+              <p className="text-xs text-slate-400 mt-0.5">Active Opportunities</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-red-400">{hotCount}</p>
+              <p className="text-xs text-slate-400 mt-0.5">🔥 Hot Markets Now</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-green-400">{totalLeads.toLocaleString()}</p>
+              <p className="text-xs text-slate-400 mt-0.5">Predicted Total Leads</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-yellow-400">
+                ${totalRevEst >= 10000 ? `${(totalRevEst / 1000).toFixed(0)}k` : totalRevEst.toLocaleString()}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">Est. Revenue at Stake</p>
+            </div>
+          </div>
+          {avgConf > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-3">
+              <Brain size={13} className="text-violet-400 shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-slate-400">Average AI Confidence</span>
+                  <span className="text-xs font-bold text-violet-300">{avgConf}%</span>
+                </div>
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-400 rounded-full" style={{ width: `${avgConf}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Quick stats row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
+      {/* Score filter / stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Revenue Opportunities', value: opportunities.length, icon: Target, color: 'blue' },
-          { label: 'Hot Market (≥75)', value: opportunities.filter(o => o.opportunity_score >= 75).length, icon: TrendingUp, color: 'red' },
-          { label: 'Avg AI Confidence', value: opportunities.length ? Math.round(opportunities.reduce((s, o) => s + (o.confidence ?? 0), 0) / opportunities.length * 100) + '%' : '—', icon: Sparkles, color: 'violet' },
-          { label: 'Potential Customers', value: opportunities.reduce((s, o) => s + (o.expected_leads ?? 0), 0), icon: DollarSign, color: 'green' },
+          { label: 'All Opportunities',    value: opportunities.length,  icon: Target,    active: scoreFilter === 'all',    onClick: () => setScoreFilter('all') },
+          { label: '🔥 Hot (≥75)',          value: hotCount,              icon: TrendingUp, active: scoreFilter === 'hot',    onClick: () => setScoreFilter('hot') },
+          { label: '⚡ Medium (50–74)',    value: opportunities.filter(o => o.opportunity_score >= 50 && o.opportunity_score < 75).length, icon: Sparkles, active: scoreFilter === 'medium', onClick: () => setScoreFilter('medium') },
+          { label: 'Watch (<50)',          value: opportunities.filter(o => o.opportunity_score < 50).length, icon: DollarSign, active: scoreFilter === 'watch', onClick: () => setScoreFilter('watch') },
         ].map(stat => {
           const Icon = stat.icon
           return (
-            <div key={stat.label} className="bg-white border border-gray-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-gray-500 text-xs uppercase tracking-wider mb-1">
-                <Icon size={14} className={`text-${stat.color}-500`} /> {stat.label}
+            <button
+              key={stat.label}
+              onClick={stat.onClick}
+              className={`bg-white border rounded-xl p-4 text-left transition-all hover:shadow-sm ${
+                stat.active ? 'border-violet-400 ring-1 ring-violet-100 shadow-sm' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 text-gray-500 text-xs uppercase tracking-wider mb-1.5">
+                <Icon size={12} className={stat.active ? 'text-violet-500' : 'text-gray-400'} />
+                {stat.label}
               </div>
-              <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-            </div>
+              <div className={`text-2xl font-bold ${stat.active ? 'text-violet-700' : 'text-gray-900'}`}>{stat.value}</div>
+            </button>
           )
         })}
       </div>

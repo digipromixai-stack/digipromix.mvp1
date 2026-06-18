@@ -14,6 +14,14 @@ export function TopNav() {
       <div className="h-full flex items-center px-4 sm:px-6">
         {/* Spacer for hamburger button on mobile */}
         <div className="w-12 lg:hidden" />
+
+        {/* Logo — visible on mobile (sidebar is hidden), hidden on desktop (sidebar shows it) */}
+        <img
+          src="/digipromix-logo.png"
+          alt="DigiPromix AI"
+          className="h-8 w-auto object-contain lg:hidden"
+        />
+
         <div className="flex-1" />
 
         <div className="flex items-center gap-2 sm:gap-3">

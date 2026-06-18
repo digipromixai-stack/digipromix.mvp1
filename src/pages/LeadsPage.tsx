@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Users, Mail, Phone, MessageSquare, Trash2, Star, Flame, Snowflake, Activity } from 'lucide-react'
-import { Card, CardContent } from '../components/ui/Card'
+import { Users, Mail, Phone, MessageSquare, Trash2, Star, Flame, Snowflake, Activity, Brain, TrendingUp, CheckCircle2 } from 'lucide-react'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useLeads, useUpdateLeadStatus, useDeleteLead, useLeadStats } from '../hooks/useLeads'
@@ -8,30 +7,17 @@ import { timeAgo } from '../lib/utils'
 import type { LeadStatus, LeadWithCampaign } from '../types/database.types'
 
 const STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; next: LeadStatus | null; nextLabel: string }> = {
-  new:        { label: 'New',        color: 'bg-blue-100 text-blue-700',    next: 'contacted',  nextLabel: 'Mark Contacted' },
-  contacted:  { label: 'Contacted',  color: 'bg-yellow-100 text-yellow-700', next: 'qualified', nextLabel: 'Mark Qualified' },
-  qualified:  { label: 'Qualified',  color: 'bg-green-100 text-green-700',  next: 'closed',     nextLabel: 'Mark Closed'   },
-  closed:     { label: 'Closed',     color: 'bg-gray-100 text-gray-600',    next: null,         nextLabel: ''              },
+  new:        { label: 'New',        color: 'bg-blue-100 text-blue-700',     next: 'contacted', nextLabel: 'Mark Contacted' },
+  contacted:  { label: 'Contacted',  color: 'bg-amber-100 text-amber-700',   next: 'qualified', nextLabel: 'Mark Qualified' },
+  qualified:  { label: 'Qualified',  color: 'bg-green-100 text-green-700',   next: 'closed',    nextLabel: 'Mark Closed'   },
+  closed:     { label: 'Closed',     color: 'bg-gray-100 text-gray-600',     next: null,        nextLabel: ''              },
 }
 
-function ScoreDot({ score }: { score: number }) {
-  const color = score >= 70 ? 'bg-green-500' : score >= 40 ? 'bg-yellow-400' : 'bg-gray-300'
-  return (
-    <div className="flex items-center gap-1">
-      <span className={`w-2 h-2 rounded-full ${color}`} />
-      <span className="text-xs text-gray-500 font-mono">{score}%</span>
-    </div>
-  )
-}
-
-// MVP 2.0 Lead Intent badge — HOT/MEDIUM/LOW with iconography.
-// Accepts either the new lowercase `intent_level` ('hot'|'medium'|'low')
-// OR the legacy uppercase `score_type` ('HOT'|'MEDIUM'|'LOW').
 function IntentBadge({ scoreType }: { scoreType: string | null | undefined }) {
   if (!scoreType) return null
   const key = scoreType.toUpperCase()
   const variants: Record<string, { Icon: typeof Flame; label: string; cls: string }> = {
-    HOT:    { Icon: Flame,     label: '🔥 HOT',  cls: 'bg-red-50 text-red-700 border-red-200'     },
+    HOT:    { Icon: Flame,     label: '🔥 HOT',  cls: 'bg-red-50 text-red-700 border-red-200'      },
     MEDIUM: { Icon: Activity,  label: '⚡ WARM', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
     LOW:    { Icon: Snowflake, label: '❄ COLD', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
   }
@@ -39,83 +25,103 @@ function IntentBadge({ scoreType }: { scoreType: string | null | undefined }) {
   const { Icon } = v
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${v.cls}`}>
-      <Icon size={10} />
-      {v.label}
+      <Icon size={10} />{v.label}
     </span>
+  )
+}
+
+function ConversionBar({ score }: { score: number }) {
+  const color = score >= 70 ? 'bg-green-500' : score >= 40 ? 'bg-amber-400' : 'bg-gray-300'
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, score)}%` }} />
+      </div>
+      <span className="text-[10px] font-bold text-gray-500 w-7 text-right">{score}%</span>
+    </div>
   )
 }
 
 function LeadCard({ lead }: { lead: LeadWithCampaign }) {
   const { mutate: updateStatus, isPending: updating } = useUpdateLeadStatus()
   const { mutate: deleteLead, isPending: deleting } = useDeleteLead()
-  // Defensive fallback — never crash on a status value the frontend doesn't know
   const cfg = STATUS_CONFIG[lead.status] ?? STATUS_CONFIG.new
+  const isHot = (lead.intent_level ?? lead.score_type)?.toUpperCase() === 'HOT'
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="py-4">
+    <div className={`bg-white rounded-xl border hover:shadow-sm transition-shadow ${isHot ? 'border-red-200 ring-1 ring-red-50' : 'border-gray-200'}`}>
+      <div className="p-4">
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 mt-0.5">
-            <Users size={16} className="text-blue-500" />
+          {/* Avatar */}
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${isHot ? 'bg-red-50' : 'bg-blue-50'}`}>
+            <Users size={15} className={isHot ? 'text-red-500' : 'text-blue-500'} />
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 flex-wrap">
+            {/* Top row */}
+            <div className="flex items-start justify-between gap-2 flex-wrap mb-1">
               <div>
-                <p className="text-sm font-semibold text-gray-900">{lead.name ?? '(no name)'}</p>
+                <p className="text-sm font-bold text-gray-900">{lead.name ?? '(no name)'}</p>
                 {lead.campaigns && (
                   <p className="text-xs text-gray-400 mt-0.5">
-                    Campaign: <span className="text-gray-600 font-medium">{lead.campaigns.campaign_name}</span>
+                    via <span className="text-gray-600 font-medium">{lead.campaigns.campaign_name}</span>
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <IntentBadge scoreType={lead.intent_level ?? lead.score_type} />
-                <ScoreDot score={lead.score} />
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.color}`}>
-                  {cfg.label}
-                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
               </div>
             </div>
 
+            {/* Conversion probability bar */}
+            <div className="mb-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400 flex items-center gap-1">
+                  <Brain size={9} /> Conversion prob.
+                </span>
+              </div>
+              <ConversionBar score={lead.score} />
+            </div>
+
             {/* Contact info */}
-            <div className="flex flex-wrap gap-3 mt-2">
+            <div className="flex flex-wrap gap-3 mb-2">
               {lead.email && (
                 <a href={`mailto:${lead.email}`} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                  <Mail size={11} />{lead.email}
+                  <Mail size={10} />{lead.email}
                 </a>
               )}
               {lead.phone && (
-                <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600">
-                  <Phone size={11} />{lead.phone}
+                <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600">
+                  <Phone size={10} />{lead.phone}
                 </a>
               )}
             </div>
 
             {lead.message && (
-              <p className="flex items-start gap-1 text-xs text-gray-500 mt-1.5 italic">
-                <MessageSquare size={11} className="shrink-0 mt-0.5" />
-                {lead.message}
+              <p className="flex items-start gap-1 text-xs text-gray-500 mb-2 italic">
+                <MessageSquare size={10} className="shrink-0 mt-0.5" />{lead.message}
               </p>
             )}
 
             {lead.recommended_action && (
-              <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md mt-1.5">
-                {lead.recommended_action}
-              </p>
+              <div className="bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5 mb-2 flex items-start gap-1.5">
+                <Brain size={11} className="text-violet-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-violet-700 font-medium">{lead.recommended_action}</p>
+              </div>
             )}
 
-            <div className="flex items-center gap-2 mt-3 flex-wrap">
+            {/* Footer row */}
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-400">{timeAgo(lead.created_at)}</span>
-              <span className="text-xs text-gray-300">·</span>
+              <span className="text-gray-300 text-xs">·</span>
               <span className="text-xs text-gray-400 capitalize">{lead.source.replace('_', ' ')}</span>
-
               <div className="flex items-center gap-1.5 ml-auto">
                 {cfg.next && (
                   <button
                     onClick={() => updateStatus({ id: lead.id, status: cfg.next! })}
                     disabled={updating}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors"
+                    className="text-xs px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors font-medium"
                   >
                     {cfg.nextLabel}
                   </button>
@@ -123,16 +129,16 @@ function LeadCard({ lead }: { lead: LeadWithCampaign }) {
                 <button
                   onClick={() => { if (confirm('Delete this lead?')) deleteLead(lead.id) }}
                   disabled={deleting}
-                  className="text-xs p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  className="p-1.5 rounded-lg text-red-300 hover:bg-red-50 hover:text-red-500 transition-colors"
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={12} />
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -141,52 +147,66 @@ export function LeadsPage() {
   const { data: leads = [], isLoading } = useLeads(filter !== 'all' ? filter : undefined)
   const { data: stats } = useLeadStats()
 
-  const TABS: Array<{ value: LeadStatus | 'all'; label: string }> = [
-    { value: 'all',       label: `All (${stats?.total ?? 0})`         },
-    { value: 'new',       label: `New (${stats?.new ?? 0})`           },
-    { value: 'contacted', label: `Contacted (${stats?.contacted ?? 0})`},
-    { value: 'qualified', label: `Qualified (${stats?.qualified ?? 0})`},
-    { value: 'closed',    label: `Closed (${stats?.closed ?? 0})`     },
+  const TABS: Array<{ value: LeadStatus | 'all'; label: string; color: string }> = [
+    { value: 'all',       label: `All`,       color: 'text-gray-600'  },
+    { value: 'new',       label: `New`,       color: 'text-blue-600'  },
+    { value: 'contacted', label: `Contacted`, color: 'text-amber-600' },
+    { value: 'qualified', label: `Qualified`, color: 'text-green-600' },
+    { value: 'closed',    label: `Closed`,    color: 'text-gray-500'  },
   ]
 
+  const conversionRate = stats && stats.total > 0
+    ? Math.round((stats.closed ?? 0) / stats.total * 100)
+    : 0
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-3xl mx-auto space-y-5">
+
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Potential Customers</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Captured from your campaign landing pages</p>
+      <div>
+        <div className="flex items-center gap-2 mb-0.5">
+          <Brain size={15} className="text-violet-500" />
+          <span className="text-xs font-bold uppercase tracking-widest text-violet-600">AI Lead Intent Engine</span>
         </div>
+        <h1 className="text-xl font-bold text-gray-900">Potential Customers</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          AI-scored leads ranked by conversion probability
+        </p>
       </div>
 
-      {/* Stats row */}
+      {/* Stats */}
       {stats && stats.total > 0 && (
         <>
-          <div className="grid grid-cols-3 gap-3">
-            <Card><CardContent className="py-3">
-              <p className="text-xs text-gray-500">Total Customers</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.total}</p>
-            </CardContent></Card>
-            <Card><CardContent className="py-3">
-              <p className="text-xs text-gray-500">Qualified</p>
-              <p className="text-2xl font-bold text-green-600 mt-0.5">{stats.qualified}</p>
-            </CardContent></Card>
-            <Card><CardContent className="py-3">
-              <p className="text-xs text-gray-500 flex items-center gap-1"><Star size={11} />Avg Score</p>
-              <p className="text-2xl font-bold text-gray-900 mt-0.5">{stats.avgScore}%</p>
-            </CardContent></Card>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white rounded-xl border border-gray-200 px-4 py-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 flex items-center gap-1"><Users size={12} /> Total</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-green-200 ring-1 ring-green-50 px-4 py-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 flex items-center gap-1"><CheckCircle2 size={12} /> Qualified</p>
+              <p className="text-2xl font-bold text-green-600">{stats.qualified}</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 px-4 py-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 flex items-center gap-1"><TrendingUp size={12} /> Conversion</p>
+              <p className="text-2xl font-bold text-gray-900">{conversionRate}%</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 px-4 py-4">
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 flex items-center gap-1"><Star size={12} /> Avg Score</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.avgScore}%</p>
+            </div>
           </div>
-          {/* Intent quality summary */}
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-100 text-sm flex-wrap">
-            <span className="text-xs text-gray-500 font-medium">Lead Quality:</span>
+
+          {/* Intent distribution */}
+          <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 flex items-center gap-4 flex-wrap">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Lead Intent:</span>
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200 text-xs font-bold">
-              <Flame size={11} />🔥 HOT: {stats.hot ?? 0}
+              <Flame size={10} /> HOT: {stats.hot ?? 0}
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold">
-              <Activity size={11} />⚡ WARM: {stats.medium ?? 0}
+              <Activity size={10} /> WARM: {stats.medium ?? 0}
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-50 text-slate-600 border border-slate-200 text-xs font-bold">
-              <Snowflake size={11} />❄ COLD: {stats.low ?? 0}
+              <Snowflake size={10} /> COLD: {stats.low ?? 0}
             </span>
           </div>
         </>
@@ -194,17 +214,21 @@ export function LeadsPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-1.5 flex-wrap">
-        {TABS.map(({ value, label }) => (
+        {TABS.map(({ value, label, color }) => (
           <button
             key={value}
             onClick={() => setFilter(value)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
               filter === value
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                ? 'bg-gray-900 text-white'
+                : `bg-gray-100 ${color} hover:bg-gray-200`
             }`}
           >
-            {label}
+            {label} {stats && (
+              <span className="opacity-70">
+                ({value === 'all' ? stats.total : value === 'new' ? stats.new : value === 'contacted' ? stats.contacted : value === 'qualified' ? stats.qualified : stats.closed ?? 0})
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -223,7 +247,7 @@ export function LeadsPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {leads.map(l => <LeadCard key={l.id} lead={l} />)}
         </div>
       )}
