@@ -14,7 +14,7 @@ import {
   ExternalLink, Sparkles, Megaphone, DollarSign,
   FileText, Layout, RefreshCw, ArrowRight, Target,
   AlertTriangle, CheckCircle2, Zap, Rocket, TrendingUp,
-  ChevronRight, X, Users, Brain, ShieldAlert, BarChart3,
+  ChevronRight, Users, Brain, ShieldAlert, BarChart3,
 } from 'lucide-react'
 import type { DetectedChangeWithCompetitor, Competitor, Opportunity, RecommendationAction } from '../types/database.types'
 

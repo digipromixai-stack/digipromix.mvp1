@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { Shield, ArrowLeft } from 'lucide-react'
-import { Logo } from '../components/brand/Logo'
 
 export function PrivacyPage() {
   const lastUpdated = 'May 25, 2026'
