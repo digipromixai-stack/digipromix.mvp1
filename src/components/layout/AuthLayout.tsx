@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { TrendingUp } from 'lucide-react'
+import { Logo } from '../brand/Logo'
 
 export function AuthLayout({ children, title, subtitle }: { children: ReactNode; title: string; subtitle?: string }) {
   return (
@@ -24,9 +24,7 @@ export function AuthLayout({ children, title, subtitle }: { children: ReactNode;
             to="/"
             className="inline-flex items-center gap-2.5 mb-5 group"
           >
-            <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-brand shadow-soft-md group-hover:shadow-soft-lg transition-shadow">
-              <TrendingUp size={20} className="text-white" strokeWidth={2.25} />
-            </span>
+            <Logo className="w-10 h-10 rounded-xl bg-white shadow-soft-md p-1.5" />
             <span className="text-2xl font-bold tracking-tight text-gray-900">Digipromix</span>
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight text-balance">

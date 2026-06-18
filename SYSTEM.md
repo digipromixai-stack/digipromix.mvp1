@@ -77,7 +77,7 @@ supabase/
     ├── crawl-page/             # ...
     └── …
 
-public/                         # Static assets (robots.txt, og-image.png, logo.svg)
+public/                         # Static assets (robots.txt, og-image.png, digipromix-logo.png)
 index.html                      # SEO meta + JSON-LD
 vercel.json                     # Vercel rewrites + headers
 ```
