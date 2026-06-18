@@ -1,7 +1,7 @@
-import { HTMLAttributes } from 'react'
+import { ImgHTMLAttributes } from 'react'
 import { cn } from '../../lib/utils'
 
-type LogoProps = HTMLAttributes<HTMLImageElement>
+type LogoProps = ImgHTMLAttributes<HTMLImageElement>
 
 export function Logo({ className, alt = 'DigiPromix AI', ...props }: LogoProps) {
   return (
