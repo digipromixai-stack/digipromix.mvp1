@@ -22,7 +22,7 @@
       ]
     },
     {
-      "source": "/logo.svg",
+      "source": "/digipromix-logo.png",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=604800, immutable" }
       ]

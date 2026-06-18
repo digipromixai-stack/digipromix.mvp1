@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Building2, Activity, Bell, Settings, BarChart2, Menu, X, Rocket, Zap, Users, Briefcase, Target } from 'lucide-react'
+import { Logo } from '../brand/Logo'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
@@ -86,7 +87,7 @@ export function Sidebar() {
         {/* Brand */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-white/5">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.svg" alt="DigiPromix AI" className="w-8 h-8 rounded-lg object-contain" />
+            <Logo className="w-8 h-8 rounded-lg bg-white/10 p-1" />
             <span className="text-lg font-bold tracking-tight">DigiPromix <span className="text-blue-400">AI</span></span>
           </div>
           <button

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Shield, ArrowLeft } from 'lucide-react'
+import { Logo } from '../components/brand/Logo'
 
 export function PrivacyPage() {
   const lastUpdated = 'May 25, 2026'
@@ -14,7 +15,7 @@ export function PrivacyPage() {
             <span className="text-sm font-medium">Back to home</span>
           </Link>
           <Link to="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="DigiPromix" className="w-7 h-7 rounded-lg" />
+            <Logo className="w-7 h-7 rounded-lg bg-white p-1 shadow-soft" />
             <span className="text-base font-bold tracking-tight">DigiPromix <span className="text-blue-600">AI</span></span>
           </Link>
         </div>
