@@ -27,7 +27,7 @@ export function LoginPage() {
     if (error) {
       setError(error.message)
     } else {
-      navigate('/dashboard')
+      navigate('/opportunities')
     }
   }
 
