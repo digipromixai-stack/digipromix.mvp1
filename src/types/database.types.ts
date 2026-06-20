@@ -114,6 +114,10 @@ export interface AlertPreferences {
   email_alerts: boolean
   dashboard_alerts: boolean
   alert_on: ChangeType[]
+  webhook_url: string | null
+  webhook_enabled: boolean
+  whatsapp_number: string | null
+  whatsapp_alerts: boolean
   created_at: string
   updated_at: string
 }
@@ -158,8 +162,8 @@ interface DetectedChangeUpdate { is_read?: boolean }
 interface AlertInsert { user_id: string; change_id: string; channel: AlertChannel; status?: AlertStatus }
 interface AlertUpdate { status?: AlertStatus; sent_at?: string | null }
 
-interface AlertPreferencesInsert { user_id: string; email_alerts?: boolean; dashboard_alerts?: boolean; alert_on?: ChangeType[] }
-interface AlertPreferencesUpdate { email_alerts?: boolean; dashboard_alerts?: boolean; alert_on?: ChangeType[] }
+interface AlertPreferencesInsert { user_id: string; email_alerts?: boolean; dashboard_alerts?: boolean; alert_on?: ChangeType[]; webhook_url?: string | null; webhook_enabled?: boolean; whatsapp_number?: string | null; whatsapp_alerts?: boolean }
+interface AlertPreferencesUpdate { email_alerts?: boolean; dashboard_alerts?: boolean; alert_on?: ChangeType[]; webhook_url?: string | null; webhook_enabled?: boolean; whatsapp_number?: string | null; whatsapp_alerts?: boolean }
 
 interface CrawlJobInsert { competitor_id: string; monitored_page_id?: string | null; status?: CrawlJobStatus }
 interface CrawlJobUpdate { status?: CrawlJobStatus; error_message?: string | null; started_at?: string | null; completed_at?: string | null }
@@ -314,7 +318,7 @@ interface CampaignUpdate {
 
 export type SignalType = 'competitor_change' | 'google_trends' | 'meta_ad_library' | 'seo_rank' | 'social_engagement'
 export type OpportunityStatus = 'open' | 'dismissed' | 'launched' | 'expired'
-export type RecommendationAction = 'launch_campaign' | 'adjust_budget' | 'pause_campaign' | 'change_creative' | 'change_audience' | 'scale_campaign' | 'reactivate' | 'setup_tracking'
+export type RecommendationAction = 'launch_campaign' | 'adjust_budget' | 'pause_campaign' | 'change_creative' | 'change_audience' | 'scale_campaign' | 'reactivate' | 'setup_tracking' | 'rising_cpc' | 'declining_ctr' | 'conversion_drop' | 'ad_fatigue' | 'performance_check'
 export type LeadIntentScore = 'HOT' | 'MEDIUM' | 'LOW'
 
 export interface Signal {

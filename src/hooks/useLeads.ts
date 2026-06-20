@@ -1,14 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import type { LeadWithCampaign, LeadStatus } from '../types/database.types'
 
 export function useLeads(status?: LeadStatus) {
+  const { user } = useAuth()
   return useQuery<LeadWithCampaign[]>({
-    queryKey: ['leads', status],
+    queryKey: ['leads', status, user?.id],
     queryFn: async () => {
       let q = supabase
         .from('leads')
         .select('*, campaigns(campaign_name, competitor_name)')
+        .eq('user_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(200)
       if (status) q = q.eq('status', status)
@@ -16,6 +19,7 @@ export function useLeads(status?: LeadStatus) {
       if (error) throw error
       return (data ?? []) as LeadWithCampaign[]
     },
+    enabled: !!user,
   })
 }
 
@@ -42,12 +46,14 @@ export function useDeleteLead() {
 }
 
 export function useLeadStats() {
+  const { user } = useAuth()
   return useQuery({
-    queryKey: ['lead_stats'],
+    queryKey: ['lead_stats', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
         .select('status, score')
+        .eq('user_id', user!.id)
       if (error) throw error
       const all = data ?? []
       return {
@@ -62,5 +68,6 @@ export function useLeadStats() {
         low:    all.filter(l => (l.score ?? 0) < 40).length,
       }
     },
+    enabled: !!user,
   })
 }

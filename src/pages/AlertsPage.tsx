@@ -32,23 +32,25 @@ export function AlertsPage() {
 
   const markAllRead = useMutation({
     mutationFn: async () => {
-      await supabase
+      const { error } = await supabase
         .from('alerts')
         .update({ status: 'sent' as const })
         .eq('user_id', user!.id)
         .eq('channel', 'dashboard')
         .eq('status', 'pending')
+      if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts'] }),
   })
 
   const markOneRead = useMutation({
     mutationFn: async (alertId: string) => {
-      await supabase
+      const { error } = await supabase
         .from('alerts')
         .update({ status: 'sent' as const })
         .eq('id', alertId)
         .eq('status', 'pending')
+      if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['alerts'] }),
   })
@@ -127,13 +129,19 @@ export function AlertsPage() {
                       </p>
                     )}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <Link
-                        to={`/timeline/${alert.detected_changes?.competitor_id}`}
-                        onClick={() => { if (alert.status === 'pending') markOneRead.mutate(alert.id) }}
-                        className="text-xs font-medium text-blue-600 hover:underline"
-                      >
-                        {alert.detected_changes?.competitors?.name}
-                      </Link>
+                      {alert.detected_changes?.competitor_id ? (
+                        <Link
+                          to={`/timeline/${alert.detected_changes.competitor_id}`}
+                          onClick={() => { if (alert.status === 'pending') markOneRead.mutate(alert.id) }}
+                          className="text-xs font-medium text-blue-600 hover:underline"
+                        >
+                          {alert.detected_changes?.competitors?.name}
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-gray-500">
+                          {alert.detected_changes?.competitors?.name}
+                        </span>
+                      )}
                       <span className="text-xs text-gray-300">·</span>
                       <span className="text-xs text-gray-400">{timeAgo(alert.created_at)}</span>
                       {alert.status === 'pending' && (

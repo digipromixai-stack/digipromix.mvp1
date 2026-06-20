@@ -41,6 +41,7 @@ export function CompetitorDetailPage() {
         .from('detected_changes')
         .select('*, competitors(id, name, website_url, industry), monitored_pages(url, page_type)')
         .eq('competitor_id', id!)
+        .eq('user_id', user!.id)
         .order('detected_at', { ascending: false })
         .limit(20)
       return (data ?? []) as DetectedChangeWithCompetitor[]

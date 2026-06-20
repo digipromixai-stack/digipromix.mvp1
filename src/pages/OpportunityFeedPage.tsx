@@ -17,6 +17,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ui/Toast'
 import { CampaignModal } from '../components/campaigns/CampaignModal'
 import type { Opportunity, DetectedChangeWithCompetitor } from '../types/database.types'
 
@@ -357,10 +358,10 @@ export function OpportunityFeedPage() {
   const [statusFilter] = useState<'open'>('open')
   const [scoreFilter, setScoreFilter] = useState<'all' | 'hot' | 'medium' | 'watch'>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [_showFilters, setShowFilters] = useState(false)
   const { data: opportunities = [], isLoading, refetch } = useOpportunities({ status: statusFilter })
   const queryClient = useQueryClient()
   const { user } = useAuth()
+  const { toast } = useToast()
 
   // Active campaign-launch context: the opportunity we're acting on + the
   // detected_change row we resolved from metadata.source_change_id
@@ -406,12 +407,10 @@ export function OpportunityFeedPage() {
     const sourceId = meta.source_change_id as string | undefined
 
     if (!sourceId) {
-      // Pure signal opportunity with no competitor change at all — redirect the
-      // user to the Timeline so they can pick the most relevant signal.
-      alert(
-        'This opportunity is based on a market demand signal (e.g. Google Trends spike). '
-        + 'To launch a campaign, go to the Timeline, find a competitor move to counter, '
-        + 'and click "Launch Counter Campaign".',
+      toast(
+        'Go to Timeline → pick a competitor move → click "Launch Counter Campaign".',
+        'info',
+        'Market signal — no competitor change linked',
       )
       return
     }
@@ -423,7 +422,7 @@ export function OpportunityFeedPage() {
         .eq('id', sourceId)
         .single()
       if (error || !data) {
-        alert('Could not load the source signal for this opportunity. It may have been pruned.')
+        toast('Could not load the source signal — it may have been pruned.', 'error', 'Signal not found')
         return
       }
       setActiveChange(data as DetectedChangeWithCompetitor)
@@ -463,10 +462,14 @@ export function OpportunityFeedPage() {
 
   // Dismiss → flip status to 'dismissed' so it falls out of the open feed
   async function handleDismiss(opp: Opportunity) {
-    await supabase
+    const { error } = await supabase
       .from('opportunities')
       .update({ status: 'dismissed' })
       .eq('id', opp.id)
+    if (error) {
+      toast('Failed to dismiss opportunity', 'error')
+      return
+    }
     queryClient.invalidateQueries({ queryKey: ['opportunities'] })
   }
 
@@ -518,17 +521,6 @@ export function OpportunityFeedPage() {
               className="border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-sm w-48 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
           </div>
-          <button
-            onClick={() => setShowFilters(v => !v)}
-            className={`border rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5 transition-colors ${
-              scoreFilter !== 'all'
-                ? 'border-blue-400 text-blue-700 bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <Filter size={14} /> Filters
-            {scoreFilter !== 'all' && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 ml-0.5" />}
-          </button>
           <button onClick={() => refetch()} className="border border-gray-200 hover:border-gray-300 rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5">
             <RefreshCcw size={14} /> Refresh
           </button>
