@@ -15,7 +15,7 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-const GRAPH = 'https://graph.facebook.com/v19.0'
+import { META_GRAPH as GRAPH } from '../_shared/config.ts'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

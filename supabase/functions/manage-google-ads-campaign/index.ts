@@ -15,7 +15,7 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-const ADS_API = 'https://googleads.googleapis.com/v20'
+import { GOOGLE_ADS_API as ADS_API } from '../_shared/config.ts'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

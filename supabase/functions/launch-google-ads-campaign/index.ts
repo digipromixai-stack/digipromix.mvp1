@@ -19,7 +19,7 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-const ADS_API = 'https://googleads.googleapis.com/v20'
+import { GOOGLE_ADS_API as ADS_API, CAMPAIGN_DURATION_DAYS, CPC_BUDGET_RATIO, CPC_HARD_CAP_USD, KEYWORD_LIMIT } from '../_shared/config.ts'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -460,7 +460,7 @@ Deno.serve(async (req) => {
     // ── 2. Campaign (PAUSED Search) ────────────────────────────────────────────
     const now = new Date()
     const start = now.toISOString().slice(0, 10).replace(/-/g, '')
-    const end = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
+    const end = new Date(now.getTime() + CAMPAIGN_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10).replace(/-/g, '')
 
     // containsEuPoliticalAdvertising: proto enum NOT_EU_POLITICAL_ADVERTISING = 2
     // REST API v20 requires this field. Integer 2 = NOT_EU_POLITICAL_ADVERTISING.
@@ -468,7 +468,7 @@ Deno.serve(async (req) => {
     // Google automatically sets bids to get the most clicks within the daily budget.
     // cpcBidCeilingMicros caps the max CPC so budget isn't blown on a single click.
     // REST API v20 field name is "targetSpend" (not "maximizeClicks").
-    const maxCpcMicros = String(Math.round(Math.min(budgetUsd * 0.3, 5) * 1_000_000))
+    const maxCpcMicros = String(Math.round(Math.min(budgetUsd * CPC_BUDGET_RATIO, CPC_HARD_CAP_USD) * 1_000_000))
 
     const campaignRes = await mutate(ctx, '/campaigns:mutate', [{
       create: {
@@ -569,7 +569,7 @@ Deno.serve(async (req) => {
     // Use all 3 per keyword to cover the full search intent spectrum.
     if (kwList.length > 0) {
       const kwOps: unknown[] = []
-      kwList.slice(0, 8).forEach((kw) => {
+      kwList.slice(0, KEYWORD_LIMIT).forEach((kw) => {
         const text = sanitize(kw).slice(0, 80)
         if (!text) return
         kwOps.push({ create: { adGroup: gAdGroupRN, status: 'ENABLED', keyword: { text, matchType: 'BROAD'  } } })

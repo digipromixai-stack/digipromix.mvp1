@@ -18,7 +18,7 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-const GRAPH = 'https://graph.facebook.com/v19.0'
+import { META_GRAPH as GRAPH, DEFAULT_COUNTRIES, DEFAULT_AGE_MIN, DEFAULT_AGE_MAX } from '../_shared/config.ts'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -191,10 +191,18 @@ Deno.serve(async (req) => {
     )
 
     const reqBody = await req.json().catch(() => ({}))
-    const { campaign_id, daily_budget_usd, landing_page_url, image_url } = reqBody as {
+    const { campaign_id, daily_budget_usd, landing_page_url, image_url,
+            target_countries, age_min, age_max } = reqBody as {
       campaign_id?: string; daily_budget_usd?: number; landing_page_url?: string; image_url?: string
+      target_countries?: string[]; age_min?: number; age_max?: number
     }
     if (!campaign_id) return json({ error: 'campaign_id required' }, 400)
+
+    // Targeting — request body wins, then env-var defaults
+    const targetCountries = (Array.isArray(target_countries) && target_countries.length > 0)
+      ? target_countries : DEFAULT_COUNTRIES
+    const targetAgeMin = (typeof age_min === 'number' && age_min >= 13) ? age_min : DEFAULT_AGE_MIN
+    const targetAgeMax = (typeof age_max === 'number' && age_max <= 65)  ? age_max : DEFAULT_AGE_MAX
 
     // Fetch our campaign
     const { data: campaign, error: campErr } = await admin
@@ -331,9 +339,9 @@ Deno.serve(async (req) => {
       optimization_goal: 'LINK_CLICKS',
       destination_type:  'WEBSITE',
       targeting: {
-        geo_locations: { countries: ['US'] },
-        age_min: 18,
-        age_max: 65,
+        geo_locations: { countries: targetCountries },
+        age_min: targetAgeMin,
+        age_max: targetAgeMax,
       },
       status: 'ACTIVE',
     })
