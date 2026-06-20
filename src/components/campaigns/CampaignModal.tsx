@@ -42,6 +42,15 @@ interface Props {
     confidence?:         number | null
     industry?:           string | null
   }
+  // Passed from CounterPlayPanel — pre-fills budget, channels, and shows
+  // panel-computed content in the generate step for continuity.
+  counterHint?: {
+    budget:      number
+    channels:    string[]
+    headline:    string
+    primaryText: string
+    offer:       string
+  }
 }
 
 type Step = 'generate' | 'preview' | 'posted'
@@ -84,7 +93,7 @@ function Field({ label, value, multiline }: { label: string; value: string; mult
   )
 }
 
-export function CampaignModal({ change, open, onClose, opportunityHint }: Props) {
+export function CampaignModal({ change, open, onClose, opportunityHint, counterHint }: Props) {
   const qc = useQueryClient()
   const { metaIntegration }    = useMetaIntegration()
   const { googleIntegration }  = useGoogleAdsIntegration()
@@ -94,7 +103,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState<string | null>(null)
   const [campaign, setCampaign]       = useState<Campaign | null>(null)
-  const [selectedChannels, setSelectedChannels] = useState<string[]>(['meta'])
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(counterHint?.channels ?? ['meta'])
   const [posting, setPosting]         = useState(false)
   const [landingUrl, setLandingUrl]   = useState('')
   const [metaResult, setMetaResult]   = useState<{ meta_campaign_id?: string } | null>(null)
@@ -106,7 +115,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
   } | null>(null)
   // New fields
   const [template, setTemplate]       = useState<LandingTemplate>('default')
-  const [dailyBudget, setDailyBudget] = useState('')
+  const [dailyBudget, setDailyBudget] = useState(counterHint?.budget ? String(counterHint.budget) : '')
   const [clientId, setClientId]       = useState('')
   const [imageUrl, setImageUrl]       = useState('')
   const [insights, setInsights]       = useState<{ competitor_offer?: string; offer_justification?: string } | null>(null)
@@ -198,7 +207,10 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
   const handleClose = () => {
     const wasLaunched = step === 'posted'
     setStep('generate'); setError(null); setCampaign(null); setMetaResult(null); setGoogleResult(null)
-    setTemplate('default'); setDailyBudget(''); setClientId(''); setImageUrl(''); setInsights(null)
+    setTemplate('default')
+    setDailyBudget(counterHint?.budget ? String(counterHint.budget) : '')
+    setSelectedChannels(counterHint?.channels ?? ['meta'])
+    setClientId(''); setImageUrl(''); setInsights(null)
     setLaunchModes({ meta: 'managed', google: 'managed' }); setManagedBusinessName('')
     onClose(wasLaunched)
   }
@@ -372,6 +384,34 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
               {change.description && <p className="text-xs text-orange-700 mt-1 line-clamp-2">{change.description}</p>}
             </div>
           </div>
+
+          {/* Counter-play panel preview — shows the headline/offer already computed in the panel */}
+          {counterHint && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 space-y-2.5">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Zap size={11} className="text-indigo-600" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Counter-play preview</span>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Headline</p>
+                <p className="text-sm font-bold text-gray-900 leading-snug">{counterHint.headline}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Your offer</p>
+                <p className="text-xs font-semibold text-emerald-700">{counterHint.offer}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Primary text</p>
+                <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{counterHint.primaryText}</p>
+              </div>
+              <div className="flex items-center gap-2 pt-1 border-t border-indigo-100">
+                <span className="text-[10px] font-mono font-semibold text-indigo-500">${counterHint.budget}/day</span>
+                <span className="text-gray-300">·</span>
+                <span className="text-[10px] text-indigo-500 font-semibold">{counterHint.channels.map(c => c === 'meta' ? 'Meta' : 'Google').join(' + ')}</span>
+                <span className="ml-auto text-[9px] text-indigo-400 italic">AI will enrich this →</span>
+              </div>
+            </div>
+          )}
 
           {/* MVP 2.0 — pre-fill panel from Opportunity Radar */}
           {opportunityHint && (opportunityHint.recommended_budget != null || opportunityHint.expected_leads != null) && (
