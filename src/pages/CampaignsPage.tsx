@@ -4,7 +4,7 @@ import {
   CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
   AlertTriangle, TrendingDown, ZapOff, DollarSign, Sparkles, RefreshCw,
   Target, Brain, X, Check, ChevronDown, ChevronUp, BarChart2, Pencil,
-  Settings, BarChart, Zap,
+  Settings, BarChart, Zap, LayoutList, Columns,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../components/ui/Toast'
@@ -614,9 +614,122 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   )
 }
 
+// ── Compact Kanban card ───────────────────────────────────────────────────────
+
+function KanbanCard({ campaign }: { campaign: Campaign }) {
+  const { mutate: updateStatus, isPending } = useUpdateCampaignStatus()
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-3 hover:shadow-sm transition-shadow">
+      <div className="flex items-start gap-2 mb-2">
+        <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
+          <Rocket size={13} className="text-orange-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-2">{campaign.campaign_name}</p>
+          <p className="text-[10px] text-gray-400 mt-0.5 truncate">vs {campaign.competitor_name}</p>
+        </div>
+      </div>
+      {/* Metrics row */}
+      <div className="flex items-center gap-2 text-[10px] text-gray-400 mb-2">
+        {campaign.leads_count > 0 && (
+          <span className="flex items-center gap-0.5 text-green-600 font-semibold">
+            <Users size={9} /> {campaign.leads_count}
+          </span>
+        )}
+        {campaign.daily_budget && (
+          <span className="flex items-center gap-0.5">
+            <DollarSign size={9} /> {campaign.daily_budget}/day
+          </span>
+        )}
+        {campaign.channels.length > 0 && (
+          <span className="flex items-center gap-0.5">
+            {campaign.channels.slice(0,2).map(ch => {
+              const Icon = { google: Search, meta: Globe, instagram: Share2 }[ch] ?? Globe
+              return <Icon key={ch} size={9} />
+            })}
+          </span>
+        )}
+      </div>
+      {/* Quick actions */}
+      <div className="flex gap-1">
+        {campaign.status === 'draft' && (
+          <button
+            onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+            disabled={isPending}
+            className="flex-1 text-[10px] font-bold py-1 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+          >
+            Activate
+          </button>
+        )}
+        {campaign.status === 'active' && (
+          <button
+            onClick={() => updateStatus({ id: campaign.id, status: 'paused', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+            disabled={isPending}
+            className="flex-1 text-[10px] font-bold py-1 rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors disabled:opacity-50"
+          >
+            Pause
+          </button>
+        )}
+        {campaign.status === 'paused' && (
+          <button
+            onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+            disabled={isPending}
+            className="flex-1 text-[10px] font-bold py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-50"
+          >
+            Resume
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Kanban board ──────────────────────────────────────────────────────────────
+
+const KANBAN_COLS: { status: CampaignStatus; label: string; color: string; dot: string }[] = [
+  { status: 'draft',     label: 'Draft',     color: '#6b7280', dot: '#d1d5db' },
+  { status: 'active',    label: 'Running',   color: '#1f9d5b', dot: '#6ee7b7' },
+  { status: 'paused',    label: 'Paused',    color: '#d9920a', dot: '#fcd34d' },
+  { status: 'completed', label: 'Completed', color: '#2563eb', dot: '#93c5fd' },
+]
+
+function KanbanBoard({ campaigns }: { campaigns: Campaign[] }) {
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2">
+      {KANBAN_COLS.map(col => {
+        const colCampaigns = campaigns.filter(c => c.status === col.status)
+        return (
+          <div key={col.status} className="shrink-0 w-64 flex flex-col">
+            {/* Column header */}
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <span className="w-2 h-2 rounded-full" style={{ background: col.dot }} />
+              <span className="text-xs font-bold text-gray-700 uppercase tracking-[.06em]">{col.label}</span>
+              <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#f1f2f4', color: col.color }}>
+                {colCampaigns.length}
+              </span>
+            </div>
+            {/* Cards */}
+            <div className="flex flex-col gap-2 min-h-16">
+              {colCampaigns.length === 0 ? (
+                <div className="border-2 border-dashed border-gray-100 rounded-xl py-6 text-center">
+                  <p className="text-[10px] text-gray-300 font-semibold">No {col.label.toLowerCase()} campaigns</p>
+                </div>
+              ) : (
+                colCampaigns.map(c => <KanbanCard key={c.id} campaign={c} />)
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function CampaignsPage() {
   const { data: campaigns = [], isLoading } = useCampaigns()
   const [filter, setFilter] = useState<CampaignStatus | 'all'>('all')
+  const [view, setView] = useState<'list' | 'kanban'>('list')
 
   const filtered = filter === 'all' ? campaigns : campaigns.filter(c => c.status === filter)
 
@@ -627,7 +740,7 @@ export function CampaignsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className={view === 'kanban' ? 'space-y-5' : 'max-w-3xl mx-auto space-y-5'}>
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -635,16 +748,33 @@ export function CampaignsPage() {
             <Brain size={15} className="text-violet-500" />
             <span className="text-xs font-bold uppercase tracking-widest text-violet-600">AI Campaign Intelligence</span>
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Campaigns</h1>
+          <h1 className="text-xl font-bold text-gray-900">Campaign Studio</h1>
           <p className="text-sm text-gray-500 mt-0.5">AI-generated counter-campaigns from competitor moves</p>
         </div>
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-1.5 px-3 py-2 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-colors shadow-sm shrink-0"
-        >
-          <Plus size={14} />
-          New from signal
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* View toggle */}
+          <div className="flex items-center rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <button
+              onClick={() => setView('list')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold transition-colors ${view === 'list' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              <LayoutList size={12} /> List
+            </button>
+            <button
+              onClick={() => setView('kanban')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold transition-colors ${view === 'kanban' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              <Columns size={12} /> Kanban
+            </button>
+          </div>
+          <Link
+            to="/interception"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-colors shadow-sm"
+          >
+            <Plus size={14} />
+            New from signal
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -669,42 +799,59 @@ export function CampaignsPage() {
       {/* AI Recommendations panel — only visible when optimize-campaigns has flagged issues */}
       <AiRecommendationsPanel />
 
-      {/* Filter tabs */}
-      {campaigns.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap">
-          {(['all', 'active', 'draft', 'paused', 'completed'] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize ${
-                filter === s
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* List */}
-      {isLoading ? (
-        <div className="flex justify-center py-12"><Spinner /></div>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Rocket}
-          title={filter === 'all' ? 'No campaigns yet' : `No ${filter} campaigns`}
-          description={
-            filter === 'all'
-              ? 'Go to the Dashboard, find a competitor signal and click "Launch Counter Campaign" to generate your first AI campaign.'
-              : undefined
-          }
-        />
+      {/* Kanban view */}
+      {view === 'kanban' ? (
+        isLoading ? (
+          <div className="flex justify-center py-12"><Spinner /></div>
+        ) : campaigns.length === 0 ? (
+          <EmptyState
+            icon={Rocket}
+            title="No campaigns yet"
+            description="Go to Counter Campaign, find a competitor signal and launch your first AI counter-campaign."
+          />
+        ) : (
+          <KanbanBoard campaigns={campaigns} />
+        )
       ) : (
-        <div className="space-y-3">
-          {filtered.map(c => <CampaignCard key={c.id} campaign={c} />)}
-        </div>
+        <>
+          {/* Filter tabs (list view only) */}
+          {campaigns.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap">
+              {(['all', 'active', 'draft', 'paused', 'completed'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize ${
+                    filter === s
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* List */}
+          {isLoading ? (
+            <div className="flex justify-center py-12"><Spinner /></div>
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={Rocket}
+              title={filter === 'all' ? 'No campaigns yet' : `No ${filter} campaigns`}
+              description={
+                filter === 'all'
+                  ? 'Go to Counter Campaign, find a competitor signal and click "Launch counter-campaign" to generate your first AI campaign.'
+                  : undefined
+              }
+            />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map(c => <CampaignCard key={c.id} campaign={c} />)}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

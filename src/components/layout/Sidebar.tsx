@@ -20,7 +20,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Revenue',
     items: [
-      { to: '/dashboard',     icon: LayoutDashboard, label: 'AI Home'         },
+      { to: '/dashboard',     icon: LayoutDashboard, label: 'Revenue Center'  },
       { to: '/opportunities', icon: Target,          label: 'Opportunities',  highlight: true, badge: 'AI' },
       { to: '/interception',  icon: Zap,             label: 'Counter Campaign' },
     ],

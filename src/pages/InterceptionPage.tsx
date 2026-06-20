@@ -438,7 +438,7 @@ function CounterPlayPanel({
           </div>
         </div>
 
-        {/* Lead predictor */}
+        {/* Business Impact row */}
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-[11px] p-3 text-center" style={{ background: '#fafbfc', border: '1px solid #eceef1' }}>
             <div className="font-mono text-xl font-bold text-gray-900 leading-none">{leads}</div>
@@ -451,6 +451,65 @@ function CounterPlayPanel({
           <div className="rounded-[11px] p-3 text-center" style={{ background: '#e9f7ef', border: '1px solid #c3ebd4' }}>
             <div className="font-mono text-xl font-bold leading-none" style={{ color: '#1f9d5b' }}>{roi}×</div>
             <div className="text-[9.5px] font-semibold uppercase tracking-[.03em] mt-1.5" style={{ color: '#1f9d5b' }}>Est. ROI</div>
+          </div>
+        </div>
+
+        {/* Potential Revenue */}
+        <div className="rounded-[11px] px-3.5 py-2.5 flex items-center gap-3" style={{ background: 'linear-gradient(135deg,#f0f7ff,#eef2ff)', border: '1px solid #dbe8fd' }}>
+          <DollarSign size={14} style={{ color: '#2563eb', flexShrink: 0 }} />
+          <div className="flex-1">
+            <div className="text-[9.5px] font-bold uppercase tracking-[.06em] text-blue-400 mb-0.5">Potential revenue</div>
+            <div className="font-mono text-[15px] font-bold" style={{ color: '#2563eb' }}>
+              ${(leads * VALUE_PER_LEAD).toLocaleString()}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[9.5px] font-bold uppercase tracking-[.06em] text-gray-400 mb-0.5">Confidence</div>
+            <div className="font-mono text-[13px] font-bold text-gray-700">{confidence}%</div>
+          </div>
+        </div>
+
+        {/* AI Campaign Simulator */}
+        <div>
+          <div className="text-[11px] font-bold tracking-[.04em] text-gray-500 mb-2 flex items-center gap-1.5">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="text-violet-500">
+              <path d="M12 2 9.2 9.2 2 12l7.2 2.8L12 22l2.8-7.2L22 12l-7.2-2.8z"/>
+            </svg>
+            AI Campaign Simulator
+          </div>
+          <div className="rounded-[12px] overflow-hidden" style={{ border: '1px solid #e8eaee' }}>
+            <div className="px-3.5 py-2 flex items-center" style={{ background: '#fafbfc', borderBottom: '1px solid #eceef1' }}>
+              <span className="text-[10px] font-bold uppercase tracking-[.06em] text-gray-400">Predicted leads by channel</span>
+              <span className="ml-auto text-[10px] font-semibold" style={{ color: '#6d4aff' }}>⭐ = Recommended</span>
+            </div>
+            {(() => {
+              const channels = [
+                { label: 'Instagram', emoji: '📸', multiplier: 1.35, best: true  },
+                { label: 'Google Ads', emoji: 'G',  multiplier: 1.0,  best: false },
+                { label: 'WhatsApp',  emoji: '💬', multiplier: 0.65, best: false },
+              ]
+              return channels.map(({ label, emoji, multiplier, best }) => {
+                const chLeads = Math.max(1, Math.round(leads * multiplier))
+                const chRoi   = ((chLeads * VALUE_PER_LEAD) / weekly).toFixed(1)
+                return (
+                  <div
+                    key={label}
+                    className="flex items-center gap-3 px-3.5 py-2.5"
+                    style={{ borderBottom: '1px solid #f5f6f8', background: best ? '#f8f9ff' : '#fff' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center text-sm shrink-0" style={{ background: '#f1f2f4', fontFamily: 'monospace', fontSize: 11, fontWeight: 700 }}>
+                      {emoji}
+                    </span>
+                    <span className="flex-1 text-[12.5px] font-semibold text-gray-700">{label}</span>
+                    <span className="font-mono text-[12.5px] font-bold text-gray-900">{chLeads} leads</span>
+                    <span className="font-mono text-[11px] text-gray-400 ml-2">{chRoi}× ROI</span>
+                    {best && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full ml-1" style={{ background: '#e9f7ef', color: '#1f9d5b' }}>⭐ Best</span>
+                    )}
+                  </div>
+                )
+              })
+            })()}
           </div>
         </div>
 
@@ -508,7 +567,12 @@ export function InterceptionPage() {
   const { data: leadStats }               = useLeadStats()
 
   const interceptedIds = useMemo(
-    () => new Set(campaigns.map(c => c.change_id).filter(Boolean)),
+    () => new Set(
+      campaigns
+        .filter(c => c.status !== 'draft')
+        .map(c => c.change_id)
+        .filter(Boolean)
+    ),
     [campaigns],
   )
 
@@ -545,8 +609,8 @@ export function InterceptionPage() {
     setInterceptTarget(selectedChange)
   }
 
-  function markLaunched() {
-    if (selectedChange) {
+  function markLaunched(launched?: boolean) {
+    if (launched && selectedChange) {
       setLaunchedSet(prev => new Set([...prev, selectedChange.id]))
     }
     setInterceptTarget(null)
