@@ -59,7 +59,7 @@ function AuthCallback() {
         if (cancelled) return
         if (event === 'SIGNED_IN' && s) {
           subscription.unsubscribe()
-          navigate('/dashboard', { replace: true })
+          navigate('/opportunities', { replace: true })
         }
       })
 
