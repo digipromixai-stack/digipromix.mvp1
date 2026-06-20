@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Building2, ExternalLink, Globe, MoreVertical, Pencil, Trash2, Zap, TrendingUp, ShieldAlert, ArrowRight } from 'lucide-react'
+import { Plus, Building2, ExternalLink, MoreVertical, Pencil, Trash2, ShieldAlert, ArrowRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useCompetitors, useDeleteCompetitor } from '../hooks/useCompetitors'
 import { CompetitorForm } from '../components/competitors/CompetitorForm'
@@ -37,7 +37,6 @@ function IntelligenceCard({ competitor, intel }: { competitor: Competitor; intel
   const deleteMutation = useDeleteCompetitor()
 
   const aggression = Math.min(100, intel.high7d * 20 + intel.total7d * 7)
-  const aggressionLabel = aggression >= 70 ? 'HIGH' : aggression >= 35 ? 'MEDIUM' : 'LOW'
   const aggressionColor = aggression >= 70 ? '#e5484d' : aggression >= 35 ? '#d9920a' : '#1f9d5b'
   const aggressionBg    = aggression >= 70 ? '#fdeceb' : aggression >= 35 ? '#fdf3e3' : '#e9f7ef'
 
