@@ -62,10 +62,10 @@ export function SettingsPage() {
     if (prefs) {
       setSelectedAlerts(prefs.alert_on ?? [])
       setEmailAlerts(prefs.email_alerts)
-      setWebhookUrl((prefs as typeof prefs & { webhook_url?: string }).webhook_url ?? '')
-      setWebhookEnabled((prefs as typeof prefs & { webhook_enabled?: boolean }).webhook_enabled ?? false)
-      setWhatsappNumber((prefs as typeof prefs & { whatsapp_number?: string }).whatsapp_number ?? '')
-      setWhatsappAlerts((prefs as typeof prefs & { whatsapp_alerts?: boolean }).whatsapp_alerts ?? false)
+      setWebhookUrl(prefs.webhook_url ?? '')
+      setWebhookEnabled(prefs.webhook_enabled ?? false)
+      setWhatsappNumber(prefs.whatsapp_number ?? '')
+      setWhatsappAlerts(prefs.whatsapp_alerts ?? false)
     } else {
       setSelectedAlerts(['promotion', 'price_change', 'new_landing_page'])
     }

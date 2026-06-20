@@ -27,6 +27,7 @@ export function useRealtimeAlerts() {
           queryClient.invalidateQueries({ queryKey: ['alerts'] })
           queryClient.invalidateQueries({ queryKey: ['detected_changes'] })
           queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] })
+          queryClient.invalidateQueries({ queryKey: ['dashboard_stats_v2'] })
 
           // Show toast for dashboard alerts with real change details
           const alert = payload.new as { channel: string; change_id: string }
