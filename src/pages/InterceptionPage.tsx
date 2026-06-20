@@ -738,10 +738,6 @@ export function InterceptionPage() {
       {interceptTarget && (() => {
         const targetVariant = variantMap[interceptTarget.id] ?? 0
         const headlines = genHeadlines(interceptTarget)
-        const industry  = interceptTarget.competitors?.industry ?? 'General'
-        const cpc       = CPC_MAP[industry] ?? DEFAULT_CPC
-        const weekly    = budget * 7
-        const leads     = Math.max(1, Math.round((weekly / cpc) * CONV_RATE))
         const channels  = [useMeta && 'meta', useGoogle && 'google'].filter(Boolean) as string[]
         return (
           <CampaignModal
