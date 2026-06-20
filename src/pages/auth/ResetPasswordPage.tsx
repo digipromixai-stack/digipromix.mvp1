@@ -25,7 +25,7 @@ export function ResetPasswordPage() {
     setError('')
     const { error } = await supabase.auth.updateUser({ password: data.password })
     if (error) setError(error.message)
-    else navigate('/dashboard')
+    else navigate('/opportunities')
   }
 
   return (
