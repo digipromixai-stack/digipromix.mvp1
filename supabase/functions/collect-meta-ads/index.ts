@@ -47,7 +47,7 @@ const FALLBACK_TOKEN  = Deno.env.get('META_APP_ACCESS_TOKEN')
   ?? Deno.env.get('META_ACCESS_TOKEN')
   ?? (META_APP_ID && META_APP_SECRET ? `${META_APP_ID}|${META_APP_SECRET}` : '')
 
-const META_GRAPH = 'https://graph.facebook.com/v19.0'
+import { META_GRAPH } from '../_shared/config.ts'
 
 // Map competitor's website_url TLD to the 2-letter Ad Library country code.
 // competitors table doesn't have an explicit location column.

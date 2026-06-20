@@ -34,8 +34,12 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
 
-const META_GRAPH = 'https://graph.facebook.com/v19.0'
-const ADS_API    = 'https://googleads.googleapis.com/v20'
+import {
+  META_GRAPH, GOOGLE_ADS_API as ADS_API,
+  OPT_RISING_CPC_MULT, OPT_DECLINING_CTR_MULT, OPT_CONVERSION_DROP_MULT,
+  OPT_FATIGUE_IMP_STABLE, OPT_FATIGUE_CTR_MULT, OPT_FATIGUE_MIN_IMP,
+  OPT_MIN_CLICKS_CVR, OPT_LOOKBACK_DAYS,
+} from '../_shared/config.ts'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -200,12 +204,12 @@ function runDetectors(metrics: DayMetric[]): Detection[] {
   // 1. Rising CPC
   const cpcEarly  = avg(early,  'cpc')
   const cpcRecent = avg(recent, 'cpc')
-  if (cpcEarly > 0 && cpcRecent > cpcEarly * 1.5) {
+  if (cpcEarly > 0 && cpcRecent > cpcEarly * OPT_RISING_CPC_MULT) {
     out.push({
       action_type: 'rising_cpc',
       recommendation: 'Your cost-per-click is climbing. Refresh ad creatives or pause underperforming keywords/audiences.',
       rationale: `CPC rose from ${cpcEarly.toFixed(2)} → ${cpcRecent.toFixed(2)} (${((cpcRecent / cpcEarly - 1) * 100).toFixed(0)}% increase) over the last week.`,
-      priority: cpcRecent > cpcEarly * 2 ? 5 : 4,
+      priority: cpcRecent > cpcEarly * (OPT_RISING_CPC_MULT * 1.33) ? 5 : 4,
       confidence: 0.85,
       metadata: { cpc_early: +cpcEarly.toFixed(2), cpc_recent: +cpcRecent.toFixed(2), window: 'last_7d_vs_first_3d' },
     })
@@ -214,12 +218,12 @@ function runDetectors(metrics: DayMetric[]): Detection[] {
   // 2. Declining CTR
   const ctrEarly  = avg(early,  'ctr')
   const ctrRecent = avg(recent, 'ctr')
-  if (ctrEarly > 0 && ctrRecent < ctrEarly * 0.6) {
+  if (ctrEarly > 0 && ctrRecent < ctrEarly * OPT_DECLINING_CTR_MULT) {
     out.push({
       action_type: 'declining_ctr',
       recommendation: 'CTR has fallen sharply. Test new headlines/images, A/B 2-3 variants for the next 5 days.',
       rationale: `CTR dropped from ${(ctrEarly * 100).toFixed(2)}% → ${(ctrRecent * 100).toFixed(2)}% (${((1 - ctrRecent / ctrEarly) * 100).toFixed(0)}% decrease).`,
-      priority: ctrRecent < ctrEarly * 0.4 ? 5 : 4,
+      priority: ctrRecent < ctrEarly * (OPT_DECLINING_CTR_MULT * 0.67) ? 5 : 4,
       confidence: 0.80,
       metadata: { ctr_early: +ctrEarly.toFixed(4), ctr_recent: +ctrRecent.toFixed(4) },
     })
@@ -228,7 +232,7 @@ function runDetectors(metrics: DayMetric[]): Detection[] {
   // 3. Conversion-rate drop
   const cvrEarly  = (avg(early,  'conversions') / Math.max(1, avg(early,  'clicks')))
   const cvrRecent = (avg(recent, 'conversions') / Math.max(1, avg(recent, 'clicks')))
-  if (cvrEarly > 0 && cvrRecent < cvrEarly * 0.5 && avg(recent, 'clicks') > 10) {
+  if (cvrEarly > 0 && cvrRecent < cvrEarly * OPT_CONVERSION_DROP_MULT && avg(recent, 'clicks') > OPT_MIN_CLICKS_CVR) {
     out.push({
       action_type: 'conversion_drop',
       recommendation: 'Conversion rate has fallen by more than half. Check the landing page — broken form, slow load, or copy mismatch with the ad.',
@@ -242,8 +246,8 @@ function runDetectors(metrics: DayMetric[]): Detection[] {
   // 4. Ad fatigue — impressions stable, CTR dropping
   const impEarly  = avg(early,  'impressions')
   const impRecent = avg(recent, 'impressions')
-  const impStable = impEarly > 0 && Math.abs(impRecent - impEarly) / impEarly < 0.25
-  if (impStable && ctrEarly > 0 && ctrRecent < ctrEarly * 0.7 && impRecent > 500) {
+  const impStable = impEarly > 0 && Math.abs(impRecent - impEarly) / impEarly < OPT_FATIGUE_IMP_STABLE
+  if (impStable && ctrEarly > 0 && ctrRecent < ctrEarly * OPT_FATIGUE_CTR_MULT && impRecent > OPT_FATIGUE_MIN_IMP) {
     out.push({
       action_type: 'ad_fatigue',
       recommendation: 'Your audience has seen this ad too many times — rotate the creative. Frequency cap or refresh the image/copy.',
@@ -271,7 +275,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}))
     const onlyCampaign = (body as { campaign_id?: string }).campaign_id ?? null
-    const lookbackDays = Math.min(60, Math.max(7, Number((body as { lookback_days?: number }).lookback_days) || 14))
+    const lookbackDays = Math.min(60, Math.max(7, Number((body as { lookback_days?: number }).lookback_days) || OPT_LOOKBACK_DAYS))
 
     // ── Pull active campaigns that have a launched platform ID ───────────
     let q = admin.from('campaigns').select(`
