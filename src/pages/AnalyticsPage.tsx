@@ -402,8 +402,8 @@ function CampaignsLeadsTab({ days }: { days: number }) {
       {campaigns.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-4">Campaign Channel Mix</h2>
-          <div className="grid grid-cols-3 gap-4">
-            {['google', 'meta', 'instagram'].map(ch => {
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {['google', 'meta', 'instagram', 'whatsapp'].map(ch => {
               const count = campaigns.filter(c => c.channels?.includes(ch)).length
               const pct = campaigns.length > 0 ? Math.round((count / campaigns.length) * 100) : 0
               return (
