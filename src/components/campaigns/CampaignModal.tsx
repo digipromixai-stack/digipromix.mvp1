@@ -28,7 +28,7 @@ const TEMPLATES: { id: LandingTemplate; label: string; desc: string; accent: str
 interface Props {
   change: DetectedChangeWithCompetitor
   open: boolean
-  onClose: () => void
+  onClose: (launched?: boolean) => void
   // MVP 2.0 — when launched from an opportunity card, the radar already
   // computed a recommended budget + expected leads. Surfacing them as
   // pre-fill hints makes the "Launch Campaign" flow 1-click instead of
@@ -196,10 +196,11 @@ export function CampaignModal({ change, open, onClose, opportunityHint }: Props)
   }
 
   const handleClose = () => {
+    const wasLaunched = step === 'posted'
     setStep('generate'); setError(null); setCampaign(null); setMetaResult(null); setGoogleResult(null)
     setTemplate('default'); setDailyBudget(''); setClientId(''); setImageUrl(''); setInsights(null)
     setLaunchModes({ meta: 'managed', google: 'managed' }); setManagedBusinessName('')
-    onClose()
+    onClose(wasLaunched)
   }
 
   const generate = async () => {

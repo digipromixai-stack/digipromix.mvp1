@@ -50,7 +50,7 @@ function AuthCallback() {
       if (cancelled) return
 
       if (session) {
-        navigate('/dashboard', { replace: true })
+        navigate('/opportunities', { replace: true })
         return
       }
 
@@ -78,7 +78,7 @@ function AuthCallback() {
           console.error('OAuth error:', oauthError)
         }
 
-        navigate(finalSession ? '/dashboard' : '/login', { replace: true })
+        navigate(finalSession ? '/opportunities' : '/login', { replace: true })
       }, 4000)
     }
 
@@ -102,7 +102,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={session ? <Navigate to="/dashboard" replace /> : <MarketingPage />} />
+      <Route path="/" element={session ? <Navigate to="/opportunities" replace /> : <MarketingPage />} />
       <Route path="/docs" element={<DocsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
