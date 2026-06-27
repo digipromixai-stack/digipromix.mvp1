@@ -18,9 +18,9 @@ type NavSection = {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    label: 'Revenue',
+    label: 'Intelligence',
     items: [
-      { to: '/dashboard',     icon: LayoutDashboard, label: 'Revenue Center'  },
+      { to: '/dashboard',     icon: LayoutDashboard, label: 'Command Center'  },
       { to: '/opportunities', icon: Target,          label: 'Opportunities',  highlight: true, badge: 'AI' },
       { to: '/interception',  icon: Zap,             label: 'Counter Campaign' },
     ],
