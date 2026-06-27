@@ -308,7 +308,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
           landing_page_url: landingUrl || null,
           published: true,
           template,
-          daily_budget: dailyBudget ? parseInt(dailyBudget, 10) : null,
+          daily_budget: dailyBudget ? parseFloat(dailyBudget) : null,
           client_id: clientId || null,
           launch_mode: anyManaged ? 'managed' : 'self',
           managed_business_name: anyManaged ? (managedBusinessName || null) : null,
