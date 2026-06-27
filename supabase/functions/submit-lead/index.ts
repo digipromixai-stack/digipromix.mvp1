@@ -164,11 +164,11 @@ Deno.serve(async (req) => {
         .eq('campaign_id', campaign.id)
         .gte('created_at', fiveMinAgo)
       if (email && phone) {
-        dupQuery.or(`email.eq.${email},phone.eq.${phone}`)
+        dupQuery.or(`email.eq.${encodeURIComponent(email.trim())},phone.eq.${encodeURIComponent(phone.trim())}`)
       } else if (email) {
-        dupQuery.eq('email', email)
-      } else {
-        dupQuery.eq('phone', phone)
+        dupQuery.eq('email', email.trim())
+      } else if (phone) {
+        dupQuery.eq('phone', phone.trim())
       }
       const { count: dupCount } = await dupQuery
       if ((dupCount ?? 0) > 0) return json({ success: true })
