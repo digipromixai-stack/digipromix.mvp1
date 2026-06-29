@@ -1,5 +1,8 @@
-# Python crawler (separate repo)
-python-crawler/
+# Python crawler venv / cache only — source is tracked for Render deployment
+python-crawler/__pycache__/
+python-crawler/*.pyc
+python-crawler/.venv/
+python-crawler/venv/
 
 # Claude Code settings
 .claude/
