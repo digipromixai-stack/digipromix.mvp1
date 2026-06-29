@@ -16,7 +16,7 @@ logger = logging.getLogger("digipromix")
 # Chromium. Each tab is its own renderer process; 3 parallel tabs ≈ 800 MB
 # headroom for Chrome + Python + OS. Higher values caused OOM-driven
 # "Target page, context or browser has been closed" crashes.
-MAX_CONCURRENT_CRAWLS = 3
+MAX_CONCURRENT_CRAWLS = 2
 CRAWL_INTERVAL_HOURS  = 6
 MAX_RETRIES           = 1   # one quick retry; further attempts wait for next cycle
 
@@ -59,7 +59,7 @@ async def schedule_and_dispatch_crawls(competitor_id: str | None = None):
 
     cutoff       = (cycle_start - timedelta(hours=CRAWL_INTERVAL_HOURS)).isoformat()
     twenty_min_ago = (cycle_start - timedelta(minutes=20)).isoformat()
-    fifteen_min_ago = (cycle_start - timedelta(minutes=15)).isoformat()
+    fifteen_min_ago = (cycle_start - timedelta(minutes=25)).isoformat()
 
     # ── 0. Sitemap auto-discovery — register any new competitor pages ─────────
     try:
