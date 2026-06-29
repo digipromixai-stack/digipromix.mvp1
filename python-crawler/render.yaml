@@ -1,0 +1,18 @@
+# Render Blueprint — Docker runtime so Playwright + Chromium is always available.
+# Apply with: Render dashboard → New → Blueprint → pick this repo.
+# For an existing service: dashboard → Settings → change Runtime to "Docker".
+services:
+  - type: web
+    name: digipromix-crawler
+    runtime: docker
+    rootDir: python-crawler
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
