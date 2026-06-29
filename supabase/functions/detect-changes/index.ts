@@ -106,6 +106,7 @@ Deno.serve(async (req: Request) => {
     snapshot_before_id?: string
     snapshot_after_id?: string
     ai_summary?: Record<string, unknown> | null
+    price_delta?: { added: string[]; removed: string[] } | null
   } = {}
 
   try {
@@ -271,6 +272,7 @@ Deno.serve(async (req: Request) => {
         action_recommended: classification.action_recommended ?? null,
         is_coordinated:     classification.is_coordinated     ?? false,
         ai_enhanced:        aiSummary !== null,
+        price_delta:        body.price_delta ?? null,
       },
     })
     .select()
