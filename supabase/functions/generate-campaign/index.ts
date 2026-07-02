@@ -35,7 +35,11 @@ async function callGemini(apiKey: string, prompt: string): Promise<string> {
           generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.7,
-            maxOutputTokens: 2048,
+            // 2048 was cutting off responses mid-JSON once the brand-name
+            // field started repeating across all 12 fields (empirically
+            // confirmed via API testing — JSON.parse failed on truncated
+            // output). 4096 gives enough headroom for long brand names.
+            maxOutputTokens: 4096,
           },
         }),
       }
@@ -102,6 +106,13 @@ Deno.serve(async (req) => {
 
     if (changeError || !change) return jsonResponse({ error: 'Change not found', detail: changeError?.message }, 404)
 
+    // Fetch the user's brand name so the AI writes real copy, not "YourBrand"
+    const { data: profileRow } = await supabase
+      .from('profiles').select('business_name, full_name').eq('id', user.id).single()
+    const brandName = (profileRow?.business_name as string | null)?.trim()
+      || (profileRow?.full_name as string | null)?.trim()
+      || 'your brand'
+
     const competitor = change.competitors as { name: string; website_url: string; industry: string | null }
     const meta = change.metadata as Record<string, unknown> | null
 
@@ -121,9 +132,6 @@ Deno.serve(async (req) => {
     const suggestedTemplate = Object.entries(templateMap).find(([k]) => industry.includes(k))?.[1] ?? 'default'
 
     // ── MVP 2.0 §6 — RAG retrieval ─────────────────────────────────────
-    // Embed the trigger event + look up similar past campaigns from the
-    // user's memory. Failures here are non-fatal — the generator still
-    // works, just without past-outcome context.
     let ragContext = ''
     try {
       const ragQuery = [
@@ -133,7 +141,6 @@ Deno.serve(async (req) => {
         promoKeywords ? `Keywords: ${promoKeywords}` : null,
       ].filter(Boolean).join('\n')
 
-      // Gemini gemini-embedding-001 — 768-dim, free under the existing key
       const ragKey = Deno.env.get('GEMINI_API_KEY')
         ?? (await supabase.rpc('get_vault_secret', { secret_name: 'gemini_api_key' })).data
       if (ragKey) {
@@ -183,17 +190,19 @@ Deno.serve(async (req) => {
     }
 
     const prompt = `You are an expert digital marketing strategist and legal compliance specialist.
-A market opportunity has been detected in the ${industry} industry. Generate a counter-campaign that positions YOUR brand strongly.
+A market opportunity has been detected in the ${industry} industry. Generate a counter-campaign for the brand "${brandName}".
 
 STRICT LEGAL RULES — you MUST follow all of these:
 1. NEVER mention, reference, or allude to any competitor name, brand, product, or website.
 2. NEVER make comparative claims (e.g. "better than", "unlike others", "competitors charge more").
 3. NEVER use another company's trademark, slogan, or branded terms.
 4. All claims must be truthful, non-misleading, and supportable — no superlatives like "the best in the world" unless generic.
-5. Focus entirely on YOUR brand's own strengths, value, and offer.
+5. Focus entirely on ${brandName}'s own strengths, value, and offer.
 6. Copy must comply with FTC guidelines and general advertising law.
+7. Use the brand name "${brandName}" naturally throughout the copy — NEVER write placeholder text like "YourBrand", "[Brand]", or "[Your Company]".
 
 Market context (use only to understand the opportunity — do NOT copy or reference):
+- Brand: ${brandName}
 - Industry: ${industry}
 - Market event type: ${change.change_type}
 - Opportunity signal: ${change.title}
@@ -202,24 +211,24 @@ Market context (use only to understand the opportunity — do NOT copy or refere
 - Market intensity score: ${campaignScore}/150
 ${ragContext}
 Your task: Write campaign content that:
-- Highlights YOUR unique value proposition in the ${industry} space
+- Highlights ${brandName}'s unique value proposition in the ${industry} space
 - Creates urgency and a compelling offer WITHOUT referencing anyone else
-- Uses positive, benefit-focused language about what YOU provide
+- Uses positive, benefit-focused language about what ${brandName} provides
 - Is ready to run on Google Ads and social media without any legal review issues
 
 Return ONLY a valid JSON object (no markdown, no extra text) with these exact fields:
 {
-  "campaign_name": "string max 50 chars — your brand campaign name only",
+  "campaign_name": "string max 50 chars — must include ${brandName} and describe the campaign",
   "competitor_offer_extracted": "string — describe the market opportunity in neutral terms",
-  "headline": "string max 90 chars — your value prop, no competitor mention",
-  "ad_copy": "string max 180 chars — benefit-focused, legally safe, no comparisons",
-  "social_copy": "string 3-4 sentences with emojis — positive, engaging, brand-focused",
-  "offer": "string — your concrete offer (discount, free trial, guarantee etc.)",
-  "offer_justification": "string 1 sentence — why this offer makes sense for your audience",
+  "headline": "string max 90 chars — ${brandName}'s value prop, no competitor mention",
+  "ad_copy": "string max 180 chars — benefit-focused, legally safe, no comparisons, references ${brandName}",
+  "social_copy": "string 3-4 sentences with emojis — positive, engaging, mentions ${brandName}",
+  "offer": "string — ${brandName}'s concrete offer (discount, free trial, guarantee etc.)",
+  "offer_justification": "string 1 sentence — why this offer makes sense for ${brandName}'s audience",
   "keywords": ["array of 8-12 generic industry keywords — no competitor brand names"],
-  "landing_page_title": "string max 70 chars — benefit headline",
+  "landing_page_title": "string max 70 chars — benefit headline featuring ${brandName}",
   "landing_page_cta": "string max 25 chars — action-oriented CTA",
-  "landing_page_body": "string 2-3 sentences — value-focused, legally safe body copy",
+  "landing_page_body": "string 2-3 sentences — value-focused, legally safe body copy for ${brandName}",
   "suggested_template": "${suggestedTemplate}"
 }`
 
@@ -264,7 +273,6 @@ Return ONLY a valid JSON object (no markdown, no extra text) with these exact fi
         .slice(0, 48) || 'campaign'
     }
     function randomSuffix(): string {
-      // 8 chars from crypto.randomUUID — ~280 trillion possibilities
       return crypto.randomUUID().replace(/-/g, '').slice(0, 8)
     }
     const slugBase = makeSlugBase((generated.campaign_name as string) || 'campaign')
@@ -305,7 +313,6 @@ Return ONLY a valid JSON object (no markdown, no extra text) with these exact fi
 
       if (!result.error) { campaign = result.data; insertError = null; break }
       insertError = { code: result.error.code, message: result.error.message }
-      // Unique violation on slug — retry with new suffix
       if (result.error.code === '23505') continue
       break
     }
@@ -316,9 +323,6 @@ Return ONLY a valid JSON object (no markdown, no extra text) with these exact fi
     }
 
     // ── MVP 2.0 §6 — Add this campaign to AI Memory (fire-and-forget) ──
-    // Generates an embedding so future opportunities can RAG-retrieve this
-    // campaign as past inspiration. Failure is silent; the embedding is
-    // ancillary and can be backfilled later by re-running embed-campaign.
     const embedUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/embed-campaign`
     const embedReq = fetch(embedUrl, {
       method: 'POST',

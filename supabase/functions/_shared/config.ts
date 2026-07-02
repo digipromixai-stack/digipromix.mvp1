@@ -10,7 +10,13 @@
  */
 
 const metaVersion  = Deno.env.get('META_GRAPH_VERSION')  ?? 'v19.0'
-const googleVersion = Deno.env.get('GOOGLE_ADS_VERSION') ?? 'v20'
+// v20 sunset 2026-06-10 — Google now hard-blocks all v20 requests with
+// UNSUPPORTED_VERSION. The GOOGLE_ADS_VERSION secret is still set to the
+// stale 'v20' value, so that specific value is rejected here in favor of
+// v24 (current as of 2026-07). Update/remove the Supabase secret to stop
+// relying on this override.
+const rawGoogleVersion = Deno.env.get('GOOGLE_ADS_VERSION')
+const googleVersion = (rawGoogleVersion && rawGoogleVersion !== 'v20') ? rawGoogleVersion : 'v24'
 
 export const META_GRAPH  = `https://graph.facebook.com/${metaVersion}`
 export const GOOGLE_ADS_API = `https://googleads.googleapis.com/${googleVersion}`
