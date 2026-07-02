@@ -4,7 +4,7 @@
  * For every campaign that's been launched to Meta or Google:
  *   1. Fetch the last 14 days of insights (impressions, clicks, spend,
  *      conversions, ctr, cpc, cpm) from the respective platform
- *   2. Upsert into campaign_metrics (one row per campaign · platform · day)
+ *   2. Upsert into campaign_performance (one row per campaign · platform · day)
  *   3. Run 4 rule-based detectors per §8 of the delivery plan:
  *        • Rising CPC          (recent 3-day CPC > 1.5× early 3-day CPC)
  *        • Declining CTR       (recent 3-day CTR < 60% of early 3-day CTR)
@@ -145,7 +145,7 @@ async function fetchGoogleInsights(
     headers,
     body: JSON.stringify({ query: gaql }),
   })
-  if (!res.ok) throw new Error(`Google Ads search ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  if (!res.ok) throw new Error(`Google Ads search ${res.status}: ${(await res.text()).slice(0, 700)}`)
   const body = await res.json() as { results?: Array<Record<string, Record<string, unknown>>> }
 
   return (body.results ?? []).map((r) => {
@@ -378,24 +378,42 @@ Deno.serve(async (req) => {
             }
           }
         } catch (e) {
-          errors.push({ campaign_id: c.id as string, platform: 'google', error: String(e).slice(0, 200) })
+          errors.push({ campaign_id: c.id as string, platform: 'google', error: String(e).slice(0, 800) })
         }
       }
 
       // ── Upsert metric rows ─────────────────────────────────────────
+      // NOTE: persists to campaign_performance — the table the app's UI
+      // (useCampaignMetrics) actually reads. campaign_metrics is legacy;
+      // this used to write there silently, so the dashboard never showed
+      // real Meta/Google data even though it was being fetched daily.
       if (allRows.length > 0) {
+        const perfRows = allRows.map((r) => ({
+          user_id:         r.user_id,
+          campaign_id:     r.campaign_id,
+          platform:        r.platform,
+          date:            r.date,
+          impressions:     r.impressions,
+          clicks:          r.clicks,
+          spend:           r.spend,
+          conversions:     r.conversions,
+          ctr:             r.ctr,
+          cpc:             r.cpc,
+          conversion_rate: safeDiv(r.conversions, r.clicks),
+          raw_payload:     r.raw,
+        }))
         const { error: upErr } = await admin
-          .from('campaign_metrics')
-          .upsert(allRows, { onConflict: 'campaign_id,platform,date' })
+          .from('campaign_performance')
+          .upsert(perfRows, { onConflict: 'campaign_id,platform,date' })
         if (!upErr) metricsIngested += allRows.length
         else errors.push({ campaign_id: c.id as string, platform: 'db', error: upErr.message })
       }
 
-      // ── Run detectors per platform from campaign_metrics (resilient to
-      //    API fetch failure — uses whatever historical data we have) ──
+      // ── Run detectors per platform from campaign_performance (resilient
+      //    to API fetch failure — uses whatever historical data we have) ──
       for (const platform of ['meta', 'google'] as const) {
         const { data: storedMetrics } = await admin
-          .from('campaign_metrics')
+          .from('campaign_performance')
           .select('date, impressions, clicks, spend, conversions, ctr, cpc')
           .eq('campaign_id', c.id)
           .eq('platform', platform)
