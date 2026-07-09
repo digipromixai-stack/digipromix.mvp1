@@ -20,6 +20,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 
 # Supabase CLI state — not source code
 supabase/.temp/
