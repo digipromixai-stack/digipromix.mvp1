@@ -11,21 +11,21 @@ interface BadgeProps {
 
 export function Badge({ children, variant = 'default', size = 'xs', dot, className }: BadgeProps) {
   const variants = {
-    default: 'bg-gray-100 text-gray-700 ring-gray-200',
+    default: 'bg-surface-container text-on-surface-variant ring-border-subtle',
     success: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    warning: 'bg-amber-50 text-amber-700 ring-amber-200',
-    danger:  'bg-red-50 text-red-700 ring-red-200',
-    info:    'bg-blue-50 text-blue-700 ring-blue-200',
+    warning: 'bg-orange-tint text-warning ring-warning/20',
+    danger:  'bg-red-tint text-danger ring-danger/20',
+    info:    'bg-indigo-tint text-primary ring-primary/20',
     purple:  'bg-purple-50 text-purple-700 ring-purple-200',
     pink:    'bg-pink-50 text-pink-700 ring-pink-200',
   }
 
   const dotColors = {
     default: 'bg-gray-400',
-    success: 'bg-emerald-500',
-    warning: 'bg-amber-500',
-    danger:  'bg-red-500',
-    info:    'bg-blue-500',
+    success: 'bg-success',
+    warning: 'bg-warning',
+    danger:  'bg-danger',
+    info:    'bg-primary',
     purple:  'bg-purple-500',
     pink:    'bg-pink-500',
   }

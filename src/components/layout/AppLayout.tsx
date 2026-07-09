@@ -7,7 +7,7 @@ export function AppLayout() {
   useRealtimeAlerts()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-main">
       <Sidebar />
       <TopNav />
       {/* No left margin on mobile (sidebar is overlay), ml-64 on desktop */}
