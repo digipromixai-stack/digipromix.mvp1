@@ -45,6 +45,48 @@ export function useDeleteLead() {
   })
 }
 
+export function useLeadTrends() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['lead_trends', user?.id],
+    queryFn: async () => {
+      const now = Date.now()
+      const weekAgo = new Date(now - 7 * 86400000).toISOString()
+      const twoWeeksAgo = new Date(now - 14 * 86400000).toISOString()
+      const { data, error } = await supabase
+        .from('leads')
+        .select('score, created_at, campaign_id')
+        .eq('user_id', user!.id)
+        .gte('created_at', twoWeeksAgo)
+      if (error) throw error
+      const rows = data ?? []
+      const tierOf = (s: number): 'hot' | 'medium' | 'low' => (s >= 70 ? 'hot' : s >= 40 ? 'medium' : 'low')
+      const buckets = {
+        hot:    { cur: 0, prev: 0, campaigns: new Set<string>() },
+        medium: { cur: 0, prev: 0, campaigns: new Set<string>() },
+        low:    { cur: 0, prev: 0, campaigns: new Set<string>() },
+      }
+      for (const r of rows) {
+        const b = buckets[tierOf(r.score ?? 0)]
+        const isCurrent = r.created_at >= weekAgo
+        if (isCurrent) {
+          b.cur++
+          if (r.campaign_id) b.campaigns.add(r.campaign_id)
+        } else {
+          b.prev++
+        }
+      }
+      const pctChange = (cur: number, prev: number) => (prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100))
+      return {
+        hot:    { changePct: pctChange(buckets.hot.cur, buckets.hot.prev),    activeCampaigns: buckets.hot.campaigns.size },
+        medium: { changePct: pctChange(buckets.medium.cur, buckets.medium.prev), activeCampaigns: buckets.medium.campaigns.size },
+        low:    { changePct: pctChange(buckets.low.cur, buckets.low.prev),    activeCampaigns: buckets.low.campaigns.size },
+      }
+    },
+    enabled: !!user,
+  })
+}
+
 export function useLeadStats() {
   const { user } = useAuth()
   return useQuery({
