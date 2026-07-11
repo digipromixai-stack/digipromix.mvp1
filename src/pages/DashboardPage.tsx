@@ -350,9 +350,10 @@ export function DashboardPage() {
               <h3 className="font-bold text-on-surface mb-5">Business Health Score</h3>
               <HealthRing score={healthScore} />
               <div className="mt-6 space-y-3">
-                <HealthBar label="Threat Containment" value={threatScore} tone={threatScore > 60 ? 'success' : 'warning'} />
-                <HealthBar label="Opportunity Capture" value={opportunityScore} tone="primary" />
-                <HealthBar label="Lead Velocity" value={leadScore} tone="success" />
+                <HealthBar label="Marketing Efficiency" value={opportunityScore} tone="primary" />
+                <HealthBar label="Competition Index" value={threatScore} tone={threatScore > 60 ? 'success' : 'warning'} />
+                <HealthBar label="Campaign Quality" value={Math.round((opportunityScore + leadScore) / 2)} tone="primary" />
+                <HealthBar label="Lead Conversion" value={leadScore} tone="success" />
               </div>
             </div>
 
@@ -365,6 +366,9 @@ export function DashboardPage() {
               <p className="text-sm text-white/70 mb-4">The AI detected new opportunities in your market. Ready to explore?</p>
               <span className="inline-flex items-center gap-1.5 bg-white text-on-surface px-4 py-2 rounded-lg font-bold text-sm w-fit">
                 Explore Now <ArrowRight size={14} />
+              </span>
+              <span className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+                <Compass size={22} className="text-white/70" />
               </span>
             </Link>
           </div>
