@@ -10,8 +10,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
-  ArrowRight, Filter, Search, RefreshCcw, X, Loader2, Radio,
-  ChevronDown, ChevronUp, Brain, Clock, ShieldAlert,
+  ArrowRight, Filter, Search, X, Loader2,
+  ChevronDown, ChevronUp, Clock,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
@@ -163,7 +163,10 @@ function AiRecommendationCard({ opportunities }: { opportunities: Opportunity[] 
     }
     const [topIndustry, topCount] = [...byIndustry.entries()].sort((a, b) => b[1] - a[1])[0]
     const totalLeads = opportunities.reduce((s, o) => s + (o.expected_leads ?? 0), 0)
-    return { topIndustry, topCount, totalLeads }
+    const avgConf = Math.round(
+      opportunities.reduce((s, o) => s + (o.confidence ?? 0), 0) / opportunities.length * 100
+    )
+    return { topIndustry, topCount, totalLeads, avgConf }
   }, [opportunities])
 
   if (!insight) return null
@@ -174,17 +177,23 @@ function AiRecommendationCard({ opportunities }: { opportunities: Opportunity[] 
         <Sparkles size={15} className="text-primary" />
         <span className="text-xs font-bold uppercase tracking-widest text-white/70">AI Recommendation</span>
       </div>
-      <p className="text-sm text-white/90 leading-relaxed flex-1">
-        <strong className="text-white">{insight.topCount}</strong> of your top opportunities are in{' '}
-        <strong className="text-white">{insight.topIndustry}</strong>, with a combined{' '}
-        <strong className="text-white">{insight.totalLeads}</strong> predicted leads. Consider prioritizing
-        budget there before competitors respond.
+      <p className="text-sm text-white/90 leading-relaxed italic flex-1">
+        "Your current Top {insight.topCount} opportunities are concentrated in{' '}
+        <strong className="not-italic text-white">{insight.topIndustry}</strong>, with a combined{' '}
+        <strong className="not-italic text-white">{insight.totalLeads}</strong> predicted leads. We recommend
+        allocating additional budget there before competitors respond."
       </p>
+      <div className="flex items-center gap-2 mt-4 mb-3">
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-success bg-success/15 px-2 py-1 rounded-full">
+          +{insight.avgConf}%
+        </span>
+        <span className="text-[11px] text-white/50">Estimated confidence lift</span>
+      </div>
       <Link
         to="/opportunities"
-        className="mt-4 inline-flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary hover:opacity-90 rounded-xl font-bold text-sm transition-all"
+        className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary hover:opacity-90 rounded-xl font-bold text-sm transition-all"
       >
-        Review Top Opportunities
+        Apply All Optimizations
       </Link>
     </div>
   )
@@ -193,20 +202,17 @@ function AiRecommendationCard({ opportunities }: { opportunities: Opportunity[] 
 // ── Opportunity card ──────────────────────────────────────────────────────────
 
 const TIER_META = {
-  urgent: { label: 'URGENT', border: 'border-l-danger', badgeBg: 'bg-red-tint', badgeText: 'text-danger' },
-  high:   { label: 'HIGH',   border: 'border-l-warning', badgeBg: 'bg-orange-tint', badgeText: 'text-warning' },
-  normal: { label: 'NORMAL', border: 'border-l-primary', badgeBg: 'bg-indigo-tint', badgeText: 'text-primary' },
+  urgent: { label: 'URGENT',       badgeBg: 'bg-red-tint',    badgeText: 'text-danger' },
+  normal: { label: 'AI GENERATED', badgeBg: 'bg-indigo-tint', badgeText: 'text-primary' },
 }
 
 function OpportunityCard({
   opp,
-  rank,
   onLaunch,
   onDismiss,
   busy,
 }: {
   opp: Opportunity
-  rank: number
   onLaunch: (opp: Opportunity) => void
   onDismiss: (opp: Opportunity) => void
   busy: boolean
@@ -220,26 +226,26 @@ function OpportunityCard({
     ? Math.round((opp.expected_leads * 80) / (opp.recommended_budget * 4))
     : null
 
-  const isHot = opp.opportunity_score >= 75
-  const isMedium = opp.opportunity_score >= 50
-  const tier = isHot ? TIER_META.urgent : isMedium ? TIER_META.high : TIER_META.normal
+  const isUrgent = opp.opportunity_score >= 85 ||
+    (opp.expires_at != null && new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000))
+  const tier = isUrgent ? TIER_META.urgent : TIER_META.normal
   const confidence = opp.confidence != null ? Math.round(opp.confidence * 100) : null
 
   return (
-    <div className={`bg-surface-card border border-border-subtle border-l-4 ${tier.border} rounded-xl p-5 shadow-soft hover:shadow-soft-md transition-shadow relative`}>
+    <div className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft hover:shadow-soft-md transition-shadow relative">
       <button
         onClick={() => onDismiss(opp)}
         title="Dismiss"
-        className="absolute top-4 right-4 text-on-surface-variant/50 hover:text-on-surface-variant p-1 rounded-lg hover:bg-surface-container-low transition-colors"
+        className="absolute top-3 right-3 text-on-surface-variant/40 hover:text-on-surface-variant p-1 rounded-lg hover:bg-surface-container-low transition-colors"
       >
-        <X size={14} />
+        <X size={13} />
       </button>
 
-      <div className="flex items-center justify-between gap-2 mb-3 pr-6">
-        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${tier.badgeBg} ${tier.badgeText}`}>
-          #{rank} {tier.label}
+      <div className="flex items-center justify-between gap-2 mb-3 pr-5">
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${tier.badgeBg} ${tier.badgeText}`}>
+          {tier.label}
         </span>
-        <span className="inline-flex items-center gap-1 bg-surface-container-low px-2 py-1 rounded-full border border-border-subtle text-[10px] font-bold text-on-surface-variant">
+        <span className="inline-flex items-center gap-1 bg-surface-container-low px-2.5 py-1 rounded-full border border-border-subtle text-[10px] font-bold text-on-surface-variant">
           SCORE {Math.round(opp.opportunity_score)}
         </span>
       </div>
@@ -253,14 +259,14 @@ function OpportunityCard({
         <p className="text-sm text-on-surface-variant mb-4 line-clamp-2">{opp.description}</p>
       )}
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-surface-container-low rounded-lg p-3">
           <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Potential Revenue</p>
           <p className="font-mono text-lg font-bold text-on-surface">
             {estRevenueValue != null ? `$${estRevenueValue.toLocaleString()}` : '—'}
           </p>
         </div>
-        <div>
+        <div className="bg-surface-container-low rounded-lg p-3">
           <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Confidence</p>
           <p className="font-mono text-lg font-bold text-success">{confidence != null ? `${confidence}%` : '—'}</p>
         </div>
@@ -306,11 +312,14 @@ function OpportunityCard({
   )
 }
 
+type ScoreFilter = 'all' | 'highConfidence' | 'maxRevenue' | 'lowCac'
+
 export function OpportunityFeedPage() {
   const [statusFilter] = useState<'open'>('open')
-  const [scoreFilter, setScoreFilter] = useState<'all' | 'hot' | 'medium' | 'watch'>('all')
+  const [scoreFilter, setScoreFilter] = useState<ScoreFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const { data: opportunities = [], isLoading, refetch } = useOpportunities({ status: statusFilter })
+  const [filterOpen, setFilterOpen] = useState(false)
+  const { data: opportunities = [], isLoading, refetch, isRefetching } = useOpportunities({ status: statusFilter })
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { toast } = useToast()
@@ -326,7 +335,6 @@ export function OpportunityFeedPage() {
     industry?:           string | null
   } | undefined>(undefined)
   const [loadingOppId, setLoadingOppId] = useState<string | null>(null)
-  const [livePulse, setLivePulse] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
@@ -337,8 +345,6 @@ export function OpportunityFeedPage() {
         { event: '*', schema: 'public', table: 'opportunities', filter: `user_id=eq.${user.id}` },
         () => {
           queryClient.invalidateQueries({ queryKey: ['opportunities'] })
-          setLivePulse(true)
-          setTimeout(() => setLivePulse(false), 2500)
         },
       )
       .subscribe()
@@ -383,11 +389,24 @@ export function OpportunityFeedPage() {
     }
   }
 
+  const revenueOf = (o: Opportunity) => (o.expected_leads ?? 0) * 80
+  const revenueP75 = useMemo(() => {
+    if (opportunities.length === 0) return 0
+    const sorted = [...opportunities].map(revenueOf).sort((a, b) => a - b)
+    return sorted[Math.floor(sorted.length * 0.75)] ?? sorted[sorted.length - 1]
+  }, [opportunities])
+  const cpcP25 = useMemo(() => {
+    const withCpc = opportunities.filter(o => o.estimated_cpc != null && o.estimated_cpc > 0)
+    if (withCpc.length === 0) return null
+    const sorted = withCpc.map(o => o.estimated_cpc as number).sort((a, b) => a - b)
+    return sorted[Math.floor(sorted.length * 0.25)]
+  }, [opportunities])
+
   const filteredOpportunities = useMemo(() => {
     let list = opportunities
-    if (scoreFilter === 'hot')    list = list.filter(o => o.opportunity_score >= 75)
-    else if (scoreFilter === 'medium') list = list.filter(o => o.opportunity_score >= 50 && o.opportunity_score < 75)
-    else if (scoreFilter === 'watch')  list = list.filter(o => o.opportunity_score < 50)
+    if (scoreFilter === 'highConfidence') list = list.filter(o => (o.confidence ?? 0) >= 0.75)
+    else if (scoreFilter === 'maxRevenue') list = list.filter(o => revenueOf(o) >= revenueP75 && revenueP75 > 0)
+    else if (scoreFilter === 'lowCac') list = list.filter(o => cpcP25 != null && (o.estimated_cpc ?? Infinity) <= cpcP25)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       list = list.filter(o =>
@@ -398,7 +417,7 @@ export function OpportunityFeedPage() {
       )
     }
     return list
-  }, [opportunities, scoreFilter, searchQuery])
+  }, [opportunities, scoreFilter, searchQuery, revenueP75, cpcP25])
 
   async function handleDismiss(opp: Opportunity) {
     const { error } = await supabase
@@ -412,126 +431,76 @@ export function OpportunityFeedPage() {
     queryClient.invalidateQueries({ queryKey: ['opportunities'] })
   }
 
-  const hotCount    = opportunities.filter(o => o.opportunity_score >= 75).length
-  const totalLeads  = opportunities.reduce((s, o) => s + (o.expected_leads ?? 0), 0)
-  const avgConf     = opportunities.length
-    ? Math.round(opportunities.reduce((s, o) => s + (o.confidence ?? 0), 0) / opportunities.length * 100)
-    : 0
-  const totalRevEst = totalLeads * 80
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6">
 
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-5">
         <div>
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-bold text-on-surface">Opportunities</h1>
-            <span className="text-[10px] font-bold uppercase tracking-wider bg-primary text-white px-2 py-0.5 rounded">
-              Beta
-            </span>
-            <span
-              title={livePulse ? 'New signal just received' : 'Live — listening for new signals'}
-              className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-all ${
-                livePulse ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-300 animate-pulse' : 'bg-emerald-50 text-emerald-600'
-              }`}
-            >
-              <Radio size={10} className={livePulse ? 'animate-pulse' : ''} />
-              {livePulse ? 'New signal' : 'Live'}
-            </span>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface mb-1">Opportunities</h1>
           <p className="text-sm text-on-surface-variant">
             Ranked by revenue potential — act on the top of the list first.
           </p>
         </div>
 
-        <div className="flex gap-2 shrink-0 flex-wrap">
+        <div className="flex gap-2 shrink-0">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search opportunities…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="border border-outline-variant bg-surface-card rounded-xl pl-9 pr-3 py-2 text-sm w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
+            <button
+              onClick={() => setFilterOpen(v => !v)}
+              className="border border-outline-variant bg-surface-card hover:bg-surface-container-low rounded-xl px-4 py-2 text-sm font-bold flex items-center gap-1.5 text-on-surface-variant"
+            >
+              <Filter size={14} /> Filter
+            </button>
+            {filterOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-surface-card border border-border-subtle rounded-xl shadow-soft-lg p-3 z-10">
+                <label className="relative block">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Search opportunities…"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="border border-outline-variant bg-surface-container-low rounded-lg pl-9 pr-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </label>
+              </div>
+            )}
           </div>
           <button
             onClick={() => refetch()}
-            className="border border-outline-variant bg-surface-card hover:bg-surface-container-low rounded-xl px-4 py-2 text-sm font-bold flex items-center gap-1.5 text-on-surface-variant"
+            disabled={isRefetching}
+            className="inline-flex items-center gap-1.5 bg-primary hover:opacity-90 disabled:opacity-60 text-white rounded-xl px-4 py-2 text-sm font-bold transition-all"
           >
-            <RefreshCcw size={14} /> Refresh
+            {isRefetching ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            Generate Now
           </button>
         </div>
       </div>
 
-      {/* AI Market Intelligence Briefing */}
-      {opportunities.length > 0 && (
-        <div className="bg-on-surface rounded-xl p-5 mb-6 text-white">
-          <div className="flex items-center gap-2 mb-3">
-            <ShieldAlert size={15} className="text-primary" />
-            <span className="text-xs font-bold uppercase tracking-widest text-white/70">AI Market Intelligence Briefing</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div>
-              <p className="text-2xl font-black">{opportunities.length}</p>
-              <p className="text-xs text-white/50 mt-0.5">Active Opportunities</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black text-danger">{hotCount}</p>
-              <p className="text-xs text-white/50 mt-0.5">Hot Markets Now</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black text-success">{totalLeads.toLocaleString()}</p>
-              <p className="text-xs text-white/50 mt-0.5">Predicted Total Leads</p>
-            </div>
-            <div>
-              <p className="text-2xl font-black text-warning">
-                ${totalRevEst >= 10000 ? `${(totalRevEst / 1000).toFixed(0)}k` : totalRevEst.toLocaleString()}
-              </p>
-              <p className="text-xs text-white/50 mt-0.5">Est. Revenue at Stake</p>
-            </div>
-          </div>
-          {avgConf > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-3">
-              <Brain size={13} className="text-primary shrink-0" />
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-white/50">Average AI Confidence</span>
-                  <span className="text-xs font-bold text-primary">{avgConf}%</span>
-                </div>
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full" style={{ width: `${avgConf}%` }} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Score filter pills */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-6">
         {[
-          { key: 'all',    label: 'All Opportunities', value: opportunities.length },
-          { key: 'hot',    label: '🔥 Hot (≥75)',       value: hotCount },
-          { key: 'medium', label: '⚡ Medium (50–74)',   value: opportunities.filter(o => o.opportunity_score >= 50 && o.opportunity_score < 75).length },
-          { key: 'watch',  label: 'Watch (<50)',        value: opportunities.filter(o => o.opportunity_score < 50).length },
+          { key: 'all',            label: 'All Channels' },
+          { key: 'highConfidence', label: 'High Confidence' },
+          { key: 'maxRevenue',     label: 'Max Revenue' },
+          { key: 'lowCac',         label: 'Low CAC' },
         ].map(stat => (
           <button
             key={stat.key}
-            onClick={() => setScoreFilter(stat.key as typeof scoreFilter)}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+            onClick={() => setScoreFilter(stat.key as ScoreFilter)}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
               scoreFilter === stat.key
                 ? 'bg-primary text-white shadow-soft'
                 : 'bg-surface-card border border-outline-variant text-on-surface-variant hover:border-primary/40'
             }`}
           >
             {stat.label}
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${scoreFilter === stat.key ? 'bg-white/20' : 'bg-surface-container-low'}`}>
-              {stat.value}
-            </span>
           </button>
         ))}
+        <span className="ml-auto text-xs text-on-surface-variant">
+          Showing {filteredOpportunities.length} active AI recommendation{filteredOpportunities.length === 1 ? '' : 's'}
+        </span>
       </div>
 
       {/* Feed */}
@@ -564,12 +533,11 @@ export function OpportunityFeedPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredOpportunities.map((opp, i) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filteredOpportunities.map((opp) => (
             <OpportunityCard
               key={opp.id}
               opp={opp}
-              rank={i + 1}
               onLaunch={handleLaunch}
               onDismiss={handleDismiss}
               busy={loadingOppId === opp.id}
