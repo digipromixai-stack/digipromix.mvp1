@@ -20,7 +20,7 @@ const CHANGE_COLORS: Record<string, string> = {
   promotion:       '#ef4444',
   price_change:    '#f97316',
   new_landing_page:'#8b5cf6',
-  new_blog_post:   '#3b82f6',
+  new_blog_post:   '#3525cd',
   banner_change:   '#eab308',
   content_change:  '#9ca3af',
   keyword_match:   '#10b981',
@@ -37,7 +37,7 @@ const CHANGE_LABELS: Record<string, string> = {
 }
 
 const LEAD_STATUS_COLORS: Record<string, string> = {
-  new:       '#3b82f6',
+  new:       '#3525cd',
   contacted: '#f97316',
   qualified: '#10b981',
   closed:    '#6b7280',
@@ -45,14 +45,14 @@ const LEAD_STATUS_COLORS: Record<string, string> = {
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
-function StatCard({ value, label, sub, color = 'text-gray-900' }: {
+function StatCard({ value, label, sub, color = 'text-on-surface' }: {
   value: string | number; label: string; sub?: string; color?: string
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="bg-surface-card rounded-xl border border-border-subtle p-5">
       <p className={`text-3xl font-bold ${color} leading-none`}>{value}</p>
-      <p className="text-sm text-gray-500 mt-1.5">{label}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      <p className="text-sm text-on-surface-variant mt-1.5">{label}</p>
+      {sub && <p className="text-xs text-on-surface-variant mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -120,17 +120,17 @@ function CompetitorTab({ days }: { days: number }) {
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard value={changes.length} label="Total changes" sub={`last ${days} days`} />
-        <StatCard value={highCount} label="High severity" color={highCount > 0 ? 'text-red-600' : 'text-gray-900'} sub="promotions & price changes" />
+        <StatCard value={highCount} label="High severity" color={highCount > 0 ? 'text-red-600' : 'text-on-surface'} sub="promotions & price changes" />
         <StatCard value={avgPerDay} label="Avg per day" sub="change velocity" />
         <StatCard value={topCompetitor} label="Most active" sub={`${ranking[0]?.total ?? 0} changes`} />
       </div>
 
       {/* Daily bar chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-900 mb-1">Daily Change Activity</h2>
-        <p className="text-xs text-gray-400 mb-5">Stacked by change type</p>
+      <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
+        <h2 className="text-sm font-semibold text-on-surface mb-1">Daily Change Activity</h2>
+        <p className="text-xs text-on-surface-variant mb-5">Stacked by change type</p>
         {changes.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-sm text-gray-400">No changes detected in this period</div>
+          <div className="flex items-center justify-center h-40 text-sm text-on-surface-variant">No changes detected in this period</div>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={dailyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
@@ -151,11 +151,11 @@ function CompetitorTab({ days }: { days: number }) {
 
       {/* Pie + ranking */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-1">Change Type Breakdown</h2>
-          <p className="text-xs text-gray-400 mb-4">Distribution across all detected changes</p>
+        <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
+          <h2 className="text-sm font-semibold text-on-surface mb-1">Change Type Breakdown</h2>
+          <p className="text-xs text-on-surface-variant mb-4">Distribution across all detected changes</p>
           {typeData.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-sm text-gray-400">No data in this period</div>
+            <div className="flex items-center justify-center h-48 text-sm text-on-surface-variant">No data in this period</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -169,31 +169,31 @@ function CompetitorTab({ days }: { days: number }) {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-1">Competitor Leaderboard</h2>
-          <p className="text-xs text-gray-400 mb-4">Ranked by total changes detected</p>
+        <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
+          <h2 className="text-sm font-semibold text-on-surface mb-1">Competitor Leaderboard</h2>
+          <p className="text-xs text-on-surface-variant mb-4">Ranked by total changes detected</p>
           {ranking.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-sm text-gray-400">No data in this period</div>
+            <div className="flex items-center justify-center h-48 text-sm text-on-surface-variant">No data in this period</div>
           ) : (
             <div className="space-y-4">
               {ranking.map((c, i) => (
                 <Link key={c.id} to={`/timeline/${c.id}`} className="block group">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-gray-300 w-5 text-right">{i + 1}</span>
+                    <span className="text-sm font-bold text-on-surface-variant/50 w-5 text-right">{i + 1}</span>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{c.name}</span>
+                        <span className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">{c.name}</span>
                         <div className="flex items-center gap-2">
                           {c.high > 0 && (
                             <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
                               <AlertTriangle size={10} />{c.high}
                             </span>
                           )}
-                          <span className="text-xs text-gray-500">{c.total}</span>
+                          <span className="text-xs text-on-surface-variant">{c.total}</span>
                         </div>
                       </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full transition-all"
+                      <div className="h-1.5 bg-surface-container-low rounded-full overflow-hidden">
+                        <div className="h-full bg-primary rounded-full transition-all"
                           style={{ width: `${Math.round((c.total / (ranking[0]?.total || 1)) * 100)}%` }} />
                       </div>
                     </div>
@@ -207,24 +207,24 @@ function CompetitorTab({ days }: { days: number }) {
 
       {/* High-severity moves */}
       {changes.filter((c) => c.severity === 'high').length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+        <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
+          <h2 className="text-sm font-semibold text-on-surface mb-1 flex items-center gap-2">
             <Zap size={14} className="text-red-500" /> High-Priority Moves
           </h2>
-          <p className="text-xs text-gray-400 mb-4">Promotions and price changes in this period</p>
+          <p className="text-xs text-on-surface-variant mb-4">Promotions and price changes in this period</p>
           <div className="space-y-3">
             {changes.filter((c) => c.severity === 'high').slice().reverse().slice(0, 8).map((c) => (
-              <div key={c.id} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+              <div key={c.id} className="flex items-start gap-3 py-2 border-b border-border-subtle last:border-0">
                 <ChangeTypeBadge type={c.change_type} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{c.title}</p>
-                  {c.description && <p className="text-xs text-gray-500 truncate mt-0.5">{c.description}</p>}
+                  <p className="text-sm font-medium text-on-surface truncate">{c.title}</p>
+                  {c.description && <p className="text-xs text-on-surface-variant truncate mt-0.5">{c.description}</p>}
                 </div>
                 <div className="text-right shrink-0">
-                  <Link to={`/timeline/${c.competitor_id}`} className="text-xs font-medium text-blue-600 hover:underline">
+                  <Link to={`/timeline/${c.competitor_id}`} className="text-xs font-medium text-primary hover:underline">
                     {c.competitors?.name}
                   </Link>
-                  <p className="text-xs text-gray-400 mt-0.5">{format(new Date(c.detected_at), 'MMM d, HH:mm')}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{format(new Date(c.detected_at), 'MMM d, HH:mm')}</p>
                 </div>
               </div>
             ))}
@@ -233,10 +233,10 @@ function CompetitorTab({ days }: { days: number }) {
       )}
 
       {changes.length === 0 && (
-        <div className="bg-white rounded-xl border border-dashed border-gray-200 p-16 text-center">
-          <TrendingUp size={36} className="text-gray-200 mx-auto mb-3" />
-          <p className="text-sm font-medium text-gray-500">No data in the last {days} days</p>
-          <p className="text-xs text-gray-400 mt-1">Add competitors and trigger crawls to see analytics</p>
+        <div className="bg-surface-card rounded-xl border border-dashed border-border-subtle p-16 text-center">
+          <TrendingUp size={36} className="text-on-surface-variant/30 mx-auto mb-3" />
+          <p className="text-sm font-medium text-on-surface-variant">No data in the last {days} days</p>
+          <p className="text-xs text-on-surface-variant mt-1">Add competitors and trigger crawls to see analytics</p>
         </div>
       )}
     </div>
@@ -323,19 +323,19 @@ function CampaignsLeadsTab({ days }: { days: number }) {
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard value={leads.length}   label="Total leads"      sub={`last ${days} days`} />
-        <StatCard value={`${avgScore}%`} label="Avg lead score"   color={avgScore >= 60 ? 'text-green-600' : 'text-gray-900'} />
-        <StatCard value={`${qualifiedRate}%`} label="Qualification rate" sub="qualified + closed" color={qualifiedRate >= 30 ? 'text-green-600' : 'text-gray-900'} />
+        <StatCard value={`${avgScore}%`} label="Avg lead score"   color={avgScore >= 60 ? 'text-green-600' : 'text-on-surface'} />
+        <StatCard value={`${qualifiedRate}%`} label="Qualification rate" sub="qualified + closed" color={qualifiedRate >= 30 ? 'text-green-600' : 'text-on-surface'} />
         <StatCard value={campaigns.filter(c => c.status === 'active').length} label="Active campaigns" sub="currently running" />
       </div>
 
       {/* Daily leads line chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <Users size={14} className="text-blue-500" /> Daily Lead Capture
+      <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
+        <h2 className="text-sm font-semibold text-on-surface mb-1 flex items-center gap-2">
+          <Users size={14} className="text-primary" /> Daily Lead Capture
         </h2>
-        <p className="text-xs text-gray-400 mb-5">Leads submitted from landing pages</p>
+        <p className="text-xs text-on-surface-variant mb-5">Leads submitted from landing pages</p>
         {leads.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-sm text-gray-400">No leads in this period</div>
+          <div className="flex items-center justify-center h-40 text-sm text-on-surface-variant">No leads in this period</div>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={leadsDaily} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
@@ -343,7 +343,7 @@ function CampaignsLeadsTab({ days }: { days: number }) {
               <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }} />
-              <Line type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3, fill: '#3b82f6' }} name="Leads" />
+              <Line type="monotone" dataKey="leads" stroke="#3525cd" strokeWidth={2.5} dot={{ r: 3, fill: '#3525cd' }} name="Leads" />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -351,11 +351,11 @@ function CampaignsLeadsTab({ days }: { days: number }) {
 
       {/* Lead status pie + top campaigns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-1">Lead Status Breakdown</h2>
-          <p className="text-xs text-gray-400 mb-4">How are leads progressing through the funnel?</p>
+        <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
+          <h2 className="text-sm font-semibold text-on-surface mb-1">Lead Status Breakdown</h2>
+          <p className="text-xs text-on-surface-variant mb-4">How are leads progressing through the funnel?</p>
           {leadStatusData.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-sm text-gray-400">No leads in this period</div>
+            <div className="flex items-center justify-center h-48 text-sm text-on-surface-variant">No leads in this period</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -369,25 +369,25 @@ function CampaignsLeadsTab({ days }: { days: number }) {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+        <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
+          <h2 className="text-sm font-semibold text-on-surface mb-1 flex items-center gap-2">
             <Rocket size={14} className="text-orange-500" /> Top Campaigns by Leads
           </h2>
-          <p className="text-xs text-gray-400 mb-4">Best performing landing pages</p>
+          <p className="text-xs text-on-surface-variant mb-4">Best performing landing pages</p>
           {topCampaigns.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-sm text-gray-400">No campaigns with leads yet</div>
+            <div className="flex items-center justify-center h-48 text-sm text-on-surface-variant">No campaigns with leads yet</div>
           ) : (
             <div className="space-y-4">
               {topCampaigns.map((c, i) => (
                 <div key={c.id} className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-gray-300 w-5 text-right">{i + 1}</span>
+                  <span className="text-sm font-bold text-on-surface-variant/50 w-5 text-right">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm font-medium text-gray-900 truncate">{c.campaign_name}</span>
-                      <span className="text-xs font-semibold text-blue-600 ml-2 shrink-0">{c.leads_count}</span>
+                      <span className="text-sm font-medium text-on-surface truncate">{c.campaign_name}</span>
+                      <span className="text-xs font-semibold text-primary ml-2 shrink-0">{c.leads_count}</span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 rounded-full"
+                    <div className="h-1.5 bg-surface-container-low rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full"
                         style={{ width: `${Math.round((c.leads_count / (topCampaigns[0]?.leads_count || 1)) * 100)}%` }} />
                     </div>
                   </div>
@@ -400,20 +400,20 @@ function CampaignsLeadsTab({ days }: { days: number }) {
 
       {/* Channel distribution */}
       {campaigns.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Campaign Channel Mix</h2>
+        <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
+          <h2 className="text-sm font-semibold text-on-surface mb-4">Campaign Channel Mix</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {['google', 'meta', 'instagram', 'whatsapp'].map(ch => {
               const count = campaigns.filter(c => c.channels?.includes(ch)).length
               const pct = campaigns.length > 0 ? Math.round((count / campaigns.length) * 100) : 0
               return (
                 <div key={ch} className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{count}</p>
-                  <p className="text-xs text-gray-500 mt-0.5 capitalize">{ch}</p>
-                  <div className="h-1 bg-gray-100 rounded-full mt-2">
+                  <p className="text-2xl font-bold text-on-surface">{count}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5 capitalize">{ch}</p>
+                  <div className="h-1 bg-surface-container-low rounded-full mt-2">
                     <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${pct}%` }} />
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">{pct}%</p>
+                  <p className="text-[10px] text-on-surface-variant mt-1">{pct}%</p>
                 </div>
               )
             })}
@@ -469,7 +469,7 @@ function MarketSignalsTab() {
 
   const SIGNAL_COLORS: Record<string, string> = {
     SEARCH_SPIKE:    '#10b981',
-    RISING_KEYWORD:  '#3b82f6',
+    RISING_KEYWORD:  '#3525cd',
     AD_VOLUME_SPIKE: '#8b5cf6',
     NEW_CREATIVE:    '#f59e0b',
     OFFER_REPEAT:    '#ef4444',
@@ -486,10 +486,10 @@ function MarketSignalsTab() {
   if (isLoading) return <PageSpinner />
 
   if (signals.length === 0) return (
-    <div className="bg-gradient-to-br from-blue-50 to-violet-50 border border-blue-100 rounded-2xl p-12 text-center">
-      <Radio size={40} className="mx-auto mb-4 text-blue-400" />
-      <h2 className="text-lg font-bold text-gray-900 mb-2">Signals are being collected</h2>
-      <p className="text-sm text-gray-500 max-w-md mx-auto">
+    <div className="bg-gradient-to-br from-indigo-tint to-violet-50 border border-primary/20 rounded-2xl p-12 text-center">
+      <Radio size={40} className="mx-auto mb-4 text-primary/60" />
+      <h2 className="text-lg font-bold text-on-surface mb-2">Signals are being collected</h2>
+      <p className="text-sm text-on-surface-variant max-w-md mx-auto">
         Google Trends runs every 6 hours. Meta Ad Library runs every 12 hours.
         Your first signals will appear here soon.
       </p>
@@ -502,44 +502,44 @@ function MarketSignalsTab() {
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { label: 'Search Spikes',    value: spikes.length,    icon: TrendingUp,   color: 'text-green-600'  },
-          { label: 'Rising Keywords',  value: rising.length,    icon: TrendingUp,   color: 'text-blue-600'   },
+          { label: 'Rising Keywords',  value: rising.length,    icon: TrendingUp,   color: 'text-primary'   },
           { label: 'Ad Vol. Spikes',   value: adVolume.length,  icon: BarChart2,    color: 'text-violet-600' },
           { label: 'New Creatives',    value: newCreative.length, icon: Zap,        color: 'text-amber-600'  },
           { label: 'Offer Repeats',    value: offerRepeat.length, icon: Target,     color: 'text-red-600'    },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white border border-gray-200 rounded-xl p-4">
+          <div key={label} className="bg-surface-card border border-border-subtle rounded-xl p-4">
             <div className="flex items-center gap-2 mb-1">
               <Icon size={14} className={color} />
-              <span className="text-xs text-gray-500 truncate">{label}</span>
+              <span className="text-xs text-on-surface-variant truncate">{label}</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
+            <p className="text-2xl font-bold text-on-surface">{value}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top growing keywords */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <div className="bg-surface-card border border-border-subtle rounded-xl p-6">
+          <h2 className="text-sm font-semibold text-on-surface mb-4 flex items-center gap-2">
             <TrendingUp size={14} className="text-green-500" /> Top Growing Keywords
           </h2>
           {topGrowing.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">No positive growth signals yet</p>
+            <p className="text-sm text-on-surface-variant text-center py-8">No positive growth signals yet</p>
           ) : (
             <div className="space-y-2.5">
               {topGrowing.map(s => (
                 <div key={s.id} className="flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{s.keyword ?? s.industry ?? '—'}</p>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">{s.industry ?? ''} · {s.location ?? 'Global'}</p>
+                    <p className="text-sm font-medium text-on-surface truncate">{s.keyword ?? s.industry ?? '—'}</p>
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-wide">{s.industry ?? ''} · {s.location ?? 'Global'}</p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      Number(s.growth_pct) >= 30 ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                      Number(s.growth_pct) >= 30 ? 'bg-green-100 text-green-700' : 'bg-indigo-tint text-primary'
                     }`}>
                       +{Math.round(Number(s.growth_pct))}%
                     </span>
-                    <span className="text-[10px] text-gray-400">{format(new Date(s.collected_at), 'MMM d')}</span>
+                    <span className="text-[10px] text-on-surface-variant">{format(new Date(s.collected_at), 'MMM d')}</span>
                   </div>
                 </div>
               ))}
@@ -548,24 +548,24 @@ function MarketSignalsTab() {
         </div>
 
         {/* Industry signal breakdown */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <BarChart2 size={14} className="text-blue-500" /> Signals by Industry
+        <div className="bg-surface-card border border-border-subtle rounded-xl p-6">
+          <h2 className="text-sm font-semibold text-on-surface mb-4 flex items-center gap-2">
+            <BarChart2 size={14} className="text-primary" /> Signals by Industry
           </h2>
           {industryData.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">No industry data yet</p>
+            <p className="text-sm text-on-surface-variant text-center py-8">No industry data yet</p>
           ) : (
             <div className="space-y-3">
               {industryData.map(({ name, value }) => (
                 <div key={name} className="flex items-center gap-3">
-                  <p className="text-sm text-gray-700 w-40 truncate capitalize">{name}</p>
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <p className="text-sm text-on-surface w-40 truncate capitalize">{name}</p>
+                  <div className="flex-1 h-2 bg-surface-container-low rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-blue-400 rounded-full"
+                      className="h-full bg-primary/60 rounded-full"
                       style={{ width: `${Math.round((value / (industryData[0]?.value || 1)) * 100)}%` }}
                     />
                   </div>
-                  <span className="text-xs font-semibold text-gray-500 w-6 text-right">{value}</span>
+                  <span className="text-xs font-semibold text-on-surface-variant w-6 text-right">{value}</span>
                 </div>
               ))}
             </div>
@@ -574,32 +574,32 @@ function MarketSignalsTab() {
       </div>
 
       {/* Recent signals table */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">Recent Signals</h2>
+      <div className="bg-surface-card border border-border-subtle rounded-xl p-6">
+        <h2 className="text-sm font-semibold text-on-surface mb-4">Recent Signals</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Type</th>
-                <th className="text-left text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Keyword</th>
-                <th className="text-left text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Industry</th>
-                <th className="text-left text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Location</th>
-                <th className="text-right text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Growth</th>
-                <th className="text-right text-[10px] uppercase tracking-wide text-gray-400 pb-2 font-medium">Collected</th>
+              <tr className="border-b border-border-subtle">
+                <th className="text-left text-[10px] uppercase tracking-wide text-on-surface-variant pb-2 font-medium">Type</th>
+                <th className="text-left text-[10px] uppercase tracking-wide text-on-surface-variant pb-2 font-medium">Keyword</th>
+                <th className="text-left text-[10px] uppercase tracking-wide text-on-surface-variant pb-2 font-medium">Industry</th>
+                <th className="text-left text-[10px] uppercase tracking-wide text-on-surface-variant pb-2 font-medium">Location</th>
+                <th className="text-right text-[10px] uppercase tracking-wide text-on-surface-variant pb-2 font-medium">Growth</th>
+                <th className="text-right text-[10px] uppercase tracking-wide text-on-surface-variant pb-2 font-medium">Collected</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-border-subtle">
               {signals.slice(0, 20).map(s => (
-                <tr key={s.id} className="hover:bg-gray-50/50">
+                <tr key={s.id} className="hover:bg-surface-container-low/50">
                   <td className="py-2 pr-3">
                     <span className="text-[10px] font-bold uppercase tracking-wide"
                       style={{ color: SIGNAL_COLORS[s.signal_type] ?? '#6b7280' }}>
                       {SIGNAL_LABELS[s.signal_type] ?? s.signal_type}
                     </span>
                   </td>
-                  <td className="py-2 pr-3 text-gray-700 max-w-[140px] truncate">{s.keyword ?? '—'}</td>
-                  <td className="py-2 pr-3 text-gray-500 capitalize">{s.industry ?? '—'}</td>
-                  <td className="py-2 pr-3 text-gray-500">{s.location ?? 'Global'}</td>
+                  <td className="py-2 pr-3 text-on-surface max-w-[140px] truncate">{s.keyword ?? '—'}</td>
+                  <td className="py-2 pr-3 text-on-surface-variant capitalize">{s.industry ?? '—'}</td>
+                  <td className="py-2 pr-3 text-on-surface-variant">{s.location ?? 'Global'}</td>
                   <td className="py-2 pr-3 text-right">
                     {s.growth_pct != null ? (
                       <span className={`text-xs font-bold ${Number(s.growth_pct) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
@@ -607,7 +607,7 @@ function MarketSignalsTab() {
                       </span>
                     ) : '—'}
                   </td>
-                  <td className="py-2 text-right text-gray-400 text-xs">{format(new Date(s.collected_at), 'MMM d, HH:mm')}</td>
+                  <td className="py-2 text-right text-on-surface-variant text-xs">{format(new Date(s.collected_at), 'MMM d, HH:mm')}</td>
                 </tr>
               ))}
             </tbody>
@@ -632,11 +632,11 @@ export function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            <BarChart2 size={22} className="text-blue-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight flex items-center gap-2">
+            <BarChart2 size={22} className="text-primary" />
             Analytics
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Intelligence trends and campaign performance</p>
+          <p className="text-on-surface-variant text-sm mt-1">Intelligence trends and campaign performance</p>
         </div>
         <div className="flex gap-2">
           {[7, 14, 30].map((d) => (
@@ -645,8 +645,8 @@ export function AnalyticsPage() {
               onClick={() => setDays(d)}
               className={`flex-1 sm:flex-none px-3 py-2 sm:py-1.5 text-sm rounded-lg font-medium transition-colors ${
                 days === d
-                  ? 'bg-blue-600 text-white shadow-soft'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+                  ? 'bg-primary text-white shadow-soft'
+                  : 'bg-surface-card border border-border-subtle text-on-surface-variant hover:border-primary/40'
               }`}
             >
               {d}d
@@ -656,7 +656,7 @@ export function AnalyticsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit flex-wrap">
+      <div className="flex gap-1 bg-surface-container-low rounded-xl p-1 w-fit flex-wrap">
         {([
           { key: 'intelligence', label: 'Competitor Intelligence', icon: Zap },
           { key: 'campaigns',    label: 'Campaigns & Leads',       icon: Users },
@@ -667,8 +667,8 @@ export function AnalyticsPage() {
             onClick={() => setTab(key)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === key
-                ? 'bg-white text-gray-900 shadow-soft'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-surface-card text-on-surface shadow-soft'
+                : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
             <Icon size={14} />
