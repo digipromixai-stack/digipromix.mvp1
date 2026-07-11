@@ -11,7 +11,7 @@ import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
   ArrowRight, Filter, Search, RefreshCcw, X, Loader2, Radio,
-  BarChart2, ChevronDown, ChevronUp, Brain, Clock, ShieldAlert,
+  ChevronDown, ChevronUp, Brain, Clock, ShieldAlert,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useOpportunities } from '../hooks/useOpportunities'
@@ -35,41 +35,25 @@ function SignalSourceBadge({ opp }: { opp: Opportunity }) {
   const hasOfferRepeat  = sources.some(s => s.signal_type === 'OFFER_REPEAT')
   const isStandalone    = meta?.is_standalone === true
 
-  // Build small signal chips — one per distinct source type
-  const chips: { label: string; icon: React.ElementType; cls: string }[] = []
-
-  if (isStandalone && hasSearchSpike) {
-    chips.push({ label: 'Google Trends', icon: TrendingUp, cls: 'bg-green-50 text-green-700 border-green-200' })
-  }
-  if (isStandalone && hasAdSpike) {
-    chips.push({ label: 'Meta Ad Spike', icon: BarChart2, cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' })
-  }
-  if (!isStandalone && meta?.source_competitor) {
-    chips.push({ label: `${meta.source_competitor} change`, icon: Target, cls: 'bg-orange-50 text-orange-700 border-orange-200' })
-  }
-  if (hasAdSpike && !isStandalone) {
-    chips.push({ label: 'Ad spike corroborates', icon: TrendingUp, cls: 'bg-green-50 text-green-700 border-green-200' })
-  }
-  if (hasNewCreative) chips.push({ label: 'New creative', icon: Sparkles, cls: 'bg-violet-50 text-violet-700 border-violet-200' })
-  if (hasOfferRepeat) chips.push({ label: 'Offer repeating', icon: Zap, cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' })
+  const chips: { label: string; icon: React.ElementType }[] = []
+  if (isStandalone && hasSearchSpike) chips.push({ label: 'Google Search', icon: TrendingUp })
+  if (isStandalone && hasAdSpike) chips.push({ label: 'Meta Ad Spike', icon: Target })
+  if (!isStandalone && meta?.source_competitor) chips.push({ label: `${meta.source_competitor} change`, icon: Target })
+  if (hasAdSpike && !isStandalone) chips.push({ label: 'Ad spike corroborates', icon: TrendingUp })
+  if (hasNewCreative) chips.push({ label: 'New creative', icon: Sparkles })
+  if (hasOfferRepeat) chips.push({ label: 'Offer repeating', icon: Zap })
 
   if (chips.length === 0) return null
+  const { label, icon: Icon } = chips[0]
   return (
-    <div className="flex flex-wrap gap-1 mb-3">
-      {chips.map(({ label, icon: Icon, cls }) => (
-        <span key={label} className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${cls}`}>
-          <Icon size={9} />
-          {label}
-        </span>
-      ))}
-    </div>
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-on-surface-variant">
+      <Icon size={13} className="text-primary" />
+      {label}
+    </span>
   )
 }
 
 // ── Budget tier simulator ─────────────────────────────────────────────────────
-// Shows three budget scenarios (conservative / recommended / aggressive) so
-// users see the MVP 2 doc's "€15/day → weak, €40/day → optimal, €100/day →
-// diminishing returns" without leaving the feed.
 
 function BudgetTiers({ opp }: { opp: Opportunity }) {
   const [open, setOpen] = useState(false)
@@ -79,35 +63,15 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
 
   if (!recBudget || !cpc || cpc <= 0) return null
 
-  // Three tiers — lead count scales with budget but with diminishing returns above optimal
   const tiers = [
-    {
-      label: 'Conservative',
-      budget: Math.round(recBudget * 0.4),
-      cls: 'text-gray-600',
-      dot: 'bg-gray-400',
-      tag: 'Weak impact',
-    },
-    {
-      label: 'Recommended',
-      budget: recBudget,
-      cls: 'text-blue-700 font-bold',
-      dot: 'bg-blue-500',
-      tag: 'Optimal',
-    },
-    {
-      label: 'Aggressive',
-      budget: Math.round(recBudget * 2.5),
-      cls: 'text-gray-600',
-      dot: 'bg-gray-400',
-      tag: 'Diminishing returns',
-    },
+    { label: 'Conservative', budget: Math.round(recBudget * 0.4), tag: 'Weak impact', active: false },
+    { label: 'Recommended',  budget: recBudget,                    tag: 'Optimal',      active: true  },
+    { label: 'Aggressive',   budget: Math.round(recBudget * 2.5),  tag: 'Diminishing returns', active: false },
   ]
 
   const leadsFor = (budget: number) => {
     if (!expLeads) return '—'
     const ratio = budget / recBudget
-    // diminishing returns above 2×: sqrt scaling above optimal
     const scale = ratio <= 1 ? ratio : 1 + Math.sqrt(ratio - 1) * 0.7
     return Math.max(1, Math.round(expLeads * scale))
   }
@@ -116,7 +80,7 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
     <div className="mb-3">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+        className="flex items-center gap-1 text-[11px] text-on-surface-variant hover:text-on-surface transition-colors"
       >
         <DollarSign size={11} />
         Budget scenarios
@@ -124,18 +88,18 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
       </button>
 
       {open && (
-        <div className="mt-2 rounded-lg border border-gray-100 overflow-hidden text-xs">
-          <div className="grid grid-cols-3 bg-gray-50 text-[10px] uppercase tracking-wide text-gray-400 px-2 py-1.5 border-b border-gray-100">
+        <div className="mt-2 rounded-lg border border-border-subtle overflow-hidden text-xs">
+          <div className="grid grid-cols-3 bg-surface-container-low text-[10px] uppercase tracking-wide text-on-surface-variant px-2 py-1.5 border-b border-border-subtle">
             <span>Budget/wk</span><span className="text-center">Est. leads</span><span className="text-right">Impact</span>
           </div>
           {tiers.map(t => (
-            <div key={t.label} className={`grid grid-cols-3 px-2 py-2 border-b border-gray-50 last:border-0 ${t.label === 'Recommended' ? 'bg-blue-50/40' : ''}`}>
-              <span className={`flex items-center gap-1.5 ${t.cls}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${t.dot} shrink-0`} />
+            <div key={t.label} className={`grid grid-cols-3 px-2 py-2 border-b border-border-subtle last:border-0 ${t.active ? 'bg-indigo-tint' : ''}`}>
+              <span className={`flex items-center gap-1.5 ${t.active ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.active ? 'bg-primary' : 'bg-gray-400'}`} />
                 ${t.budget}/wk
               </span>
-              <span className={`text-center ${t.cls}`}>{leadsFor(t.budget)}</span>
-              <span className={`text-right text-[10px] ${t.cls}`}>{t.tag}</span>
+              <span className={`text-center ${t.active ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>{leadsFor(t.budget)}</span>
+              <span className="text-right text-[10px] text-on-surface-variant">{t.tag}</span>
             </div>
           ))}
         </div>
@@ -146,41 +110,29 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
 
 // ── Opportunity card ──────────────────────────────────────────────────────────
 
-function UrgencyBar({ score }: { score: number }) {
-  const level = score >= 75 ? 'URGENT' : score >= 50 ? 'MEDIUM' : 'LOW'
-  const pct = Math.min(100, score)
-  const color = score >= 75 ? 'bg-red-500' : score >= 50 ? 'bg-amber-500' : 'bg-blue-400'
-  const textColor = score >= 75 ? 'text-red-700' : score >= 50 ? 'text-amber-700' : 'text-blue-700'
-  return (
-    <div className="flex items-center gap-2">
-      <span className={`text-[9px] font-black uppercase tracking-widest ${textColor} shrink-0`}>{level}</span>
-      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="text-[9px] font-bold text-gray-400">{Math.round(score)}</span>
-    </div>
-  )
+const TIER_META = {
+  urgent: { label: 'URGENT', border: 'border-l-danger', badgeBg: 'bg-red-tint', badgeText: 'text-danger' },
+  high:   { label: 'HIGH',   border: 'border-l-warning', badgeBg: 'bg-orange-tint', badgeText: 'text-warning' },
+  normal: { label: 'NORMAL', border: 'border-l-primary', badgeBg: 'bg-indigo-tint', badgeText: 'text-primary' },
 }
 
 function OpportunityCard({
   opp,
+  rank,
   onLaunch,
   onDismiss,
   busy,
 }: {
   opp: Opportunity
+  rank: number
   onLaunch: (opp: Opportunity) => void
   onDismiss: (opp: Opportunity) => void
   busy: boolean
 }) {
-  const ageMs = Date.now() - new Date(opp.created_at).getTime()
-  const isNew = ageMs < 5 * 60 * 1000
-
   const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>
   const topSignal = sources.find(s => s.growth_pct != null)
   const growthPct = topSignal?.growth_pct as number | undefined
 
-  // Revenue impact estimate: leads × avg lead value ($80)
   const estRevenueValue = opp.expected_leads != null ? opp.expected_leads * 80 : null
   const roiMultiplier = opp.expected_leads != null && opp.recommended_budget != null && opp.recommended_budget > 0
     ? Math.round((opp.expected_leads * 80) / (opp.recommended_budget * 4))
@@ -188,166 +140,84 @@ function OpportunityCard({
 
   const isHot = opp.opportunity_score >= 75
   const isMedium = opp.opportunity_score >= 50
+  const tier = isHot ? TIER_META.urgent : isMedium ? TIER_META.high : TIER_META.normal
+  const confidence = opp.confidence != null ? Math.round(opp.confidence * 100) : null
 
   return (
-    <div className={`bg-white border rounded-2xl overflow-hidden hover:shadow-lg transition-shadow relative
-      ${isHot ? 'border-orange-200 ring-1 ring-orange-100' : isNew ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-gray-200'}`}>
+    <div className={`bg-surface-card border border-border-subtle border-l-4 ${tier.border} rounded-xl p-5 shadow-soft hover:shadow-soft-md transition-shadow relative`}>
+      <button
+        onClick={() => onDismiss(opp)}
+        title="Dismiss"
+        className="absolute top-4 right-4 text-on-surface-variant/50 hover:text-on-surface-variant p-1 rounded-lg hover:bg-surface-container-low transition-colors"
+      >
+        <X size={14} />
+      </button>
 
-      {/* Hot market gradient header */}
-      {isHot && (
-        <div className="bg-gradient-to-r from-orange-500 to-red-500 px-4 py-1.5 flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-white flex items-center gap-1">
-            🔥 HOT MARKET — ACT NOW
-          </span>
-        </div>
+      <div className="flex items-center justify-between gap-2 mb-3 pr-6">
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest ${tier.badgeBg} ${tier.badgeText}`}>
+          #{rank} {tier.label}
+        </span>
+        <span className="inline-flex items-center gap-1 bg-surface-container-low px-2 py-1 rounded-full border border-border-subtle text-[10px] font-bold text-on-surface-variant">
+          SCORE {Math.round(opp.opportunity_score)}
+        </span>
+      </div>
+
+      <p className="text-[10px] font-mono uppercase text-on-surface-variant tracking-wider mb-1">
+        {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
+        {growthPct != null && <span className="text-success ml-1.5">+{Math.round(growthPct)}% demand</span>}
+      </p>
+      <h3 className="font-bold text-on-surface text-base leading-snug mb-2">{opp.title}</h3>
+      {opp.description && (
+        <p className="text-sm text-on-surface-variant mb-4 line-clamp-2">{opp.description}</p>
       )}
-      {isNew && !isHot && (
-        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-1.5">
-          <span className="text-[10px] font-black uppercase tracking-widest text-white">⚡ NEW SIGNAL</span>
-        </div>
-      )}
 
-      <div className="p-5">
-        <button
-          onClick={() => onDismiss(opp)}
-          title="Dismiss"
-          className="absolute top-3 right-3 text-gray-300 hover:text-gray-500 p-1 rounded-lg hover:bg-gray-100 transition-colors"
-        >
-          <X size={14} />
-        </button>
-
-        {/* Market identifier */}
-        <div className="flex items-center gap-1.5 flex-wrap mb-1 pr-6">
-          <p className="text-[10px] font-mono uppercase text-gray-400 tracking-wider">
-            {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Potential Revenue</p>
+          <p className="font-mono text-lg font-bold text-on-surface">
+            {estRevenueValue != null ? `$${estRevenueValue.toLocaleString()}` : '—'}
           </p>
-          {growthPct != null && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">
-              <TrendingUp size={9} />+{Math.round(growthPct)}% demand
-            </span>
-          )}
         </div>
+        <div>
+          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Confidence</p>
+          <p className="font-mono text-lg font-bold text-success">{confidence != null ? `${confidence}%` : '—'}</p>
+        </div>
+      </div>
 
-        {/* Title */}
-        <h3 className="font-bold text-gray-900 text-base leading-snug mb-2">{opp.title}</h3>
+      <div className="flex items-center justify-between text-xs text-on-surface-variant mb-3 pb-3 border-b border-border-subtle">
+        <span>Expected Leads <strong className="text-on-surface">{opp.expected_leads ?? '—'}</strong></span>
+        <span>ROI Forecast <strong className="text-success">{roiMultiplier != null ? `${roiMultiplier}x` : '—'}</strong></span>
+      </div>
 
-        {/* Signal chips */}
+      {opp.recommended_action && (
+        <p className="text-xs text-on-surface-variant mb-3 flex items-start gap-1.5">
+          <Sparkles size={12} className="shrink-0 mt-0.5 text-primary" />
+          <span><strong className="text-on-surface">AI Why:</strong> {opp.recommended_action}</span>
+        </p>
+      )}
+
+      {opp.expires_at && (
+        <div className={`flex items-center gap-1.5 mb-3 text-xs font-semibold px-2.5 py-1.5 rounded-lg ${
+          new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000)
+            ? 'text-danger bg-red-tint' : 'text-warning bg-orange-tint'}`}
+        >
+          <Clock size={11} />
+          {new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000)
+            ? 'Expires in less than 24h — act now'
+            : `Window closes in ${Math.round((new Date(opp.expires_at).getTime() - Date.now()) / 86400000)}d`}
+        </div>
+      )}
+
+      <BudgetTiers opp={opp} />
+
+      <div className="flex items-center justify-between gap-3">
         <SignalSourceBadge opp={opp} />
-
-        {/* Description / WHY NOW */}
-        {opp.description && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-2">{opp.description}</p>
-        )}
-
-        {/* ── Revenue Impact Block ── */}
-        {(estRevenueValue != null || roiMultiplier != null || opp.recommended_budget != null) && (
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-green-700 mb-2 flex items-center gap-1">
-              <DollarSign size={10} /> Revenue Impact
-            </p>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              {opp.expected_leads != null && (
-                <div>
-                  <p className="text-lg font-black text-gray-900">{opp.expected_leads}</p>
-                  <p className="text-[10px] text-gray-500 uppercase">Pred. Leads</p>
-                </div>
-              )}
-              {estRevenueValue != null && (
-                <div>
-                  <p className="text-lg font-black text-green-700">
-                    ${estRevenueValue >= 1000 ? `${(estRevenueValue / 1000).toFixed(1)}k` : estRevenueValue}
-                  </p>
-                  <p className="text-[10px] text-gray-500 uppercase">Est. Value</p>
-                </div>
-              )}
-              {roiMultiplier != null && (
-                <div>
-                  <p className="text-lg font-black text-indigo-700">{roiMultiplier}×</p>
-                  <p className="text-[10px] text-gray-500 uppercase">ROI Est.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Urgency + Confidence row */}
-        <div className="space-y-1.5 mb-3">
-          <UrgencyBar score={opp.opportunity_score} />
-          {opp.confidence != null && (
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black uppercase tracking-widest text-violet-600 shrink-0 flex items-center gap-1">
-                <Brain size={9} /> AI CONF.
-              </span>
-              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.round(opp.confidence * 100)}%` }} />
-              </div>
-              <span className="text-[9px] font-bold text-violet-600">{Math.round(opp.confidence * 100)}%</span>
-            </div>
-          )}
-        </div>
-
-        {/* Timing indicator */}
-        {opp.expires_at && (
-          <div className={`flex items-center gap-1.5 mb-3 text-xs font-semibold px-2.5 py-1.5 rounded-lg
-            ${new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000)
-              ? 'text-red-700 bg-red-50 border border-red-200'
-              : 'text-amber-700 bg-amber-50 border border-amber-200'}`}>
-            <Clock size={11} />
-            {new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000)
-              ? 'Expires in less than 24h — act now'
-              : `Window closes in ${Math.round((new Date(opp.expires_at).getTime() - Date.now()) / 86400000)}d`}
-          </div>
-        )}
-
-        {/* CPC / CPL details */}
-        {(opp.estimated_cpc != null || opp.estimated_cpl != null || opp.recommended_budget != null) && (
-          <div className="flex items-center gap-3 text-xs text-gray-500 mb-3 flex-wrap">
-            {opp.recommended_budget != null && (
-              <span><span className="font-bold text-gray-800">${opp.recommended_budget}</span>/wk budget</span>
-            )}
-            {opp.estimated_cpc != null && (
-              <span><span className="font-bold text-gray-800">${opp.estimated_cpc.toFixed(2)}</span>/click</span>
-            )}
-            {opp.estimated_cpl != null && (
-              <span><span className="font-bold text-gray-800">${opp.estimated_cpl.toFixed(0)}</span>/lead</span>
-            )}
-          </div>
-        )}
-
-        {/* Budget scenarios */}
-        <BudgetTiers opp={opp} />
-
-        {/* AI recommended action */}
-        {opp.recommended_action && (
-          <div className="bg-violet-50 border border-violet-100 rounded-lg px-3 py-2 mb-3">
-            <p className="text-sm text-violet-800 flex items-start gap-1.5">
-              <Sparkles size={13} className="shrink-0 mt-0.5 text-violet-500" />
-              <span className="font-medium">{opp.recommended_action}</span>
-            </p>
-          </div>
-        )}
-
-        {/* Launch button */}
         <button
           onClick={() => onLaunch(opp)}
           disabled={busy}
-          className={`w-full disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold py-3 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm ${
-            isHot
-              ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600'
-              : isMedium
-              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700'
-              : 'bg-gray-900 hover:bg-gray-800'
-          }`}
+          className="inline-flex items-center gap-1.5 bg-primary hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold py-2.5 px-5 rounded-xl transition-all shrink-0"
         >
-          {busy ? (
-            <><Loader2 size={14} className="animate-spin" /> Loading…</>
-          ) : isHot ? (
-            <>🔥 Launch Now — Hot Market <ArrowRight size={14} /></>
-          ) : isMedium ? (
-            <>⚡ Launch AI Campaign <ArrowRight size={14} /></>
-          ) : (
-            <>Launch Campaign <ArrowRight size={14} /></>
-          )}
+          {busy ? <><Loader2 size={14} className="animate-spin" /> Loading…</> : <>Launch Now <ArrowRight size={14} /></>}
         </button>
       </div>
     </div>
@@ -363,8 +233,6 @@ export function OpportunityFeedPage() {
   const { user } = useAuth()
   const { toast } = useToast()
 
-  // Active campaign-launch context: the opportunity we're acting on + the
-  // detected_change row we resolved from metadata.source_change_id
   const [activeChange, setActiveChange] = useState<DetectedChangeWithCompetitor | null>(null)
   const [activeOppHint, setActiveOppHint] = useState<{
     title?: string
@@ -378,9 +246,6 @@ export function OpportunityFeedPage() {
   const [loadingOppId, setLoadingOppId] = useState<string | null>(null)
   const [livePulse, setLivePulse] = useState(false)
 
-  // MVP 2.0 §Phase 3 — Realtime Opportunity Feed.
-  // Supabase realtime subscription on `opportunities`: new opps pop in
-  // without refresh. We invalidate the React Query cache on any change.
   useEffect(() => {
     if (!user?.id) return
     const channel = supabase
@@ -398,10 +263,6 @@ export function OpportunityFeedPage() {
     return () => { supabase.removeChannel(channel) }
   }, [user?.id, queryClient])
 
-  // Fetch the source detected_change and open the campaign modal.
-  // For standalone signal-based opportunities, score-opportunities stores the
-  // most-recent competitor change as a best-effort source_change_id so we can
-  // still open the campaign modal with real context.
   async function handleLaunch(opp: Opportunity) {
     const meta     = (opp.metadata as Record<string, unknown> | null) ?? {}
     const sourceId = meta.source_change_id as string | undefined
@@ -426,8 +287,6 @@ export function OpportunityFeedPage() {
         return
       }
       setActiveChange(data as DetectedChangeWithCompetitor)
-      // Carry the Opportunity Radar projections into the campaign modal
-      // so it pre-fills the budget / lead expectations panel.
       setActiveOppHint({
         title:              opp.title,
         recommended_budget: opp.recommended_budget ?? null,
@@ -442,7 +301,6 @@ export function OpportunityFeedPage() {
     }
   }
 
-  // Client-side filtering by score tier + search query
   const filteredOpportunities = useMemo(() => {
     let list = opportunities
     if (scoreFilter === 'hot')    list = list.filter(o => o.opportunity_score >= 75)
@@ -460,7 +318,6 @@ export function OpportunityFeedPage() {
     return list
   }, [opportunities, scoreFilter, searchQuery])
 
-  // Dismiss → flip status to 'dismissed' so it falls out of the open feed
   async function handleDismiss(opp: Opportunity) {
     const { error } = await supabase
       .from('opportunities')
@@ -473,7 +330,6 @@ export function OpportunityFeedPage() {
     queryClient.invalidateQueries({ queryKey: ['opportunities'] })
   }
 
-  // Market Intelligence Briefing computations
   const hotCount    = opportunities.filter(o => o.opportunity_score >= 75).length
   const totalLeads  = opportunities.reduce((s, o) => s + (o.expected_leads ?? 0), 0)
   const avgConf     = opportunities.length
@@ -482,88 +338,88 @@ export function OpportunityFeedPage() {
   const totalRevEst = totalLeads * 80
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-6">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-5">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <Brain size={18} className="text-violet-600" />
-            <h1 className="text-2xl font-bold text-gray-900">AI Revenue Intelligence</h1>
-            <span className="text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-violet-500 to-indigo-500 text-white px-2 py-0.5 rounded">
+            <h1 className="text-2xl sm:text-3xl font-bold text-on-surface">Opportunities</h1>
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-primary text-white px-2 py-0.5 rounded">
               Beta
             </span>
             <span
               title={livePulse ? 'New signal just received' : 'Live — listening for new signals'}
               className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-all ${
-                livePulse
-                  ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-300 animate-pulse'
-                  : 'bg-emerald-50 text-emerald-600'
+                livePulse ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-300 animate-pulse' : 'bg-emerald-50 text-emerald-600'
               }`}
             >
               <Radio size={10} className={livePulse ? 'animate-pulse' : ''} />
               {livePulse ? 'New signal' : 'Live'}
             </span>
           </div>
-          <p className="text-sm text-gray-500">
-            AI-detected revenue opportunities ranked by urgency, confidence, and predicted business impact.
+          <p className="text-sm text-on-surface-variant">
+            Ranked by revenue potential — act on the top of the list first.
           </p>
         </div>
 
         <div className="flex gap-2 shrink-0 flex-wrap">
           <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
             <input
               type="text"
               placeholder="Search opportunities…"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-sm w-48 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              className="border border-outline-variant bg-surface-card rounded-xl pl-9 pr-3 py-2 text-sm w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
-          <button onClick={() => refetch()} className="border border-gray-200 hover:border-gray-300 rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5">
+          <button
+            onClick={() => refetch()}
+            className="border border-outline-variant bg-surface-card hover:bg-surface-container-low rounded-xl px-4 py-2 text-sm font-bold flex items-center gap-1.5 text-on-surface-variant"
+          >
             <RefreshCcw size={14} /> Refresh
           </button>
         </div>
       </div>
 
-      {/* Market Intelligence Briefing banner */}
+      {/* AI Market Intelligence Briefing */}
       {opportunities.length > 0 && (
-        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl p-5 mb-5 text-white">
+        <div className="bg-on-surface rounded-xl p-5 mb-6 text-white">
           <div className="flex items-center gap-2 mb-3">
-            <ShieldAlert size={15} className="text-violet-400" />
-            <span className="text-xs font-bold uppercase tracking-widest text-violet-300">AI Market Intelligence Briefing</span>
+            <ShieldAlert size={15} className="text-primary" />
+            <span className="text-xs font-bold uppercase tracking-widest text-white/70">AI Market Intelligence Briefing</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-2xl font-black">{opportunities.length}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Active Opportunities</p>
+              <p className="text-xs text-white/50 mt-0.5">Active Opportunities</p>
             </div>
             <div>
-              <p className="text-2xl font-black text-red-400">{hotCount}</p>
-              <p className="text-xs text-slate-400 mt-0.5">🔥 Hot Markets Now</p>
+              <p className="text-2xl font-black text-danger">{hotCount}</p>
+              <p className="text-xs text-white/50 mt-0.5">Hot Markets Now</p>
             </div>
             <div>
-              <p className="text-2xl font-black text-green-400">{totalLeads.toLocaleString()}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Predicted Total Leads</p>
+              <p className="text-2xl font-black text-success">{totalLeads.toLocaleString()}</p>
+              <p className="text-xs text-white/50 mt-0.5">Predicted Total Leads</p>
             </div>
             <div>
-              <p className="text-2xl font-black text-yellow-400">
+              <p className="text-2xl font-black text-warning">
                 ${totalRevEst >= 10000 ? `${(totalRevEst / 1000).toFixed(0)}k` : totalRevEst.toLocaleString()}
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">Est. Revenue at Stake</p>
+              <p className="text-xs text-white/50 mt-0.5">Est. Revenue at Stake</p>
             </div>
           </div>
           {avgConf > 0 && (
             <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-3">
-              <Brain size={13} className="text-violet-400 shrink-0" />
+              <Brain size={13} className="text-primary shrink-0" />
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-slate-400">Average AI Confidence</span>
-                  <span className="text-xs font-bold text-violet-300">{avgConf}%</span>
+                  <span className="text-xs text-white/50">Average AI Confidence</span>
+                  <span className="text-xs font-bold text-primary">{avgConf}%</span>
                 </div>
                 <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-400 rounded-full" style={{ width: `${avgConf}%` }} />
+                  <div className="h-full bg-primary rounded-full" style={{ width: `${avgConf}%` }} />
                 </div>
               </div>
             </div>
@@ -571,68 +427,67 @@ export function OpportunityFeedPage() {
         </div>
       )}
 
-      {/* Score filter / stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      {/* Score filter pills */}
+      <div className="flex flex-wrap gap-2 mb-6">
         {[
-          { label: 'All Opportunities',    value: opportunities.length,  icon: Target,    active: scoreFilter === 'all',    onClick: () => setScoreFilter('all') },
-          { label: '🔥 Hot (≥75)',          value: hotCount,              icon: TrendingUp, active: scoreFilter === 'hot',    onClick: () => setScoreFilter('hot') },
-          { label: '⚡ Medium (50–74)',    value: opportunities.filter(o => o.opportunity_score >= 50 && o.opportunity_score < 75).length, icon: Sparkles, active: scoreFilter === 'medium', onClick: () => setScoreFilter('medium') },
-          { label: 'Watch (<50)',          value: opportunities.filter(o => o.opportunity_score < 50).length, icon: DollarSign, active: scoreFilter === 'watch', onClick: () => setScoreFilter('watch') },
-        ].map(stat => {
-          const Icon = stat.icon
-          return (
-            <button
-              key={stat.label}
-              onClick={stat.onClick}
-              className={`bg-white border rounded-xl p-4 text-left transition-all hover:shadow-sm ${
-                stat.active ? 'border-violet-400 ring-1 ring-violet-100 shadow-sm' : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 text-gray-500 text-xs uppercase tracking-wider mb-1.5">
-                <Icon size={12} className={stat.active ? 'text-violet-500' : 'text-gray-400'} />
-                {stat.label}
-              </div>
-              <div className={`text-2xl font-bold ${stat.active ? 'text-violet-700' : 'text-gray-900'}`}>{stat.value}</div>
-            </button>
-          )
-        })}
+          { key: 'all',    label: 'All Opportunities', value: opportunities.length },
+          { key: 'hot',    label: '🔥 Hot (≥75)',       value: hotCount },
+          { key: 'medium', label: '⚡ Medium (50–74)',   value: opportunities.filter(o => o.opportunity_score >= 50 && o.opportunity_score < 75).length },
+          { key: 'watch',  label: 'Watch (<50)',        value: opportunities.filter(o => o.opportunity_score < 50).length },
+        ].map(stat => (
+          <button
+            key={stat.key}
+            onClick={() => setScoreFilter(stat.key as typeof scoreFilter)}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+              scoreFilter === stat.key
+                ? 'bg-primary text-white shadow-soft'
+                : 'bg-surface-card border border-outline-variant text-on-surface-variant hover:border-primary/40'
+            }`}
+          >
+            {stat.label}
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${scoreFilter === stat.key ? 'bg-white/20' : 'bg-surface-container-low'}`}>
+              {stat.value}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Feed */}
       {isLoading ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-on-surface-variant">
           <Search className="mx-auto mb-3 animate-pulse" size={32} />
           Scanning signals…
         </div>
       ) : filteredOpportunities.length === 0 && opportunities.length > 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <Filter size={28} className="mx-auto mb-2 text-gray-300" />
+        <div className="text-center py-12 text-on-surface-variant">
+          <Filter size={28} className="mx-auto mb-2 text-on-surface-variant/40" />
           <p className="text-sm font-medium">No opportunities match your filters.</p>
-          <button onClick={() => { setScoreFilter('all'); setSearchQuery('') }} className="mt-2 text-xs text-blue-600 hover:underline">Clear filters</button>
+          <button onClick={() => { setScoreFilter('all'); setSearchQuery('') }} className="mt-2 text-xs text-primary hover:underline">Clear filters</button>
         </div>
       ) : opportunities.length === 0 ? (
-        <div className="bg-gradient-to-br from-blue-50 via-violet-50 to-pink-50 border border-blue-100 rounded-2xl p-12 text-center">
-          <Zap size={48} className="mx-auto mb-4 text-blue-500" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Your first opportunity is coming soon</h2>
-          <p className="text-sm text-gray-600 mb-5 max-w-md mx-auto">
+        <div className="bg-indigo-tint border border-primary/10 rounded-xl p-12 text-center">
+          <Zap size={48} className="mx-auto mb-4 text-primary" />
+          <h2 className="text-xl font-bold text-on-surface mb-2">Your first opportunity is coming soon</h2>
+          <p className="text-sm text-on-surface-variant mb-5 max-w-md mx-auto">
             DigiPromix is scanning competitor activity, search trends, and ad spend signals. As real signals
             start flowing, scored opportunities will appear here in real-time.
           </p>
           <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-md mx-auto">
-            <Link to="/competitors" className="bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold py-2 px-4 rounded-lg">
+            <Link to="/competitors" className="bg-primary hover:opacity-90 text-white text-sm font-bold py-2.5 px-5 rounded-xl">
               Add a competitor
             </Link>
-            <Link to="/settings" className="border border-gray-300 hover:bg-white text-gray-700 text-sm font-semibold py-2 px-4 rounded-lg">
+            <Link to="/settings" className="border border-outline-variant hover:bg-surface-container-low text-on-surface text-sm font-bold py-2.5 px-5 rounded-xl">
               Connect ad accounts
             </Link>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredOpportunities.map(opp => (
+          {filteredOpportunities.map((opp, i) => (
             <OpportunityCard
               key={opp.id}
               opp={opp}
+              rank={i + 1}
               onLaunch={handleLaunch}
               onDismiss={handleDismiss}
               busy={loadingOppId === opp.id}
@@ -641,8 +496,6 @@ export function OpportunityFeedPage() {
         </div>
       )}
 
-      {/* Campaign generation modal — same one Changes page uses, now
-          pre-filled with the Opportunity Radar projections. */}
       {activeChange && (
         <CampaignModal
           change={activeChange}
@@ -654,11 +507,11 @@ export function OpportunityFeedPage() {
 
       {/* Mobile sticky action bar */}
       {opportunities.length > 0 && (
-        <div className="fixed bottom-0 inset-x-0 p-4 bg-white/95 backdrop-blur border-t border-gray-100 lg:hidden z-30">
+        <div className="fixed bottom-0 inset-x-0 p-4 bg-surface-card/95 backdrop-blur border-t border-border-subtle lg:hidden z-30">
           <button
             onClick={() => opportunities[0] && handleLaunch(opportunities[0])}
             disabled={!!loadingOppId}
-            className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg"
+            className="w-full bg-primary hover:opacity-90 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-soft"
           >
             {loadingOppId ? <><Loader2 size={16} className="animate-spin" />Loading…</> : <>⚡ Launch Top Opportunity <ArrowRight size={16} /></>}
           </button>
