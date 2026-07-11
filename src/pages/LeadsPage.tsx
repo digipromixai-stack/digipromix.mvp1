@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Users, Mail, Phone, MessageSquare, Trash2, Flame, Zap, Layers, Brain, PhoneCall, PieChart } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  Users, Mail, Phone, MessageSquare, Trash2, Flame, Zap, Layers,
+  Sparkles, PhoneCall, PieChart, TrendingUp, ArrowRight,
+} from 'lucide-react'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useLeads, useUpdateLeadStatus, useDeleteLead, useLeadStats, useLeadTrends } from '../hooks/useLeads'
@@ -7,10 +11,10 @@ import { timeAgo } from '../lib/utils'
 import type { LeadStatus, LeadWithCampaign } from '../types/database.types'
 
 const STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; next: LeadStatus | null; nextLabel: string }> = {
-  new:        { label: 'New',        color: 'bg-blue-100 text-blue-700',     next: 'contacted', nextLabel: 'Mark Contacted' },
-  contacted:  { label: 'Contacted',  color: 'bg-amber-100 text-amber-700',   next: 'qualified', nextLabel: 'Mark Qualified' },
-  qualified:  { label: 'Qualified',  color: 'bg-green-100 text-green-700',   next: 'closed',    nextLabel: 'Mark Closed'   },
-  closed:     { label: 'Closed',     color: 'bg-gray-100 text-gray-600',     next: null,        nextLabel: ''              },
+  new:        { label: 'New',       color: 'bg-indigo-tint text-primary',  next: 'contacted', nextLabel: 'Mark Contacted' },
+  contacted:  { label: 'Contacted', color: 'bg-orange-tint text-warning',  next: 'qualified', nextLabel: 'Mark Qualified' },
+  qualified:  { label: 'Qualified', color: 'bg-success/10 text-success',   next: 'closed',    nextLabel: 'Mark Closed'   },
+  closed:     { label: 'Closed',    color: 'bg-surface-container-low text-on-surface-variant', next: null, nextLabel: '' },
 }
 
 function tierOf(score: number) { return score >= 70 ? 'hot' : score >= 40 ? 'medium' : 'low' }
@@ -20,12 +24,12 @@ function potentialValue(lead: LeadWithCampaign) {
   return Math.round((lead.score ?? 0) * 1500)
 }
 
-function nextBestAction(lead: LeadWithCampaign): { label: string; icon: typeof PhoneCall } {
+function nextBestAction(lead: LeadWithCampaign): { label: string; icon: typeof PhoneCall; tone: 'solid' | 'success' | 'neutral' } {
   const tier = tierOf(lead.score)
-  if (tier === 'hot' && lead.phone) return { label: 'Call Now', icon: PhoneCall }
-  if (lead.phone) return { label: 'Send WhatsApp', icon: MessageSquare }
-  if (lead.email) return { label: 'Send Email', icon: Mail }
-  return { label: 'Nurture Campaign', icon: Zap }
+  if (tier === 'hot' && lead.phone) return { label: 'Call Now', icon: PhoneCall, tone: 'solid' }
+  if (lead.phone) return { label: 'Send WhatsApp', icon: MessageSquare, tone: 'success' }
+  if (lead.email) return { label: 'Send Email', icon: Mail, tone: 'success' }
+  return { label: 'Nurture Campaign', icon: Zap, tone: 'neutral' }
 }
 
 function whyText(lead: LeadWithCampaign) {
@@ -38,19 +42,19 @@ function whyText(lead: LeadWithCampaign) {
   return `Visitor ${parts.join(', ')}.`
 }
 
-// ── Stat tile ─────────────────────────────────────────────────────────────────
+// ── Priority tile ─────────────────────────────────────────────────────────────
 
-function PriorityTile({ icon: Icon, iconTone, label, value, sublabel, subTone }: {
-  icon: typeof Flame; iconTone: string; label: string; value: number; sublabel: string; subTone: string
+function PriorityTile({ icon: Icon, iconBg, label, value, sublabel, subTone }: {
+  icon: typeof Flame; iconBg: string; label: string; value: number; sublabel: React.ReactNode; subTone: string
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-4 py-4 flex items-start justify-between" style={{ boxShadow: '0 1px 2px rgba(16,24,40,.04)' }}>
+    <div className="bg-surface-card rounded-2xl border border-border-subtle px-4 py-4 flex items-start justify-between shadow-soft">
       <div>
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">{label}</p>
-        <p className="text-2xl font-bold text-gray-900">{value} Leads</p>
-        <p className={`text-xs font-semibold mt-1 ${subTone}`}>{sublabel}</p>
+        <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wide mb-1.5">{label}</p>
+        <p className="text-2xl font-bold text-on-surface">{value} Leads</p>
+        <p className={`text-xs font-semibold mt-1 flex items-center gap-1 ${subTone}`}>{sublabel}</p>
       </div>
-      <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: iconTone }}>
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
         <Icon size={16} className="text-white" />
       </div>
     </div>
@@ -58,6 +62,12 @@ function PriorityTile({ icon: Icon, iconTone, label, value, sublabel, subTone }:
 }
 
 // ── Priority lead row ────────────────────────────────────────────────────────
+
+const ACTION_BTN: Record<'solid' | 'success' | 'neutral', string> = {
+  solid:   'bg-primary text-white hover:opacity-90',
+  success: 'bg-transparent text-success border border-success/30 hover:bg-success/10',
+  neutral: 'bg-transparent text-on-surface-variant border border-outline-variant hover:bg-surface-container-low',
+}
 
 function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
   const { mutate: updateStatus, isPending: updating } = useUpdateLeadStatus()
@@ -69,63 +79,62 @@ function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
   const ActionIcon = action.icon
 
   return (
-    <div className={`bg-white rounded-xl border ${isHot ? 'border-blue-200 ring-1 ring-blue-50' : 'border-gray-200'} p-4`}>
+    <div className={`bg-surface-card rounded-2xl border p-4 shadow-soft ${isHot ? 'border-primary/30 ring-1 ring-primary/10' : 'border-border-subtle'}`}>
       <div className="flex items-start gap-3">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold text-white ${isHot ? 'bg-blue-600' : 'bg-gray-400'}`}>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-xs font-bold text-white ${isHot ? 'bg-primary' : 'bg-secondary'}`}>
           {(lead.name ?? '??').slice(0, 2).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 flex-wrap mb-2">
             <div>
-              <p className="text-sm font-bold text-gray-900">{lead.name ?? '(no name)'}</p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {lead.campaigns ? <>via <span className="text-gray-600 font-medium">{lead.campaigns.campaign_name}</span></> : lead.source.replace('_', ' ')}
+              <p className="text-sm font-bold text-on-surface">{lead.name ?? '(no name)'}</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                {lead.campaigns ? <>via <span className="text-on-surface font-medium">{lead.campaigns.campaign_name}</span></> : lead.source.replace('_', ' ')}
               </p>
             </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-primary border border-primary/10">
-                <Brain size={9} /> Opportunity Score: {lead.score}
+            <div className="text-right">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-tint text-primary border border-primary/10">
+                <Flame size={9} /> Opportunity Score: {lead.score}
               </span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+              <p className="font-mono text-sm font-bold text-success mt-1">${potentialValue(lead).toLocaleString()} Potential</p>
             </div>
           </div>
 
-          <p className="font-mono text-lg font-bold text-emerald-600 mb-3">${potentialValue(lead).toLocaleString()} Potential</p>
-
           <div className="grid grid-cols-1 sm:grid-cols-[auto,1fr] gap-3 mb-3">
             <div>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">AI Next Best Action</p>
-              <button className="inline-flex items-center gap-1.5 bg-primary text-white text-xs font-bold px-3 py-2 rounded-lg hover:opacity-90">
+              <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">AI Next Best Action</p>
+              <button className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-colors ${ACTION_BTN[action.tone]}`}>
                 <ActionIcon size={12} /> {action.label}
               </button>
             </div>
-            <div className="bg-gray-50 border border-gray-100 rounded-lg p-2.5">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1">Why?</p>
-              <p className="text-xs text-gray-600 leading-relaxed">{whyText(lead)}</p>
+            <div>
+              <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Why?</p>
+              <p className="text-xs text-on-surface-variant leading-relaxed">{whyText(lead)}</p>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3 mb-2">
             {lead.email && (
-              <a href={`mailto:${lead.email}`} className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
+              <a href={`mailto:${lead.email}`} className="flex items-center gap-1 text-xs text-primary hover:underline">
                 <Mail size={10} />{lead.email}
               </a>
             )}
             {lead.phone && (
-              <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600">
+              <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary">
                 <Phone size={10} />{lead.phone}
               </a>
             )}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-100">
-            <span className="text-xs text-gray-400">{timeAgo(lead.created_at)}</span>
+          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border-subtle">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
+            <span className="text-xs text-on-surface-variant">{timeAgo(lead.created_at)}</span>
             <div className="flex items-center gap-1.5 ml-auto">
               {cfg.next && (
                 <button
                   onClick={() => updateStatus({ id: lead.id, status: cfg.next! })}
                   disabled={updating}
-                  className="text-xs px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors font-medium"
+                  className="text-xs px-2.5 py-1 rounded-lg border border-success/30 text-success hover:bg-success/10 transition-colors font-medium"
                 >
                   {cfg.nextLabel}
                 </button>
@@ -133,7 +142,7 @@ function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
               <button
                 onClick={() => { if (confirm('Delete this lead?')) deleteLead(lead.id) }}
                 disabled={deleting}
-                className="p-1.5 rounded-lg text-red-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                className="p-1.5 rounded-lg text-danger/40 hover:bg-red-tint hover:text-danger transition-colors"
               >
                 <Trash2 size={12} />
               </button>
@@ -145,7 +154,7 @@ function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
   )
 }
 
-// ── Lead Source Breakdown (real-data substitute for the geo heatmap) ────────
+// ── Lead Source Breakdown (real-data substitute for a geo heatmap — no location data is captured on leads yet) ──
 
 function LeadSourceBreakdown({ leads }: { leads: LeadWithCampaign[] }) {
   const breakdown = useMemo(() => {
@@ -158,29 +167,35 @@ function LeadSourceBreakdown({ leads }: { leads: LeadWithCampaign[] }) {
   }, [leads])
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4" style={{ boxShadow: '0 1px 2px rgba(16,24,40,.04)' }}>
+    <div className="bg-surface-card rounded-2xl border border-border-subtle p-4 shadow-soft">
       <div className="flex items-center gap-2 mb-4">
-        <PieChart size={15} className="text-gray-400" />
-        <h3 className="text-sm font-bold text-gray-900">Lead Source Breakdown</h3>
+        <PieChart size={15} className="text-primary" />
+        <h3 className="text-sm font-bold text-on-surface">Lead Source Breakdown</h3>
       </div>
       {breakdown.length === 0 ? (
-        <p className="text-xs text-gray-400">No leads yet.</p>
+        <p className="text-xs text-on-surface-variant">No leads yet.</p>
       ) : (
         <div className="space-y-3">
           {breakdown.map(({ source, count, pct }) => (
             <div key={source}>
               <div className="flex justify-between items-baseline mb-1">
-                <span className="text-xs font-semibold text-gray-700 capitalize truncate">{source.replace(/_/g, ' ')}</span>
+                <span className="text-xs font-semibold text-on-surface capitalize truncate">{source.replace(/_/g, ' ')}</span>
                 <span className="text-xs font-mono font-bold text-primary">{count} · {pct}%</span>
               </div>
-              <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+              <div className="w-full bg-surface-container-low h-1.5 rounded-full overflow-hidden">
                 <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, pct)}%` }} />
               </div>
             </div>
           ))}
         </div>
       )}
-      <p className="text-[10.5px] text-gray-400 mt-4">Where your highest-intent leads are originating from, based on all tracked leads.</p>
+      <p className="text-[10.5px] text-on-surface-variant mt-4 mb-3">Where your highest-intent leads are originating from, based on all tracked leads.</p>
+      <Link
+        to="/analytics"
+        className="inline-flex items-center justify-center gap-1.5 w-full border border-outline-variant hover:bg-surface-container-low text-on-surface text-xs font-bold py-2.5 rounded-xl transition-colors"
+      >
+        View Full Report <ArrowRight size={12} />
+      </Link>
     </div>
   )
 }
@@ -199,34 +214,31 @@ export function LeadsPage() {
   }, [leads, signalFilter])
 
   return (
-    <div className="space-y-5">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
 
       {/* Header */}
       <div>
-        <div className="flex items-center gap-2 mb-0.5">
-          <Brain size={15} className="text-primary" />
-          <span className="text-xs font-bold uppercase tracking-widest text-primary">AI-Powered Engine</span>
-        </div>
-        <h1 className="text-xl font-bold text-gray-900">Leads</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-on-surface mb-1">Leads</h1>
+        <p className="text-sm text-on-surface-variant">AI-ranked by conversion potential — highest-intent leads first.</p>
       </div>
 
       {/* Priority tiles */}
       {stats && stats.total > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <PriorityTile
-            icon={Flame} iconTone="#e5484d" label="Hot Priority" value={stats.hot}
-            sublabel={`${(trends?.hot.changePct ?? 0) >= 0 ? '+' : ''}${trends?.hot.changePct ?? 0}% vs last week`}
-            subTone={(trends?.hot.changePct ?? 0) >= 0 ? 'text-red-500' : 'text-gray-400'}
+            icon={Flame} iconBg="bg-danger" label="Hot Priority" value={stats.hot}
+            sublabel={<><TrendingUp size={11} />{(trends?.hot.changePct ?? 0) >= 0 ? '+' : ''}{trends?.hot.changePct ?? 0}% vs last week</>}
+            subTone={(trends?.hot.changePct ?? 0) >= 0 ? 'text-danger' : 'text-on-surface-variant'}
           />
           <PriorityTile
-            icon={Zap} iconTone="#d9920a" label="Warm Activity" value={stats.medium}
-            sublabel={`${trends?.medium.activeCampaigns ?? 0} active campaign${trends?.medium.activeCampaigns === 1 ? '' : 's'}`}
-            subTone="text-amber-600"
+            icon={Zap} iconBg="bg-warning" label="Warm Activity" value={stats.medium}
+            sublabel={<><Zap size={11} />{trends?.medium.activeCampaigns ?? 0} active campaign{trends?.medium.activeCampaigns === 1 ? '' : 's'}</>}
+            subTone="text-warning"
           />
           <PriorityTile
-            icon={Layers} iconTone="#585f6c" label="Dormant Pool" value={stats.low}
-            sublabel="Re-engagement required"
-            subTone="text-gray-500"
+            icon={Layers} iconBg="bg-secondary" label="Dormant Pool" value={stats.low}
+            sublabel={<><Layers size={11} />Re-engagement required</>}
+            subTone="text-on-surface-variant"
           />
         </div>
       )}
@@ -245,16 +257,16 @@ export function LeadsPage() {
           {/* Priority Intelligence Feed */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                <Zap size={14} className="text-primary" /> Priority Intelligence Feed
+              <h2 className="text-sm font-bold text-on-surface flex items-center gap-1.5">
+                <Sparkles size={14} className="text-primary" /> Priority Intelligence Feed
               </h2>
-              <div className="inline-flex rounded-full bg-gray-100 p-0.5">
+              <div className="inline-flex rounded-full bg-surface-container-low p-0.5">
                 {(['all', 'recommended'] as const).map(v => (
                   <button
                     key={v}
                     onClick={() => setSignalFilter(v)}
                     className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                      signalFilter === v ? 'bg-primary text-white' : 'text-gray-500 hover:text-gray-700'
+                      signalFilter === v ? 'bg-primary text-white' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
                     {v === 'all' ? 'All Signals' : 'Recommended'}
