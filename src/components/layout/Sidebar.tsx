@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
-import { Menu, X } from 'lucide-react'
+import { NavLink, Link } from 'react-router-dom'
+import { Menu, X, Plus } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
@@ -97,6 +97,16 @@ export function Sidebar() {
             <X size={18} />
           </button>
         </div>
+
+        {/* New campaign */}
+        <Link
+          to="/interception"
+          onClick={() => setOpen(false)}
+          className="flex items-center justify-center gap-2 mb-6 px-3 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all shadow-soft"
+        >
+          <Plus size={16} />
+          New Campaign
+        </Link>
 
         {/* Nav sections */}
         <nav className="flex-1 overflow-y-auto space-y-5">

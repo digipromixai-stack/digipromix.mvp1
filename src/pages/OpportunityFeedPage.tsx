@@ -108,6 +108,88 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
   )
 }
 
+// ── Opportunity trend + AI recommendation (bottom section) ────────────────────
+
+function OpportunityTrendChart({ opportunities }: { opportunities: Opportunity[] }) {
+  const days = useMemo(() => {
+    const buckets = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      d.setDate(d.getDate() - (6 - i))
+      return { date: d, label: d.toLocaleDateString(undefined, { weekday: 'short' }), count: 0 }
+    })
+    for (const opp of opportunities) {
+      const created = new Date(opp.created_at)
+      created.setHours(0, 0, 0, 0)
+      const bucket = buckets.find(b => b.date.getTime() === created.getTime())
+      if (bucket) bucket.count++
+    }
+    return buckets
+  }, [opportunities])
+
+  const max = Math.max(1, ...days.map(d => d.count))
+
+  return (
+    <div className="bg-surface-card border border-border-subtle rounded-xl p-5 shadow-soft">
+      <h3 className="font-bold text-on-surface mb-4 flex items-center gap-2">
+        <TrendingUp size={16} className="text-primary" />
+        Opportunity Trend Analysis
+      </h3>
+      <div className="h-40 flex items-end justify-between gap-2 mb-2">
+        {days.map(d => (
+          <div key={d.label + d.date.getTime()} className="flex-1 flex flex-col items-center gap-1.5">
+            <div
+              className="w-full bg-primary/20 hover:bg-primary/30 rounded-t transition-all"
+              style={{ height: `${Math.max(4, (d.count / max) * 100)}%` }}
+              title={`${d.count} opportunit${d.count === 1 ? 'y' : 'ies'}`}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+        {days.map(d => <span key={d.label + d.date.getTime()}>{d.label}</span>)}
+      </div>
+    </div>
+  )
+}
+
+function AiRecommendationCard({ opportunities }: { opportunities: Opportunity[] }) {
+  const insight = useMemo(() => {
+    if (opportunities.length === 0) return null
+    const byIndustry = new Map<string, number>()
+    for (const o of opportunities) {
+      const key = o.industry ?? 'General'
+      byIndustry.set(key, (byIndustry.get(key) ?? 0) + 1)
+    }
+    const [topIndustry, topCount] = [...byIndustry.entries()].sort((a, b) => b[1] - a[1])[0]
+    const totalLeads = opportunities.reduce((s, o) => s + (o.expected_leads ?? 0), 0)
+    return { topIndustry, topCount, totalLeads }
+  }, [opportunities])
+
+  if (!insight) return null
+
+  return (
+    <div className="bg-on-surface text-white rounded-xl p-5 shadow-soft-lg flex flex-col">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles size={15} className="text-primary" />
+        <span className="text-xs font-bold uppercase tracking-widest text-white/70">AI Recommendation</span>
+      </div>
+      <p className="text-sm text-white/90 leading-relaxed flex-1">
+        <strong className="text-white">{insight.topCount}</strong> of your top opportunities are in{' '}
+        <strong className="text-white">{insight.topIndustry}</strong>, with a combined{' '}
+        <strong className="text-white">{insight.totalLeads}</strong> predicted leads. Consider prioritizing
+        budget there before competitors respond.
+      </p>
+      <Link
+        to="/opportunities"
+        className="mt-4 inline-flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary hover:opacity-90 rounded-xl font-bold text-sm transition-all"
+      >
+        Review Top Opportunities
+      </Link>
+    </div>
+  )
+}
+
 // ── Opportunity card ──────────────────────────────────────────────────────────
 
 const TIER_META = {
@@ -493,6 +575,16 @@ export function OpportunityFeedPage() {
               busy={loadingOppId === opp.id}
             />
           ))}
+        </div>
+      )}
+
+      {/* Trend analysis + AI recommendation */}
+      {opportunities.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div className="lg:col-span-2">
+            <OpportunityTrendChart opportunities={opportunities} />
+          </div>
+          <AiRecommendationCard opportunities={opportunities} />
         </div>
       )}
 
