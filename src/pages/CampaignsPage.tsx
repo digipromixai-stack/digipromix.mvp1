@@ -4,14 +4,13 @@ import {
   CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
   AlertTriangle, TrendingDown, ZapOff, DollarSign, Sparkles, RefreshCw,
   Target, Brain, X, Check, ChevronDown, ChevronUp, BarChart2, Pencil,
-  Settings, BarChart, Zap, LayoutList, Columns,
+  Settings, BarChart, LayoutList, Columns, Mail,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useToast } from '../components/ui/Toast'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useCampaigns, useUpdateCampaignStatus, useDeleteCampaign, useUpdateCampaignBudget } from '../hooks/useCampaigns'
-// useUpdateCampaignStatus also used inside RecommendationCard for pause_campaign action
 import {
   useAiRecommendations,
   useApplyRecommendation,
@@ -34,14 +33,18 @@ const CHANNEL_ICONS: Record<string, React.ElementType> = {
   google:    Search,
   meta:      Globe,
   instagram: Share2,
+  email:     Mail,
+}
+
+const CHANNEL_LABELS: Record<string, string> = {
+  google:    'Google Search',
+  meta:      'Meta Ads',
+  instagram: 'Instagram',
+  email:     'Email',
 }
 
 function StatusBadge({ status }: { status: CampaignStatus }) {
-  // Defensive fallback — if the DB ever returns a status not yet known to the
-  // frontend (older or newer enum value), render a neutral chip instead of crashing.
-  const cfg = STATUS_CONFIG[status] ?? {
-    label: status, color: 'bg-gray-100 text-gray-600', icon: FileEdit,
-  }
+  const cfg = STATUS_CONFIG[status] ?? { label: status, color: 'bg-gray-100 text-gray-600', icon: FileEdit }
   const Icon = cfg.icon
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.color}`}>
@@ -51,15 +54,15 @@ function StatusBadge({ status }: { status: CampaignStatus }) {
   )
 }
 
-// ── AI Recommendations panel ──────────────────────────────────────────────────
+// ── AI Recommendations ────────────────────────────────────────────────────────
 
 const ACTION_META: Record<string, {
   icon: React.ElementType
   label: string
-  color: string       // text colour
-  bg: string          // background
-  border: string      // border
-  applyLabel?: string // custom button label
+  color: string
+  bg: string
+  border: string
+  applyLabel?: string
 }> = {
   rising_cpc:         { icon: TrendingUp,   label: 'Rising CPC',          color: 'text-red-700',    bg: 'bg-red-50',     border: 'border-red-200'    },
   declining_ctr:      { icon: TrendingDown, label: 'Declining CTR',       color: 'text-orange-700', bg: 'bg-orange-50',  border: 'border-orange-200' },
@@ -95,42 +98,27 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
   const meta = ACTION_META[rec.action_type] ?? FALLBACK_META
   const Icon = meta.icon
 
-  // ── Unified apply handler with per-type actions ───────────────────────────
   const handleApply = () => {
     const markDone = () =>
       applyMutation(rec.id, {
         onSuccess: () => toast('Insight marked as done', 'success'),
         onError:   (e) => toast(`Could not mark done: ${(e as Error).message}`, 'error'),
       })
-
     switch (rec.action_type) {
-      // Navigate to Settings so the user can connect their ad account
       case 'setup_tracking':
         navigate('/settings')
         markDone()
         break
-
-      // Actually pause the linked campaign on Meta/Google
       case 'pause_campaign':
         if (!rec.campaign_id) { markDone(); break }
         updateStatus(
+          { id: rec.campaign_id, status: 'paused', metaCampaignId: null, googleCampaignId: null },
           {
-            id: rec.campaign_id,
-            status: 'paused',
-            metaCampaignId:   null,  // manage-meta-campaign fetches this from DB
-            googleCampaignId: null,
-          },
-          {
-            onSuccess: () => {
-              toast('Campaign paused', 'success')
-              markDone()
-            },
+            onSuccess: () => { toast('Campaign paused', 'success'); markDone() },
             onError: (e) => toast(`Pause failed: ${(e as Error).message}`, 'error'),
           },
         )
         break
-
-      // All other types → just mark done with a toast
       default:
         markDone()
         break
@@ -142,13 +130,10 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
   return (
     <div className={`border ${meta.border} ${meta.bg} rounded-xl p-4`}>
       <div className="flex items-start gap-3">
-        {/* Icon */}
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${meta.bg} border ${meta.border}`}>
           <Icon size={15} className={meta.color} />
         </div>
-
         <div className="flex-1 min-w-0">
-          {/* Header row */}
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className={`text-xs font-bold ${meta.color}`}>{meta.label}</span>
             <PriorityBadge priority={rec.priority} />
@@ -156,36 +141,28 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
               <span className="text-[10px] text-gray-400 font-mono">{Math.round(rec.confidence * 100)}% confidence</span>
             )}
             {rec.campaigns && (
-              <span className="text-[10px] text-gray-400 truncate max-w-[140px]">
-                · {rec.campaigns.campaign_name}
-              </span>
+              <span className="text-[10px] text-gray-400 truncate max-w-[140px]">· {rec.campaigns.campaign_name}</span>
             )}
           </div>
-
-          {/* Recommendation text */}
-          <p className="text-sm font-semibold text-gray-900 leading-snug">{rec.recommendation}</p>
-
-          {/* Rationale (expandable) */}
+          <p className="text-sm font-semibold text-on-surface leading-snug">{rec.recommendation}</p>
           {rec.rationale && (
             <div className="mt-1">
-              {expanded && <p className="text-xs text-gray-500">{rec.rationale}</p>}
+              {expanded && <p className="text-xs text-on-surface-variant">{rec.rationale}</p>}
               <button
                 onClick={() => setExpanded(v => !v)}
-                className="text-[11px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 mt-0.5"
+                className="text-[11px] text-on-surface-variant hover:text-on-surface flex items-center gap-0.5 mt-0.5"
               >
                 {expanded ? <><ChevronUp size={11} /> Less</> : <><ChevronDown size={11} /> Why?</>}
               </button>
             </div>
           )}
         </div>
-
-        {/* Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={handleApply}
             disabled={isBusy}
             title={meta.applyLabel ?? 'Mark as applied'}
-            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-on-surface text-white hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             {isBusy ? '…' : <><Check size={11} /> {meta.applyLabel ?? 'Apply'}</>}
           </button>
@@ -196,7 +173,7 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
             })}
             disabled={isBusy}
             title="Dismiss"
-            className="p-1.5 rounded-lg text-gray-400 hover:bg-white hover:text-gray-600 transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-lg text-on-surface-variant hover:bg-white hover:text-on-surface transition-colors disabled:opacity-50"
           >
             {dismissing ? '…' : <X size={13} />}
           </button>
@@ -206,12 +183,16 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
   )
 }
 
-function TopRecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
+// ── AI Strategic Recommendation bar (bottom, matches Campaign Studio mockup) ──
+
+function AiStrategicBar({ rec }: { rec: AiRecommendationWithCampaign }) {
+  const [expanded, setExpanded] = useState(false)
   const { mutate: applyMutation, isPending: applying   } = useApplyRecommendation()
   const { mutate: dismiss,       isPending: dismissing } = useDismissRecommendation()
   const { mutate: updateStatus,  isPending: pausing    } = useUpdateCampaignStatus()
   const { toast } = useToast()
-  const navigate  = useNavigate()
+  const navigate = useNavigate()
+  const meta = ACTION_META[rec.action_type] ?? FALLBACK_META
 
   const handleApply = () => {
     const markDone = () =>
@@ -231,62 +212,53 @@ function TopRecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
     }
   }
 
-  return (
-    <TopAIAction
-      rec={rec}
-      onApply={handleApply}
-      onDismiss={() => dismiss(rec.id, {
-        onSuccess: () => toast('Insight dismissed', 'info'),
-        onError:   (e) => toast(`Error: ${(e as Error).message}`, 'error'),
-      })}
-      busy={applying || dismissing || pausing}
-    />
-  )
-}
+  const busy = applying || dismissing || pausing
 
-function TopAIAction({ rec, onApply, onDismiss, busy }: {
-  rec: AiRecommendationWithCampaign
-  onApply: () => void
-  onDismiss: () => void
-  busy: boolean
-}) {
-  const meta = ACTION_META[rec.action_type] ?? FALLBACK_META
   return (
-    <div className="bg-gradient-to-r from-violet-50 via-indigo-50 to-blue-50 border border-violet-200 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
-      <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-violet-600 shrink-0 shadow-md">
-        <Brain size={22} className="text-white" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-violet-600">AI Priority Action</span>
-          <PriorityBadge priority={rec.priority} />
-          {rec.confidence != null && (
-            <span className="text-[10px] text-violet-500 font-mono">{Math.round(rec.confidence * 100)}% confidence</span>
-          )}
+    <div className="bg-on-surface rounded-xl p-4 sm:p-5 shadow-soft-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0">
+            <Sparkles size={18} className="text-white" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-0.5">AI Strategic Recommendation</p>
+            <p className="text-sm text-white leading-snug">
+              {rec.recommendation}
+              {rec.campaigns && <span className="text-white/60"> — {rec.campaigns.campaign_name}</span>}
+            </p>
+            {expanded && rec.rationale && (
+              <p className="text-xs text-white/50 mt-1.5">{rec.rationale}</p>
+            )}
+          </div>
         </div>
-        <p className="text-base font-bold text-gray-900 leading-snug">{rec.recommendation}</p>
-        {rec.campaigns && (
-          <p className="text-xs text-gray-500 mt-0.5">Campaign: <span className="font-medium text-gray-700">{rec.campaigns.campaign_name}</span></p>
-        )}
-        <p className="text-xs text-violet-600 font-semibold mt-1.5 flex items-center gap-1">
-          <Zap size={11} /> {meta.label}
-        </p>
-      </div>
-      <div className="flex flex-col gap-2 shrink-0">
-        <button
-          onClick={onApply}
-          disabled={busy}
-          className="px-4 py-2 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50"
-        >
-          <Check size={13} /> {meta.applyLabel ?? 'Apply'}
-        </button>
-        <button
-          onClick={onDismiss}
-          disabled={busy}
-          className="px-3 py-1.5 text-xs text-violet-500 hover:text-violet-700 font-medium text-center disabled:opacity-50"
-        >
-          Dismiss
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {rec.rationale && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="text-xs font-bold text-white/70 hover:text-white px-3 py-2 rounded-lg border border-white/20 flex items-center gap-1"
+            >
+              Why? {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          )}
+          <button
+            onClick={handleApply}
+            disabled={busy}
+            className="text-xs font-bold bg-primary hover:opacity-90 disabled:opacity-50 text-white px-4 py-2 rounded-lg flex items-center gap-1.5"
+          >
+            {busy ? '…' : <><Check size={12} /> {meta.applyLabel ?? 'Apply Change'}</>}
+          </button>
+          <button
+            onClick={() => dismiss(rec.id, {
+              onSuccess: () => toast('Insight dismissed', 'info'),
+              onError:   (e) => toast(`Error: ${(e as Error).message}`, 'error'),
+            })}
+            disabled={busy}
+            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -294,26 +266,18 @@ function TopAIAction({ rec, onApply, onDismiss, busy }: {
 
 function AiRecommendationsPanel() {
   const { data: recs = [], isLoading } = useAiRecommendations()
-
   if (isLoading || recs.length === 0) return null
-
-  const urgentCount = recs.filter(r => r.priority >= 4).length
   const [topRec, ...restRecs] = recs
 
   return (
     <div className="space-y-3">
-      {/* Top-priority violet hero card */}
-      <TopRecommendationCard rec={topRec} />
-
-      {/* Remaining insights */}
+      <AiStrategicBar rec={topRec} />
       {restRecs.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="flex items-center gap-2.5 px-5 py-3 border-b border-gray-100">
-            <Brain size={14} className="text-violet-600" />
-            <span className="text-sm font-bold text-gray-900">More AI Insights</span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${urgentCount > 1 ? 'bg-red-100 text-red-700' : 'bg-violet-100 text-violet-700'}`}>
-              {restRecs.length}
-            </span>
+        <div className="bg-surface-card border border-border-subtle rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2.5 px-5 py-3 border-b border-border-subtle">
+            <Brain size={14} className="text-primary" />
+            <span className="text-sm font-bold text-on-surface">More AI Insights</span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-tint text-primary">{restRecs.length}</span>
           </div>
           <div className="px-5 pb-5 space-y-3 pt-4">
             {restRecs.map(rec => <RecommendationCard key={rec.id} rec={rec} />)}
@@ -324,32 +288,24 @@ function AiRecommendationsPanel() {
   )
 }
 
-// ── Campaign card ─────────────────────────────────────────────────────────────
+// ── Metrics / budget (unchanged behavior, retoned) ────────────────────────────
 
-// ── Campaign performance metrics panel ───────────────────────────────────────
 function MetricsPanel({ campaignId }: { campaignId: string }) {
   const { data: m } = useCampaignMetrics(campaignId)
-
   if (!m?.has_data) {
-    return (
-      <p className="text-[11px] text-gray-400 italic mt-1">
-        Performance data collected nightly — check back after 24h of running
-      </p>
-    )
+    return <p className="text-[11px] text-on-surface-variant italic mt-1">Performance data collected nightly — check back after 24h of running</p>
   }
-
   const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n))
-
   return (
     <div className="grid grid-cols-4 gap-1.5 mt-2">
       {[
-        { label: 'Spend',       value: `$${m.total_spend.toFixed(2)}`,            color: 'text-gray-900' },
-        { label: 'Clicks',      value: fmt(m.total_clicks),                        color: 'text-blue-700' },
-        { label: 'Impressions', value: fmt(m.total_impressions),                   color: 'text-gray-700' },
-        { label: 'CTR',         value: m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '—', color: 'text-green-700' },
+        { label: 'Spend',       value: `$${m.total_spend.toFixed(2)}`, color: 'text-on-surface' },
+        { label: 'Clicks',      value: fmt(m.total_clicks),             color: 'text-primary' },
+        { label: 'Impressions', value: fmt(m.total_impressions),        color: 'text-on-surface-variant' },
+        { label: 'CTR',         value: m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '—', color: 'text-success' },
       ].map(({ label, value, color }) => (
-        <div key={label} className="bg-gray-50 rounded-lg p-1.5 text-center">
-          <div className="text-[9px] uppercase tracking-wide text-gray-400">{label}</div>
+        <div key={label} className="bg-surface-container-low rounded-lg p-1.5 text-center">
+          <div className="text-[9px] uppercase tracking-wide text-on-surface-variant">{label}</div>
           <div className={`text-xs font-bold ${color} mt-0.5`}>{value}</div>
         </div>
       ))}
@@ -357,10 +313,9 @@ function MetricsPanel({ campaignId }: { campaignId: string }) {
   )
 }
 
-// ── Budget edit inline ────────────────────────────────────────────────────────
 function BudgetEdit({ campaign }: { campaign: Campaign }) {
-  const [editing, setEditing]   = useState(false)
-  const [value,   setValue]     = useState(String(campaign.daily_budget ?? ''))
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(String(campaign.daily_budget ?? ''))
   const { mutate: updateBudget, isPending } = useUpdateCampaignBudget()
   const { toast } = useToast()
 
@@ -368,19 +323,12 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
     const n = Number(value)
     if (!Number.isFinite(n) || n < 1) return
     updateBudget({
-      id: campaign.id,
-      daily_budget: n,
-      metaCampaignId: campaign.meta_campaign_id,
-      googleCampaignId: campaign.google_campaign_id,
+      id: campaign.id, daily_budget: n,
+      metaCampaignId: campaign.meta_campaign_id, googleCampaignId: campaign.google_campaign_id,
     }, {
       onSuccess: () => {
         setEditing(false)
-        toast(
-          campaign.meta_campaign_id
-            ? `Budget updated to $${n}/day — synced to Meta`
-            : `Budget updated to $${n}/day`,
-          'success'
-        )
+        toast(campaign.meta_campaign_id ? `Budget updated to $${n}/day — synced to Meta` : `Budget updated to $${n}/day`, 'success')
       },
       onError: (e) => toast(`Budget update failed: ${(e as Error).message}`, 'error'),
     })
@@ -388,10 +336,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
 
   if (!editing) {
     return (
-      <button
-        onClick={() => setEditing(true)}
-        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
-      >
+      <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface">
         <DollarSign size={10} />
         {campaign.daily_budget ? `$${campaign.daily_budget}/day` : 'Set budget'}
         <Pencil size={9} className="ml-0.5" />
@@ -401,26 +346,22 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-gray-400">$</span>
+      <span className="text-xs text-on-surface-variant">$</span>
       <input
-        type="number"
-        min={1}
-        value={value}
+        type="number" min={1} value={value}
         onChange={e => setValue(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
         autoFocus
-        className="w-16 border border-gray-200 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+        className="w-16 border border-outline-variant rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
       />
-      <span className="text-xs text-gray-400">/day</span>
-      <button onClick={save} disabled={isPending} className="text-[10px] text-green-600 font-semibold hover:underline">
-        {isPending ? '…' : 'Save'}
-      </button>
-      <button onClick={() => setEditing(false)} className="text-[10px] text-gray-400 hover:text-gray-600">Cancel</button>
+      <span className="text-xs text-on-surface-variant">/day</span>
+      <button onClick={save} disabled={isPending} className="text-[10px] text-success font-semibold hover:underline">{isPending ? '…' : 'Save'}</button>
+      <button onClick={() => setEditing(false)} className="text-[10px] text-on-surface-variant hover:text-on-surface">Cancel</button>
     </div>
   )
 }
 
-// ── Campaign card ─────────────────────────────────────────────────────────────
+// ── List-view campaign card (unchanged behavior, retoned) ─────────────────────
 
 function CampaignCard({ campaign }: { campaign: Campaign }) {
   const { mutate: updateStatus, isPending: updatingStatus } = useUpdateCampaignStatus()
@@ -428,103 +369,86 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   const [showMetrics, setShowMetrics] = useState(false)
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-sm transition-shadow">
+    <div className="bg-surface-card rounded-xl border border-border-subtle hover:shadow-soft transition-shadow">
       <div className="p-4">
         <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-orange-50 shrink-0 mt-0.5">
-            <Rocket size={16} className="text-orange-500" />
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-tint shrink-0 mt-0.5">
+            <Rocket size={16} className="text-primary" />
           </div>
-
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <div>
-                <p className="text-sm font-semibold text-gray-900">{campaign.campaign_name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Counter to <span className="font-medium text-gray-600">{campaign.competitor_name}</span>
-                  {campaign.competitor_event && (
-                    <> · <span className="italic">{campaign.competitor_event}</span></>
-                  )}
+                <p className="text-sm font-semibold text-on-surface">{campaign.campaign_name}</p>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Counter to <span className="font-medium text-on-surface">{campaign.competitor_name}</span>
+                  {campaign.competitor_event && <> · <span className="italic">{campaign.competitor_event}</span></>}
                 </p>
               </div>
               <StatusBadge status={campaign.status} />
             </div>
 
-            <p className="text-sm text-gray-700 mt-2 line-clamp-2 font-medium">{campaign.headline}</p>
+            <p className="text-sm text-on-surface mt-2 line-clamp-2 font-medium">{campaign.headline}</p>
 
             {campaign.offer && (
-              <p className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded mt-1.5 inline-block">
-                🎯 {campaign.offer}
-              </p>
+              <p className="text-xs text-success bg-emerald-50 px-2 py-1 rounded mt-1.5 inline-block">🎯 {campaign.offer}</p>
             )}
 
             {campaign.keywords.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {campaign.keywords.slice(0, 4).map(kw => (
-                  <span key={kw} className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">
-                    {kw}
-                  </span>
+                  <span key={kw} className="text-xs bg-indigo-tint text-primary px-1.5 py-0.5 rounded">{kw}</span>
                 ))}
-                {campaign.keywords.length > 4 && (
-                  <span className="text-xs text-gray-400">+{campaign.keywords.length - 4} more</span>
-                )}
+                {campaign.keywords.length > 4 && <span className="text-xs text-on-surface-variant">+{campaign.keywords.length - 4} more</span>}
               </div>
             )}
 
-            {/* Landing page link */}
             {campaign.slug && campaign.published && (
               <div className="flex items-center gap-2 mt-2">
-                <Link2 size={11} className="text-indigo-400 shrink-0" />
-                <code className="text-xs text-indigo-600 truncate flex-1">/lp/{campaign.slug}</code>
+                <Link2 size={11} className="text-primary/60 shrink-0" />
+                <code className="text-xs text-primary truncate flex-1">/lp/{campaign.slug}</code>
                 <button
                   onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lp/${campaign.slug}`)}
-                  className="p-1 rounded text-indigo-400 hover:bg-indigo-50"
-                  title="Copy landing page link"
+                  className="p-1 rounded text-primary/60 hover:bg-indigo-tint" title="Copy landing page link"
                 ><Copy size={11} /></button>
-                <a href={`/lp/${campaign.slug}`} target="_blank" rel="noreferrer"
-                  className="p-1 rounded text-indigo-400 hover:bg-indigo-50"
-                ><ExternalLink size={11} /></a>
+                <a href={`/lp/${campaign.slug}`} target="_blank" rel="noreferrer" className="p-1 rounded text-primary/60 hover:bg-indigo-tint">
+                  <ExternalLink size={11} />
+                </a>
               </div>
             )}
 
-            {/* Budget edit */}
-            <div className="mt-2">
-              <BudgetEdit campaign={campaign} />
-            </div>
+            <div className="mt-2"><BudgetEdit campaign={campaign} /></div>
 
             <div className="flex items-center gap-3 mt-2 flex-wrap">
-              {/* Channels */}
               {campaign.channels.length > 0 && (
                 <div className="flex items-center gap-1">
                   {campaign.channels.map(ch => {
                     const Icon = CHANNEL_ICONS[ch] ?? Globe
-                    return <Icon key={ch} size={13} className="text-gray-400" />
+                    return <Icon key={ch} size={13} className="text-on-surface-variant" />
                   })}
                 </div>
               )}
-              {/* Views + leads + conversion rate */}
               {campaign.views_count > 0 && (
-                <div className="flex items-center gap-1 text-xs text-gray-400">
+                <div className="flex items-center gap-1 text-xs text-on-surface-variant">
                   <span>{campaign.views_count} view{campaign.views_count !== 1 ? 's' : ''}</span>
                 </div>
               )}
               {campaign.leads_count > 0 && (
-                <div className="flex items-center gap-1 text-xs text-green-600 font-semibold">
+                <div className="flex items-center gap-1 text-xs text-success font-semibold">
                   <Users size={12} />
                   {campaign.leads_count} lead{campaign.leads_count !== 1 ? 's' : ''}
                   {campaign.views_count > 0 && (
-                    <span className="text-gray-400 font-normal ml-0.5">
+                    <span className="text-on-surface-variant font-normal ml-0.5">
                       ({Math.round((campaign.leads_count / campaign.views_count) * 100)}% CVR)
                     </span>
                   )}
                 </div>
               )}
-              <span className="text-xs text-gray-400">{timeAgo(campaign.created_at)}</span>
+              <span className="text-xs text-on-surface-variant">{timeAgo(campaign.created_at)}</span>
 
-              {/* Performance toggle */}
               {(campaign.meta_campaign_id || campaign.google_campaign_id) && (
                 <button
                   onClick={() => setShowMetrics(v => !v)}
-                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 transition-colors"
+                  className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-primary transition-colors"
                 >
                   <BarChart2 size={11} />
                   {showMetrics ? 'Hide stats' : 'Stats'}
@@ -532,77 +456,46 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                 </button>
               )}
 
-              {/* Actions */}
               <div className="flex items-center gap-1.5 ml-auto">
                 {campaign.status === 'active' && (
                   <button
-                    onClick={() => updateStatus({
-                      id: campaign.id,
-                      status: 'paused',
-                      googleCampaignId: campaign.google_campaign_id,
-                      metaCampaignId: campaign.meta_campaign_id,
-                    })}
+                    onClick={() => updateStatus({ id: campaign.id, status: 'paused', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
                     disabled={updatingStatus}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-yellow-200 text-yellow-700 hover:bg-yellow-50 transition-colors disabled:opacity-50"
-                  >
-                    {updatingStatus ? '...' : 'Pause'}
-                  </button>
+                    className="text-xs px-2.5 py-1 rounded-lg border border-warning/30 text-warning hover:bg-orange-tint transition-colors disabled:opacity-50"
+                  >{updatingStatus ? '...' : 'Pause'}</button>
                 )}
                 {(campaign.status === 'draft' || campaign.status === 'paused') && (
                   <button
-                    onClick={() => updateStatus({
-                      id: campaign.id,
-                      status: 'active',
-                      googleCampaignId: campaign.google_campaign_id,
-                      metaCampaignId: campaign.meta_campaign_id,
-                    })}
+                    onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
                     disabled={updatingStatus}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-50"
-                  >
-                    {updatingStatus ? '...' : campaign.status === 'draft' ? 'Activate' : 'Resume'}
-                  </button>
+                    className="text-xs px-2.5 py-1 rounded-lg border border-success/30 text-success hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                  >{updatingStatus ? '...' : campaign.status === 'draft' ? 'Activate' : 'Resume'}</button>
                 )}
                 {campaign.status === 'active' && (
                   <button
-                    onClick={() => updateStatus({
-                      id: campaign.id,
-                      status: 'completed',
-                      googleCampaignId: campaign.google_campaign_id,
-                      metaCampaignId: campaign.meta_campaign_id,
-                    })}
+                    onClick={() => updateStatus({ id: campaign.id, status: 'completed', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
                     disabled={updatingStatus}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors disabled:opacity-50"
-                  >
-                    Complete
-                  </button>
+                    className="text-xs px-2.5 py-1 rounded-lg border border-primary/30 text-primary hover:bg-indigo-tint transition-colors disabled:opacity-50"
+                  >Complete</button>
                 )}
                 <button
                   onClick={() => {
                     const hasGoogle = !!campaign.google_campaign_id
                     const hasMeta   = !!campaign.meta_campaign_id
                     const platforms = [hasGoogle && 'Google Ads', hasMeta && 'Meta'].filter(Boolean).join(' & ')
-                    const msg = platforms
-                      ? `Delete this campaign from the app AND ${platforms}?`
-                      : 'Delete this campaign?'
-                    if (confirm(msg)) deleteCampaign({
-                      id: campaign.id,
-                      googleCampaignId: campaign.google_campaign_id,
-                      metaCampaignId: campaign.meta_campaign_id,
-                    })
+                    const msg = platforms ? `Delete this campaign from the app AND ${platforms}?` : 'Delete this campaign?'
+                    if (confirm(msg)) deleteCampaign({ id: campaign.id, googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })
                   }}
                   disabled={deleting}
-                  className="text-xs p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
-                >
-                  {deleting ? '...' : <Trash2 size={13} />}
-                </button>
+                  className="text-xs p-1.5 rounded-lg text-danger/70 hover:bg-red-tint hover:text-danger transition-colors disabled:opacity-50"
+                >{deleting ? '...' : <Trash2 size={13} />}</button>
               </div>
             </div>
           </div>
 
-          {/* Performance metrics panel */}
           {showMetrics && (
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5 flex items-center gap-1">
+            <div className="mt-3 pt-3 border-t border-border-subtle">
+              <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold mb-1.5 flex items-center gap-1">
                 <BarChart2 size={10} /> Performance (last 30 days · updated nightly)
               </p>
               <MetricsPanel campaignId={campaign.id} />
@@ -614,72 +507,67 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   )
 }
 
-// ── Compact Kanban card ───────────────────────────────────────────────────────
+// ── Kanban card (Campaign Studio style) ────────────────────────────────────────
+
+const KANBAN_ICON_BG: Record<string, string> = {
+  google: 'bg-indigo-tint text-primary',
+  meta:   'bg-indigo-tint text-primary',
+  email:  'bg-orange-tint text-warning',
+}
 
 function KanbanCard({ campaign }: { campaign: Campaign }) {
   const { mutate: updateStatus, isPending } = useUpdateCampaignStatus()
+  const primaryChannel = campaign.channels[0]
+  const ChannelIcon = primaryChannel ? (CHANNEL_ICONS[primaryChannel] ?? Globe) : Rocket
+  const iconBg = primaryChannel ? (KANBAN_ICON_BG[primaryChannel] ?? 'bg-indigo-tint text-primary') : 'bg-indigo-tint text-primary'
+  const subtitle = [
+    primaryChannel ? CHANNEL_LABELS[primaryChannel] ?? primaryChannel : null,
+    campaign.competitor_name ? `vs ${campaign.competitor_name}` : null,
+  ].filter(Boolean).join(' · ')
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3 hover:shadow-sm transition-shadow">
-      <div className="flex items-start gap-2 mb-2">
-        <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
-          <Rocket size={13} className="text-orange-500" />
+    <div className="bg-surface-card rounded-xl border border-border-subtle p-3.5 hover:shadow-soft-md transition-shadow">
+      <div className="flex items-start justify-between gap-2 mb-2.5">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+          <ChannelIcon size={14} />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-gray-900 leading-snug line-clamp-2">{campaign.campaign_name}</p>
-          <p className="text-[10px] text-gray-400 mt-0.5 truncate">vs {campaign.competitor_name}</p>
-        </div>
-      </div>
-      {/* Metrics row */}
-      <div className="flex items-center gap-2 text-[10px] text-gray-400 mb-2">
         {campaign.leads_count > 0 && (
-          <span className="flex items-center gap-0.5 text-green-600 font-semibold">
-            <Users size={9} /> {campaign.leads_count}
-          </span>
-        )}
-        {campaign.daily_budget && (
-          <span className="flex items-center gap-0.5">
-            <DollarSign size={9} /> {campaign.daily_budget}/day
-          </span>
-        )}
-        {campaign.channels.length > 0 && (
-          <span className="flex items-center gap-0.5">
-            {campaign.channels.slice(0,2).map(ch => {
-              const Icon = { google: Search, meta: Globe, instagram: Share2 }[ch] ?? Globe
-              return <Icon key={ch} size={9} />
-            })}
+          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-50 text-success shrink-0">
+            {campaign.leads_count} lead{campaign.leads_count !== 1 ? 's' : ''}
           </span>
         )}
       </div>
-      {/* Quick actions */}
-      <div className="flex gap-1">
-        {campaign.status === 'draft' && (
-          <button
-            onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
-            disabled={isPending}
-            className="flex-1 text-[10px] font-bold py-1 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
-          >
-            Activate
-          </button>
-        )}
-        {campaign.status === 'active' && (
-          <button
-            onClick={() => updateStatus({ id: campaign.id, status: 'paused', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
-            disabled={isPending}
-            className="flex-1 text-[10px] font-bold py-1 rounded-lg bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors disabled:opacity-50"
-          >
-            Pause
-          </button>
-        )}
-        {campaign.status === 'paused' && (
-          <button
-            onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
-            disabled={isPending}
-            className="flex-1 text-[10px] font-bold py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-50"
-          >
-            Resume
-          </button>
-        )}
+
+      <p className="text-sm font-bold text-on-surface leading-snug line-clamp-2 mb-1">{campaign.campaign_name}</p>
+      {subtitle && <p className="text-xs text-on-surface-variant mb-3 truncate">{subtitle}</p>}
+
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-bold text-on-surface">
+          {campaign.daily_budget ? `$${campaign.daily_budget}/day` : '$0'}
+        </span>
+        <div className="flex gap-1">
+          {campaign.status === 'draft' && (
+            <button
+              onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+              disabled={isPending}
+              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+            >Activate</button>
+          )}
+          {campaign.status === 'active' && (
+            <button
+              onClick={() => updateStatus({ id: campaign.id, status: 'paused', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+              disabled={isPending}
+              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-orange-tint text-warning hover:opacity-80 transition-colors disabled:opacity-50"
+            >Pause</button>
+          )}
+          {campaign.status === 'paused' && (
+            <button
+              onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+              disabled={isPending}
+              className="text-[10px] font-bold px-2 py-1 rounded-lg bg-indigo-tint text-primary hover:opacity-80 transition-colors disabled:opacity-50"
+            >Resume</button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -687,33 +575,31 @@ function KanbanCard({ campaign }: { campaign: Campaign }) {
 
 // ── Kanban board ──────────────────────────────────────────────────────────────
 
-const KANBAN_COLS: { status: CampaignStatus; label: string; color: string; dot: string }[] = [
-  { status: 'draft',     label: 'Draft',     color: '#6b7280', dot: '#d1d5db' },
-  { status: 'active',    label: 'Running',   color: '#1f9d5b', dot: '#6ee7b7' },
-  { status: 'paused',    label: 'Paused',    color: '#d9920a', dot: '#fcd34d' },
-  { status: 'completed', label: 'Completed', color: '#2563eb', dot: '#93c5fd' },
+const KANBAN_COLS: { status: CampaignStatus; label: string; dot: string; countBg: string; countText: string }[] = [
+  { status: 'draft',     label: 'Draft',     dot: 'bg-gray-400',   countBg: 'bg-surface-container-low', countText: 'text-on-surface-variant' },
+  { status: 'active',    label: 'Running',   dot: 'bg-success',    countBg: 'bg-emerald-50',             countText: 'text-success' },
+  { status: 'paused',    label: 'Paused',    dot: 'bg-warning',    countBg: 'bg-orange-tint',            countText: 'text-warning' },
+  { status: 'completed', label: 'Completed', dot: 'bg-primary',    countBg: 'bg-indigo-tint',            countText: 'text-primary' },
 ]
 
 function KanbanBoard({ campaigns }: { campaigns: Campaign[] }) {
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2">
+    <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
       {KANBAN_COLS.map(col => {
         const colCampaigns = campaigns.filter(c => c.status === col.status)
         return (
-          <div key={col.status} className="shrink-0 w-64 flex flex-col">
-            {/* Column header */}
+          <div key={col.status} className="shrink-0 w-72 flex flex-col">
             <div className="flex items-center gap-2 mb-3 px-1">
-              <span className="w-2 h-2 rounded-full" style={{ background: col.dot }} />
-              <span className="text-xs font-bold text-gray-700 uppercase tracking-[.06em]">{col.label}</span>
-              <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#f1f2f4', color: col.color }}>
+              <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+              <span className="text-xs font-bold text-on-surface-variant uppercase tracking-[.06em]">{col.label}</span>
+              <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${col.countBg} ${col.countText}`}>
                 {colCampaigns.length}
               </span>
             </div>
-            {/* Cards */}
-            <div className="flex flex-col gap-2 min-h-16">
+            <div className="flex flex-col gap-2.5 min-h-16">
               {colCampaigns.length === 0 ? (
-                <div className="border-2 border-dashed border-gray-100 rounded-xl py-6 text-center">
-                  <p className="text-[10px] text-gray-300 font-semibold">No {col.label.toLowerCase()} campaigns</p>
+                <div className="border-2 border-dashed border-border-subtle rounded-xl py-6 text-center">
+                  <p className="text-[10px] text-on-surface-variant/60 font-semibold">No {col.label.toLowerCase()} campaigns</p>
                 </div>
               ) : (
                 colCampaigns.map(c => <KanbanCard key={c.id} campaign={c} />)
@@ -729,74 +615,54 @@ function KanbanBoard({ campaigns }: { campaigns: Campaign[] }) {
 export function CampaignsPage() {
   const { data: campaigns = [], isLoading } = useCampaigns()
   const [filter, setFilter] = useState<CampaignStatus | 'all'>('all')
-  const [view, setView] = useState<'list' | 'kanban'>('list')
+  const [view, setView] = useState<'list' | 'kanban'>('kanban')
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const filtered = filter === 'all' ? campaigns : campaigns.filter(c => c.status === filter)
-
-  const stats = {
-    total:  campaigns.length,
-    active: campaigns.filter(c => c.status === 'active').length,
-    draft:  campaigns.filter(c => c.status === 'draft').length,
-  }
+  const searched = searchQuery.trim()
+    ? campaigns.filter(c => c.campaign_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : campaigns
+  const filtered = filter === 'all' ? searched : searched.filter(c => c.status === filter)
 
   return (
-    <div className={view === 'kanban' ? 'space-y-5' : 'max-w-3xl mx-auto space-y-5'}>
+    <div className="max-w-[1400px] mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <Brain size={15} className="text-violet-500" />
-            <span className="text-xs font-bold uppercase tracking-widest text-violet-600">AI Campaign Intelligence</span>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-primary">Campaign Studio</h1>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search campaigns…"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="border border-outline-variant bg-surface-card rounded-xl pl-9 pr-3 py-2 text-sm w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Campaign Studio</h1>
-          <p className="text-sm text-gray-500 mt-0.5">AI-generated counter-campaigns from competitor moves</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {/* View toggle */}
-          <div className="flex items-center rounded-xl border border-gray-200 bg-white overflow-hidden">
+
+          <div className="flex items-center rounded-xl border border-outline-variant bg-surface-card overflow-hidden shrink-0">
             <button
               onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold transition-colors ${view === 'list' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-            >
-              <LayoutList size={12} /> List
-            </button>
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === 'list' ? 'bg-on-surface text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
+            ><LayoutList size={13} /> List</button>
             <button
               onClick={() => setView('kanban')}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold transition-colors ${view === 'kanban' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-            >
-              <Columns size={12} /> Kanban
-            </button>
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === 'kanban' ? 'bg-on-surface text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
+            ><Columns size={13} /> Kanban</button>
           </div>
+
           <Link
             to="/interception"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:opacity-90 transition-colors shadow-soft shrink-0"
           >
             <Plus size={14} />
-            New from signal
+            New Campaign
           </Link>
         </div>
       </div>
 
-      {/* Stats */}
-      {!isLoading && campaigns.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: 'Total',  value: stats.total,  icon: TrendingUp, color: 'text-gray-700'  },
-            { label: 'Active', value: stats.active,  icon: Play,       color: 'text-green-600' },
-            { label: 'Drafts', value: stats.draft,   icon: FileEdit,   color: 'text-gray-400'  },
-          ].map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="bg-white rounded-xl border border-gray-200 px-4 py-4">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Icon size={13} className={color} />
-                <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">{label}</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{value}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* AI Recommendations panel — only visible when optimize-campaigns has flagged issues */}
+      {/* AI Recommendations — top priority as a strategic bar, matching mockup */}
       <AiRecommendationsPanel />
 
       {/* Kanban view */}
@@ -810,11 +676,10 @@ export function CampaignsPage() {
             description="Go to Counter Campaign, find a competitor signal and launch your first AI counter-campaign."
           />
         ) : (
-          <KanbanBoard campaigns={campaigns} />
+          <KanbanBoard campaigns={searched} />
         )
       ) : (
         <>
-          {/* Filter tabs (list view only) */}
           {campaigns.length > 0 && (
             <div className="flex gap-1.5 flex-wrap">
               {(['all', 'active', 'draft', 'paused', 'completed'] as const).map(s => (
@@ -822,32 +687,23 @@ export function CampaignsPage() {
                   key={s}
                   onClick={() => setFilter(s)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize ${
-                    filter === s
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    filter === s ? 'bg-on-surface text-white' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
                   }`}
-                >
-                  {s}
-                </button>
+                >{s}</button>
               ))}
             </div>
           )}
 
-          {/* List */}
           {isLoading ? (
             <div className="flex justify-center py-12"><Spinner /></div>
           ) : filtered.length === 0 ? (
             <EmptyState
               icon={Rocket}
               title={filter === 'all' ? 'No campaigns yet' : `No ${filter} campaigns`}
-              description={
-                filter === 'all'
-                  ? 'Go to Counter Campaign, find a competitor signal and click "Launch counter-campaign" to generate your first AI campaign.'
-                  : undefined
-              }
+              description={filter === 'all' ? 'Go to Counter Campaign, find a competitor signal and click "Launch counter-campaign" to generate your first AI campaign.' : undefined}
             />
           ) : (
-            <div className="space-y-3">
+            <div className="max-w-3xl mx-auto space-y-3">
               {filtered.map(c => <CampaignCard key={c.id} campaign={c} />)}
             </div>
           )}
