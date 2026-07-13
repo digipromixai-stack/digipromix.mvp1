@@ -22,6 +22,7 @@ export interface Profile {
   full_name: string | null
   avatar_url: string | null
   plan_type: PlanType
+  value_per_lead: number
   created_at: string
   updated_at: string
 }
@@ -144,8 +145,8 @@ export interface AlertWithChange extends Alert {
 }
 
 // Insert types (omit auto-generated fields)
-interface ProfileInsert { id: string; full_name?: string | null; avatar_url?: string | null; plan_type?: PlanType }
-interface ProfileUpdate { full_name?: string | null; avatar_url?: string | null; plan_type?: PlanType }
+interface ProfileInsert { id: string; full_name?: string | null; avatar_url?: string | null; plan_type?: PlanType; value_per_lead?: number }
+interface ProfileUpdate { full_name?: string | null; avatar_url?: string | null; plan_type?: PlanType; value_per_lead?: number }
 
 interface CompetitorInsert { user_id: string; name: string; website_url: string; industry?: string | null; logo_url?: string | null; crawl_frequency?: CrawlFrequency; is_active?: boolean }
 interface CompetitorUpdate { name?: string; website_url?: string; industry?: string | null; crawl_frequency?: CrawlFrequency; is_active?: boolean }

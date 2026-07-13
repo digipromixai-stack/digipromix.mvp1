@@ -8,6 +8,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { CampaignModal } from '../components/campaigns/CampaignModal'
 import { useDetectedChanges } from '../hooks/useDetectedChanges'
 import { useCampaigns } from '../hooks/useCampaigns'
+import { useValuePerLead } from '../hooks/useProfile'
 import { timeAgo } from '../lib/utils'
 import type { Campaign, DetectedChangeWithCompetitor } from '../types/database.types'
 
@@ -40,13 +41,13 @@ function avatarColor(name = '') {
 
 function getInitial(name = '') { return (name[0] ?? '?').toUpperCase() }
 
-// Per-industry CPC baseline ($/click)
+// Per-industry CPC baseline ($/click) — a rough estimate, not a platform quote.
+// See predict-budget edge function for the fuller heuristic used at campaign-launch time.
 const CPC_MAP: Record<string, number> = {
   Healthcare: 4.50, 'Local-services': 3.20, SaaS: 6.50, Finance: 8.00,
 }
 const DEFAULT_CPC = 3.50
 const CONV_RATE  = 0.11
-const VALUE_PER_LEAD = 150
 
 // ── Helpers: generate counter content from real signal data ───────────────────
 
@@ -84,10 +85,12 @@ function CampaignSignalRow({
   change,
   activeCampaign,
   onCounter,
+  valuePerLead,
 }: {
   change: DetectedChangeWithCompetitor
   activeCampaign: Campaign | null
   onCounter: () => void
+  valuePerLead: number
 }) {
   const sev  = SEV[change.severity] ?? SEV.low
   const typ  = TYPE[change.change_type] ?? TYPE.content_change
@@ -102,7 +105,7 @@ function CampaignSignalRow({
   const cpc    = CPC_MAP[industry] ?? DEFAULT_CPC
   const weekly = budget * 7
   const leads  = Math.max(1, Math.round((weekly / cpc) * CONV_RATE))
-  const revenue = leads * VALUE_PER_LEAD
+  const revenue = leads * valuePerLead
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft hover:shadow-soft-md transition-shadow">
@@ -208,6 +211,7 @@ export function InterceptionPage() {
 
   const { data: changes = [], isLoading } = useDetectedChanges({ limit: 100 })
   const { data: campaigns = [] }          = useCampaigns()
+  const valuePerLead = useValuePerLead()
 
   const campaignByChangeId = useMemo(() => {
     const map = new Map<string, Campaign>()
@@ -287,6 +291,7 @@ export function InterceptionPage() {
               change={c}
               activeCampaign={campaignByChangeId.get(c.id) ?? null}
               onCounter={() => handleLaunch(c)}
+              valuePerLead={valuePerLead}
             />
           ))}
         </div>

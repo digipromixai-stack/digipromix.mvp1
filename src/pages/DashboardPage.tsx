@@ -9,6 +9,7 @@ import {
   CheckCircle, HelpCircle, TrendingUp, Compass, ShieldCheck,
 } from 'lucide-react'
 import type { Opportunity } from '../types/database.types'
+import { useValuePerLead } from '../hooks/useProfile'
 
 // ── KPI tile (2x2 cluster) ──────────────────────────────────────────────────
 
@@ -79,6 +80,7 @@ export function DashboardPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const valuePerLead = useValuePerLead()
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard_stats_v2', user?.id],
@@ -152,7 +154,7 @@ export function DashboardPage() {
   const highSev7d  = stats?.highSev7d ?? 0
   const leads7d    = stats?.leads7d ?? 0
   const totalLeads = stats?.totalLeads ?? 0
-  const potentialRevenue = openOpps * 300 // conservative estimate per open opportunity
+  const potentialRevenue = openOpps * valuePerLead * 2 // rough estimate: ~2 leads/opportunity at your configured lead value
 
   const threatScore      = Math.max(0, 100 - highSev7d * 15)
   const opportunityScore = Math.min(100, openOpps * 10)
@@ -162,9 +164,9 @@ export function DashboardPage() {
   const score      = topOpportunity ? Math.round(topOpportunity.opportunity_score) : 0
   const confidence = topOpportunity ? Math.round((topOpportunity.confidence ?? 0) * 100) : 0
   const expLeads   = topOpportunity?.expected_leads ?? 0
-  const oppRevenue = expLeads > 0 ? `$${(expLeads * 80).toLocaleString()}` : '—'
+  const oppRevenue = expLeads > 0 ? `$${(expLeads * valuePerLead).toLocaleString()}` : '—'
   const estBudget  = topOpportunity ? Math.round((topOpportunity.expected_leads ?? 5) * 4) : 0
-  const roi        = expLeads > 0 && estBudget > 0 ? (((expLeads * 80) / estBudget)).toFixed(1) : '—'
+  const roi        = expLeads > 0 && estBudget > 0 ? (((expLeads * valuePerLead) / estBudget)).toFixed(1) : '—'
   const minsAgo    = Math.max(0, Math.round((Date.now() - dataUpdatedAt) / 60000))
 
   return (
@@ -245,7 +247,7 @@ export function DashboardPage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-5 border-y border-border-subtle mb-5">
                   <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Potential Revenue</p>
+                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1" title="Estimate based on your configured value per lead (Settings), not a guaranteed outcome">Potential Revenue (Est.)</p>
                     <p className="font-mono text-2xl font-bold text-on-surface">{oppRevenue}</p>
                   </div>
                   <div>
@@ -260,7 +262,7 @@ export function DashboardPage() {
                     <p className="font-mono text-2xl font-bold text-on-surface">{score}</p>
                   </div>
                   <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Expected ROI</p>
+                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1" title="Industry-benchmark estimate, not measured performance — refine it in Settings">Expected ROI (Est.)</p>
                     <p className="font-mono text-2xl font-bold text-primary">{roi === '—' ? '—' : `${roi}x`}</p>
                   </div>
                 </div>

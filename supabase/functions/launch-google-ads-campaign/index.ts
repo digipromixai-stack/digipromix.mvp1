@@ -473,7 +473,7 @@ Deno.serve(async (req) => {
     const campaignRes = await mutate(ctx, '/campaigns:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} ${Date.now()}`).slice(0, 255),
-        status: 'ENABLED',
+        status: 'PAUSED',
         advertisingChannelType: 'SEARCH',
         // targetSpend = Maximize Clicks strategy in REST API v20
         targetSpend: {
@@ -504,7 +504,7 @@ Deno.serve(async (req) => {
     const adGroupRes = await mutate(ctx, '/adGroups:mutate', [{
       create: {
         name: sanitize(`${campaign.campaign_name} - Ad Group`).slice(0, 255),
-        status: 'ENABLED',
+        status: 'PAUSED',
         campaign: gCampaignRN,
         type: 'SEARCH_STANDARD',
       },
@@ -532,7 +532,7 @@ Deno.serve(async (req) => {
     const adRes = await mutate(ctx, '/adGroupAds:mutate', [{
       create: {
         adGroup: gAdGroupRN,
-        status: 'ENABLED',
+        status: 'PAUSED',
         ad: {
           finalUrls: [finalUrl],
           // trackingUrlTemplate with ValueTrack params — lets Google report
@@ -651,7 +651,7 @@ Deno.serve(async (req) => {
       google_ad_group_id: gAdGroupId,
       google_ad_id:       gAdId,
       google_error:       null,
-      status:             'active',
+      status:             'paused',
       channels:           [...new Set([...((campaign.channels as string[]) ?? []), 'google'])],
       landing_page_url:   finalUrl,
       daily_budget:       budgetUsd,
@@ -662,7 +662,7 @@ Deno.serve(async (req) => {
       google_campaign_id: gCampaignId,
       google_ad_group_id: gAdGroupId,
       google_ad_id:       gAdId,
-      message: 'Campaign created and ENABLED on Google Ads. Manage it from your app.',
+      message: 'Campaign created on Google Ads as PAUSED for review. Activate it from your app when ready to spend.',
     })
   } catch (err) {
     console.error(err)

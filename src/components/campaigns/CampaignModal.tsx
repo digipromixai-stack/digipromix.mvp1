@@ -989,7 +989,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
           <CheckCircle2 size={48} className="text-green-500 mx-auto" />
           <div>
             <p className="text-lg font-bold text-gray-900">{campaign.campaign_name}</p>
-            <p className="text-sm text-gray-500 mt-1">Campaign is now <span className="text-green-600 font-semibold">active</span></p>
+            <p className="text-sm text-gray-500 mt-1">Campaign created and <span className="text-yellow-600 font-semibold">paused</span> for review — activate it from the Campaigns page when you're ready to spend</p>
           </div>
 
           {/* Landing page URL */}

@@ -6,7 +6,7 @@
  * urgency, and a direct launch path into the campaign modal.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
@@ -20,6 +20,7 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { CampaignModal } from '../components/campaigns/CampaignModal'
 import type { Opportunity, DetectedChangeWithCompetitor } from '../types/database.types'
+import { useValuePerLead } from '../hooks/useProfile'
 
 // ── Signal source badge ───────────────────────────────────────────────────────
 // Shows where this opportunity came from: Google Trends, Meta Ads, or a
@@ -211,19 +212,21 @@ function OpportunityCard({
   onLaunch,
   onDismiss,
   busy,
+  valuePerLead,
 }: {
   opp: Opportunity
   onLaunch: (opp: Opportunity) => void
   onDismiss: (opp: Opportunity) => void
   busy: boolean
+  valuePerLead: number
 }) {
   const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>
   const topSignal = sources.find(s => s.growth_pct != null)
   const growthPct = topSignal?.growth_pct as number | undefined
 
-  const estRevenueValue = opp.expected_leads != null ? opp.expected_leads * 80 : null
+  const estRevenueValue = opp.expected_leads != null ? opp.expected_leads * valuePerLead : null
   const roiMultiplier = opp.expected_leads != null && opp.recommended_budget != null && opp.recommended_budget > 0
-    ? Math.round((opp.expected_leads * 80) / (opp.recommended_budget * 4))
+    ? Math.round((opp.expected_leads * valuePerLead) / (opp.recommended_budget * 4))
     : null
 
   const isUrgent = opp.opportunity_score >= 85 ||
@@ -261,7 +264,7 @@ function OpportunityCard({
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-surface-container-low rounded-lg p-3">
-          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Potential Revenue</p>
+          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1" title="Estimate based on your configured value per lead (Settings), not a guaranteed outcome">Potential Revenue (Est.)</p>
           <p className="font-mono text-lg font-bold text-on-surface">
             {estRevenueValue != null ? `$${estRevenueValue.toLocaleString()}` : '—'}
           </p>
@@ -274,7 +277,7 @@ function OpportunityCard({
 
       <div className="flex items-center justify-between text-xs text-on-surface-variant mb-3 pb-3 border-b border-border-subtle">
         <span>Expected Leads <strong className="text-on-surface">{opp.expected_leads ?? '—'}</strong></span>
-        <span>ROI Forecast <strong className="text-success">{roiMultiplier != null ? `${roiMultiplier}x` : '—'}</strong></span>
+        <span title="Industry-benchmark estimate, not measured performance">ROI Forecast (Est.) <strong className="text-success">{roiMultiplier != null ? `${roiMultiplier}x` : '—'}</strong></span>
       </div>
 
       {opp.recommended_action && (
@@ -323,6 +326,7 @@ export function OpportunityFeedPage() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { toast } = useToast()
+  const valuePerLead = useValuePerLead()
 
   const [activeChange, setActiveChange] = useState<DetectedChangeWithCompetitor | null>(null)
   const [activeOppHint, setActiveOppHint] = useState<{
@@ -389,12 +393,12 @@ export function OpportunityFeedPage() {
     }
   }
 
-  const revenueOf = (o: Opportunity) => (o.expected_leads ?? 0) * 80
+  const revenueOf = useCallback((o: Opportunity) => (o.expected_leads ?? 0) * valuePerLead, [valuePerLead])
   const revenueP75 = useMemo(() => {
     if (opportunities.length === 0) return 0
     const sorted = [...opportunities].map(revenueOf).sort((a, b) => a - b)
     return sorted[Math.floor(sorted.length * 0.75)] ?? sorted[sorted.length - 1]
-  }, [opportunities])
+  }, [opportunities, revenueOf])
   const cpcP25 = useMemo(() => {
     const withCpc = opportunities.filter(o => o.estimated_cpc != null && o.estimated_cpc > 0)
     if (withCpc.length === 0) return null
@@ -417,7 +421,7 @@ export function OpportunityFeedPage() {
       )
     }
     return list
-  }, [opportunities, scoreFilter, searchQuery, revenueP75, cpcP25])
+  }, [opportunities, scoreFilter, searchQuery, revenueP75, cpcP25, revenueOf])
 
   async function handleDismiss(opp: Opportunity) {
     const { error } = await supabase
@@ -541,6 +545,7 @@ export function OpportunityFeedPage() {
               onLaunch={handleLaunch}
               onDismiss={handleDismiss}
               busy={loadingOppId === opp.id}
+              valuePerLead={valuePerLead}
             />
           ))}
         </div>

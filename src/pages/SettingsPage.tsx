@@ -12,10 +12,12 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { PageSpinner } from '../components/ui/Spinner'
-import type { Profile, AlertPreferences, ChangeType } from '../types/database.types'
+import { useProfile } from '../hooks/useProfile'
+import type { AlertPreferences, ChangeType } from '../types/database.types'
 
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
+  value_per_lead: z.number().positive('Must be a positive number'),
 })
 type ProfileFormData = z.infer<typeof profileSchema>
 
@@ -33,14 +35,7 @@ export function SettingsPage() {
   const { toast } = useToast()
   const qc = useQueryClient()
 
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('*').eq('id', user!.id).single()
-      return data as Profile | null
-    },
-    enabled: !!user,
-  })
+  const { data: profile, isLoading } = useProfile()
 
   const { data: prefs } = useQuery({
     queryKey: ['alert_preferences', user?.id],
@@ -76,12 +71,14 @@ export function SettingsPage() {
   })
 
   useEffect(() => {
-    if (profile) reset({ full_name: profile.full_name ?? '' })
+    if (profile) reset({ full_name: profile.full_name ?? '', value_per_lead: profile.value_per_lead ?? 100 })
   }, [profile, reset])
 
   const updateProfile = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      const { error } = await supabase.from('profiles').update({ full_name: data.full_name }).eq('id', user!.id)
+      const { error } = await supabase.from('profiles')
+        .update({ full_name: data.full_name, value_per_lead: data.value_per_lead })
+        .eq('id', user!.id)
       if (error) throw error
     },
     onSuccess: () => {
@@ -147,6 +144,21 @@ export function SettingsPage() {
               {...register('full_name')}
             />
             <Input label="Email" id="email" value={user?.email ?? ''} disabled />
+            <div>
+              <Input
+                label="Value per lead ($)"
+                id="value_per_lead"
+                type="number"
+                step="1"
+                min="0"
+                error={errors.value_per_lead?.message}
+                {...register('value_per_lead', { valueAsNumber: true })}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Used to estimate Revenue and ROI across the app. Set this to what a converted lead is actually
+                worth to your business — the default is a generic placeholder, not a measurement.
+              </p>
+            </div>
             <Button type="submit" loading={isSubmitting || updateProfile.isPending}>Save profile</Button>
           </form>
         </CardContent>
