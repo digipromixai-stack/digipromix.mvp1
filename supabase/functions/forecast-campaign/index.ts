@@ -1,14 +1,23 @@
 /**
- * predict-budget — legacy MVP 2.0 Budget Prediction Engine
+ * forecast-campaign — Live Platform Forecast Engine
  *
- * POST { campaign_id, daily_budget?, days? }
+ * POST { campaign_id, daily_budget?, days?, target_countries?, age_min?, age_max? }
  *
- * Kept as a thin wrapper around _shared/forecast-engine.ts so any existing
- * caller keeps working with the exact same response shape it always had.
- * New code should call forecast-campaign directly (same engine, plus the
- * `source` / `per_platform` fields that let the UI distinguish a live
- * platform forecast from the industry-benchmark heuristic). The two
- * endpoints share one engine so they can never disagree with each other.
+ * Canonical replacement for predict-budget's static heuristic-only prediction.
+ * Tries the user's connected Google Ads / Meta ad accounts' own forecast
+ * endpoints first (real auction data for that specific account); falls back
+ * to the industry-CPC heuristic when no account is connected or the live
+ * call errors. See _shared/forecast-engine.ts for the full merge logic and
+ * for exactly what is/isn't genuinely platform-sourced.
+ *
+ * Writes predicted_leads, predicted_cpc, predicted_cpl, confidence_score
+ * back onto the campaign row (same contract as predict-budget) so existing
+ * readers keep working; the extra `source` / `per_platform` fields in the
+ * response let the UI label live-forecast vs. benchmark-estimate numbers.
+ *
+ * predict-budget is kept as a thin legacy wrapper around the same engine
+ * (see supabase/functions/predict-budget/index.ts) so the two can never
+ * disagree with each other.
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
@@ -43,8 +52,12 @@ Deno.serve(async (req) => {
     )
 
     const body = await req.json().catch(() => ({}))
-    const { campaign_id, daily_budget, days = 7 } = body as {
+    const {
+      campaign_id, daily_budget, days = 7,
+      target_countries, age_min, age_max,
+    } = body as {
       campaign_id?: string; daily_budget?: number; days?: number
+      target_countries?: string[]; age_min?: number; age_max?: number
     }
     if (!campaign_id) return json({ error: 'campaign_id required' }, 400)
 
@@ -54,6 +67,8 @@ Deno.serve(async (req) => {
       .eq('id', campaign_id).eq('user_id', user.id).single()
     if (!campaign) return json({ error: 'Campaign not found' }, 404)
 
+    // Opportunity strength from the linked change (if any) — same signal
+    // predict-budget has always used to bias the heuristic baseline.
     let opportunityScore = 50
     let severity: string | null = null
     if (campaign.change_id) {
@@ -77,6 +92,9 @@ Deno.serve(async (req) => {
       severity,
       opportunityScore,
       keywords: (campaign.keywords as string[] | null) ?? [],
+      countries: Array.isArray(target_countries) && target_countries.length > 0 ? target_countries : undefined,
+      ageMin: typeof age_min === 'number' ? age_min : undefined,
+      ageMax: typeof age_max === 'number' ? age_max : undefined,
     })
 
     await admin.from('campaigns').update({
@@ -88,7 +106,7 @@ Deno.serve(async (req) => {
 
     return json(result)
   } catch (err) {
-    console.error('predict-budget error:', err)
+    console.error('forecast-campaign error:', err)
     return json({ error: 'Internal server error', detail: String(err) }, 500)
   }
 })

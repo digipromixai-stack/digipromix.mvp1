@@ -119,6 +119,10 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
   const [clientId, setClientId]       = useState('')
   const [imageUrl, setImageUrl]       = useState('')
   const [insights, setInsights]       = useState<{ competitor_offer?: string; offer_justification?: string } | null>(null)
+  // Source of the predicted_leads/predicted_cpc/predicted_cpl numbers on `campaign` —
+  // 'platform_forecast' means at least Google Ads' live forecast API answered for this
+  // account; 'heuristic' means it's the industry-benchmark estimate (see forecast-campaign).
+  const [predictionSource, setPredictionSource] = useState<'platform_forecast' | 'heuristic' | null>(null)
   // Launch mode per channel: 'self' = user's connected account, 'managed' = DigiPromix runs it via MCC
   const [launchModes, setLaunchModes] = useState<Record<string, 'self' | 'managed'>>({ meta: 'managed', google: 'managed' })
   const [managedBusinessName, setManagedBusinessName] = useState('')
@@ -210,7 +214,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
     setTemplate('default')
     setDailyBudget(counterHint?.budget ? String(counterHint.budget) : '')
     setSelectedChannels(counterHint?.channels ?? ['meta'])
-    setClientId(''); setImageUrl(''); setInsights(null)
+    setClientId(''); setImageUrl(''); setInsights(null); setPredictionSource(null)
     setLaunchModes({ meta: 'managed', google: 'managed' }); setManagedBusinessName('')
     onClose(wasLaunched)
   }
@@ -230,12 +234,15 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
         if (data.insights.suggested_template) setTemplate(data.insights.suggested_template as LandingTemplate)
       }
       setStep('preview')
-      // Fire predict-budget (non-blocking) — writes predictions back to DB and
-      // updates the preview so the user sees estimated leads/CPC before launching.
+      // Fire forecast-campaign (non-blocking) — tries the user's connected Google/Meta
+      // ad accounts' own forecast APIs first, falls back to the industry heuristic, and
+      // writes predictions back to DB either way. `source` tells the preview UI whether
+      // what it's showing is a live platform forecast or a benchmark estimate.
       invokeFunction<{
         predicted_leads: number; predicted_cpc: number
         predicted_cpl: number; confidence_score: number
-      }>('predict-budget', {
+        source: 'platform_forecast' | 'heuristic'
+      }>('forecast-campaign', {
         campaign_id: data.campaign.id,
         days: 7,
       }).then(({ data: pred }) => {
@@ -247,6 +254,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
             predicted_cpl:    pred.predicted_cpl,
             confidence_score: pred.confidence_score,
           } : prev)
+          setPredictionSource(pred.source ?? 'heuristic')
         }
       }).catch(() => { /* non-fatal — predictions are best-effort */ })
     } catch (e: unknown) {
@@ -481,12 +489,30 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
             </span>
           </div>
 
-          {/* Budget predictions (arrive shortly after generation via predict-budget) */}
+          {/* Budget predictions (arrive shortly after generation via forecast-campaign) */}
           {(campaign.predicted_leads != null || campaign.predicted_cpc != null) && (
             <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <Sparkles size={12} className="text-violet-600" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">AI Budget Prediction — 7-day outlook</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">
+                  {predictionSource === 'platform_forecast' ? 'Live Ads Platform Forecast' : 'AI Budget Prediction'} — 7-day outlook
+                </span>
+                {predictionSource && (
+                  <span
+                    className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                      predictionSource === 'platform_forecast'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}
+                    title={
+                      predictionSource === 'platform_forecast'
+                        ? 'Computed from your connected ad account’s live auction data'
+                        : 'Industry-benchmark estimate — connect a Google Ads or Meta account for a live forecast'
+                    }
+                  >
+                    {predictionSource === 'platform_forecast' ? 'Live forecast' : 'Benchmark est.'}
+                  </span>
+                )}
                 {campaign.confidence_score != null && (
                   <span className="ml-auto text-[10px] text-violet-600 font-semibold">
                     {Math.round(campaign.confidence_score * 100)}% confidence
@@ -496,13 +522,17 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
               <div className="grid grid-cols-3 gap-2">
                 {campaign.predicted_leads != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
-                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. leads</div>
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">
+                      {predictionSource === 'platform_forecast' ? 'Leads' : 'Est. leads'}
+                    </div>
                     <div className="text-sm font-bold text-gray-900">{campaign.predicted_leads}</div>
                   </div>
                 )}
                 {campaign.predicted_cpc != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
-                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPC</div>
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">
+                      {predictionSource === 'platform_forecast' ? 'CPC' : 'Est. CPC'}
+                    </div>
                     <div className="text-sm font-bold text-gray-900">${campaign.predicted_cpc.toFixed(2)}</div>
                   </div>
                 )}
