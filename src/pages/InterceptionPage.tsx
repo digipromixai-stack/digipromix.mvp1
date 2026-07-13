@@ -9,6 +9,7 @@ import { CampaignModal } from '../components/campaigns/CampaignModal'
 import { useDetectedChanges } from '../hooks/useDetectedChanges'
 import { useCampaigns } from '../hooks/useCampaigns'
 import { useValuePerLead } from '../hooks/useProfile'
+import { industryBaseline } from '../lib/economics'
 import { timeAgo } from '../lib/utils'
 import type { Campaign, DetectedChangeWithCompetitor } from '../types/database.types'
 
@@ -40,14 +41,6 @@ function avatarColor(name = '') {
 }
 
 function getInitial(name = '') { return (name[0] ?? '?').toUpperCase() }
-
-// Per-industry CPC baseline ($/click) — a rough estimate, not a platform quote.
-// See predict-budget edge function for the fuller heuristic used at campaign-launch time.
-const CPC_MAP: Record<string, number> = {
-  Healthcare: 4.50, 'Local-services': 3.20, SaaS: 6.50, Finance: 8.00,
-}
-const DEFAULT_CPC = 3.50
-const CONV_RATE  = 0.11
 
 // ── Helpers: generate counter content from real signal data ───────────────────
 
@@ -101,11 +94,12 @@ function CampaignSignalRow({
   const isLive = activeCampaign != null && activeCampaign.status !== 'draft'
   const headline = activeCampaign?.headline ?? genHeadlines(change)[0]
 
-  const budget = change.severity === 'high' ? 180 : change.severity === 'medium' ? 140 : 100
-  const cpc    = CPC_MAP[industry] ?? DEFAULT_CPC
-  const weekly = budget * 7
-  const leads  = Math.max(1, Math.round((weekly / cpc) * CONV_RATE))
-  const revenue = leads * valuePerLead
+  const budget   = change.severity === 'high' ? 180 : change.severity === 'medium' ? 140 : 100
+  const baseline = industryBaseline(industry)
+  const cpc      = baseline.cpc
+  const weekly   = budget * 7
+  const leads    = Math.max(1, Math.round((weekly / cpc) * baseline.conversionRate))
+  const revenue  = leads * valuePerLead
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft hover:shadow-soft-md transition-shadow">
