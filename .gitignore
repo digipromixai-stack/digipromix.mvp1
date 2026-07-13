@@ -4,7 +4,6 @@ python-crawler/*.pyc
 python-crawler/.venv/
 python-crawler/venv/
 
-# Claude Code settings
 .claude/
 
 # Logs
