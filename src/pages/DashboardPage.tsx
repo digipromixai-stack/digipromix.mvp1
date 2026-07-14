@@ -351,13 +351,16 @@ export function DashboardPage() {
             </div>
 
             <div className="bg-surface-card border border-border-subtle rounded-xl p-6 shadow-soft">
-              <h3 className="font-bold text-on-surface mb-5">Business Health Score</h3>
+              <h3 className="font-bold text-on-surface mb-1">Weekly Activity Score</h3>
+              <p className="text-[11px] text-on-surface-variant mb-4">
+                Based on recent activity volume (open opportunities, competitor threats, new leads) — not a performance, revenue, or ROI metric.
+              </p>
               <HealthRing score={healthScore} />
               <div className="mt-6 space-y-3">
-                <HealthBar label="Marketing Efficiency" value={opportunityScore} tone="primary" />
-                <HealthBar label="Competition Index" value={threatScore} tone={threatScore > 60 ? 'success' : 'warning'} />
-                <HealthBar label="Campaign Quality" value={Math.round((opportunityScore + leadScore) / 2)} tone="primary" />
-                <HealthBar label="Lead Conversion" value={leadScore} tone="success" />
+                <HealthBar label="Opportunity Volume" value={opportunityScore} tone="primary" />
+                <HealthBar label="Competitive Calm" value={threatScore} tone={threatScore > 60 ? 'success' : 'warning'} />
+                <HealthBar label="Overall Momentum" value={Math.round((opportunityScore + leadScore) / 2)} tone="primary" />
+                <HealthBar label="Lead Volume" value={leadScore} tone="success" />
               </div>
             </div>
 
