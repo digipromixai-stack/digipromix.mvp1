@@ -165,8 +165,10 @@ export function DashboardPage() {
   const confidence = topOpportunity ? Math.round((topOpportunity.confidence ?? 0) * 100) : 0
   const expLeads   = topOpportunity?.expected_leads ?? 0
   const oppRevenue = expLeads > 0 ? `$${(expLeads * valuePerLead).toLocaleString()}` : '—'
-  const estBudget  = topOpportunity ? Math.round((topOpportunity.expected_leads ?? 5) * 4) : 0
-  const roi        = expLeads > 0 && estBudget > 0 ? (((expLeads * valuePerLead) / estBudget)).toFixed(1) : '—'
+  // recommended_budget is a DAILY figure (see score-opportunities: expected_leads is derived
+  // from recommended_budget × 7 days of spend) — the weekly spend backing expLeads is ×7, not ×4.
+  const weeklySpend = topOpportunity?.recommended_budget != null ? topOpportunity.recommended_budget * 7 : 0
+  const roi        = expLeads > 0 && weeklySpend > 0 ? (((expLeads * valuePerLead) / weeklySpend)).toFixed(1) : '—'
   const minsAgo    = Math.max(0, Math.round((Date.now() - dataUpdatedAt) / 60000))
 
   return (

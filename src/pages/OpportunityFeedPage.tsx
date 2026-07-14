@@ -225,8 +225,10 @@ function OpportunityCard({
   const growthPct = topSignal?.growth_pct as number | undefined
 
   const estRevenueValue = opp.expected_leads != null ? opp.expected_leads * valuePerLead : null
+  // recommended_budget is a DAILY figure (see score-opportunities: expected_leads is derived
+  // from recommended_budget × 7 days of spend) — the weekly spend backing expected_leads is ×7, not ×4.
   const roiMultiplier = opp.expected_leads != null && opp.recommended_budget != null && opp.recommended_budget > 0
-    ? Math.round((opp.expected_leads * valuePerLead) / (opp.recommended_budget * 4))
+    ? Math.round((opp.expected_leads * valuePerLead) / (opp.recommended_budget * 7) * 10) / 10
     : null
 
   const isUrgent = opp.opportunity_score >= 85 ||
