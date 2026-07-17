@@ -296,19 +296,35 @@ function MetricsPanel({ campaignId }: { campaignId: string }) {
     return <p className="text-[11px] text-on-surface-variant italic mt-1">Performance data collected nightly — check back after 24h of running</p>
   }
   const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n))
+  // Real ROI colour: green when the campaign is at least breaking even (≥1x),
+  // red when it's spending more than it's returning. This is MEASURED, not
+  // estimated — actual spend vs. actual leads captured.
+  const roiColor = m.real_roi == null ? 'text-on-surface-variant' : m.real_roi >= 1 ? 'text-success' : 'text-danger'
   return (
-    <div className="grid grid-cols-4 gap-1.5 mt-2">
-      {[
-        { label: 'Spend',       value: `$${m.total_spend.toFixed(2)}`, color: 'text-on-surface' },
-        { label: 'Clicks',      value: fmt(m.total_clicks),             color: 'text-primary' },
-        { label: 'Impressions', value: fmt(m.total_impressions),        color: 'text-on-surface-variant' },
-        { label: 'CTR',         value: m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '—', color: 'text-success' },
-      ].map(({ label, value, color }) => (
-        <div key={label} className="bg-surface-container-low rounded-lg p-1.5 text-center">
-          <div className="text-[9px] uppercase tracking-wide text-on-surface-variant">{label}</div>
-          <div className={`text-xs font-bold ${color} mt-0.5`}>{value}</div>
-        </div>
-      ))}
+    <div className="mt-2">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-success/10 text-success">
+          Actual performance
+        </span>
+        <span className="text-[9px] text-on-surface-variant">— measured from real spend &amp; leads, not an estimate</span>
+      </div>
+      <div className="grid grid-cols-4 gap-1.5">
+        {[
+          { label: 'Spend',    value: `$${m.total_spend.toFixed(2)}`, color: 'text-on-surface',
+            title: `${m.total_clicks} clicks · ${fmt(m.total_impressions)} impressions${m.avg_cpc != null ? ` · $${m.avg_cpc.toFixed(2)} CPC` : ''}` },
+          { label: 'Leads',    value: fmt(m.total_leads), color: 'text-primary',
+            title: 'Real leads captured via landing-page forms (not ad-platform conversions)' },
+          { label: 'Cost/Lead', value: m.real_cpl != null ? `$${m.real_cpl.toFixed(0)}` : '—', color: 'text-on-surface',
+            title: 'Actual cost per lead = spend / leads' },
+          { label: 'Real ROI', value: m.real_roi != null ? `${m.real_roi.toFixed(1)}x` : '—', color: roiColor,
+            title: 'Actual ROI = (real leads × your value per lead, from Settings) / real spend' },
+        ].map(({ label, value, color, title }) => (
+          <div key={label} className="bg-surface-container-low rounded-lg p-1.5 text-center" title={title}>
+            <div className="text-[9px] uppercase tracking-wide text-on-surface-variant">{label}</div>
+            <div className={`text-xs font-bold ${color} mt-0.5`}>{value}</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
