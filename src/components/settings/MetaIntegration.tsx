@@ -9,8 +9,12 @@ import { useToast } from '../ui/Toast'
 // Full Meta scope set for the Connect flow.
 //   - public_profile / email: Standard Access (no review needed)
 //   - ads_management / ads_read: required for launching + reading Meta campaigns
+//   - pages_show_list: required by GET /me/accounts (the Page picker)
 //   - pages_read_engagement: required to attach Facebook Page to ads
-//   - business_management: required for Business Manager assets
+//
+// business_management is deliberately NOT requested: nothing in the app calls a
+// Business Manager endpoint (/me/adaccounts and /me/accounts don't need it), and
+// requesting an unsubmitted scope only widens the App Review surface.
 //
 // IMPORTANT: For Live-mode users, the advanced scopes require Meta App Review
 // approval. Until approved, OAuth in Live mode shows a misleading "URL domain
@@ -24,8 +28,8 @@ const META_SCOPES = [
   'email',
   'ads_management',
   'ads_read',
+  'pages_show_list',
   'pages_read_engagement',
-  'business_management',
 ].join(',')
 
 export function MetaIntegration() {
