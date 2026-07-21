@@ -339,7 +339,7 @@ Registered as pg_cron jobs in the `cron.job` table. View runs via `cron.job_run_
 5. Meta App → Facebook Login → Valid OAuth Redirect URIs:
    - `https://www.digipromix.com/auth/meta/callback`
 6. App Domains: `digipromix.com`
-7. Required scopes: `ads_management`, `ads_read`, `business_management`, `pages_read_engagement`, `pages_show_list`
+7. Required scopes: `ads_management`, `ads_read`, `pages_show_list` (`business_management` and `pages_read_engagement` were rejected in App Review — the app has no code path that uses them; see [MetaIntegration.tsx](src/components/settings/MetaIntegration.tsx))
 
 ### Google Ads
 1. Cloud Console OAuth Client → **Client ID** + **Client Secret**
