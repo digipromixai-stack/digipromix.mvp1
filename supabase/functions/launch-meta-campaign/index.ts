@@ -461,7 +461,7 @@ Deno.serve(async (req) => {
       meta_campaign_id: metaCampaignId,
       meta_adset_id:    adSetId,
       meta_ad_id:       ad.id,
-      message:          'Campaign created and PAUSED on Meta. Review and activate it from your app or Meta Ads Manager.',
+      message:          'Campaign created on Meta as PAUSED for review. Activate it from your app when ready to spend.',
     })
   } catch (err) {
     console.error('launch-meta-campaign error:', err)
