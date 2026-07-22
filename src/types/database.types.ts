@@ -22,6 +22,7 @@ export interface Profile {
   full_name: string | null
   avatar_url: string | null
   plan_type: PlanType
+  value_per_lead: number
   created_at: string
   updated_at: string
 }
