@@ -1,6 +1,7 @@
 /**
- * invite-team-member — sends a Supabase email invite and links the invited
- * user to the caller's business straight away.
+ * invite-team-member — creates/links the invited user and emails them via
+ * the Gmail API (same sender as send-email-alert), bypassing Supabase Auth's
+ * own mailer entirely so invites aren't subject to its strict rate limit.
  *
  * POST { email: string, role: 'admin' | 'member' } — authenticated.
  * Caller must be an active 'owner' or 'admin' of a 'team' plan organization.
@@ -8,6 +9,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendGmailEmail } from '../_shared/gmail.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -70,7 +72,7 @@ Deno.serve(async (req) => {
 
     const { data: orgRow, error: orgRowErr } = await admin
       .from('organizations')
-      .select('plan')
+      .select('plan, name')
       .eq('id', organizationId)
       .single()
     if (orgRowErr) throw orgRowErr
@@ -78,20 +80,28 @@ Deno.serve(async (req) => {
       return json({ error: 'Upgrade to the Team plan before inviting teammates' }, 403)
     }
 
+    const APP_URL = Deno.env.get('APP_URL') ?? 'https://www.digipromix.com'
+
+    // generateLink (type: 'invite') creates the auth user and returns a
+    // sign-up action link WITHOUT Supabase sending its own email — we send
+    // the notification ourselves via Gmail below, so GoTrue's built-in
+    // mailer (and its strict per-project rate limit) is never involved.
     let invitedUserId: string
-    const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email)
-    if (inviteErr) {
-      // Supabase's shared email sender has a strict per-project rate limit —
-      // surface this distinctly so the UI can explain it instead of showing
-      // a generic 500 (fix requires configuring custom SMTP in the dashboard).
-      if (inviteErr.status === 429 || inviteErr.code === 'over_email_send_rate_limit') {
-        return json({ error: 'Too many invite emails sent recently — please try again in a few minutes.' }, 429)
-      }
+    let actionLink: string | null = null
+    let isNewUser = true
+
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: { redirectTo: `${APP_URL}/login` },
+    })
+
+    if (linkErr) {
       // The invitee may already have a DigiPromix account (personal or from
-      // another business). inviteUserByEmail can't be used for an existing
-      // user, so look their id up and link them to this business directly —
+      // another business) — generateLink's invite type only works for new
+      // users. Look their id up and link them to this business directly;
       // they just log in as normal to pick up access.
-      if (inviteErr.status === 422 || inviteErr.code === 'email_exists') {
+      if (linkErr.status === 422 || linkErr.code === 'email_exists') {
         const lookupRes = await fetch(
           `${Deno.env.get('SUPABASE_URL')!}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
           {
@@ -107,11 +117,13 @@ Deno.serve(async (req) => {
           return json({ error: 'A user with this email already exists but could not be looked up' }, 500)
         }
         invitedUserId = existingUser.id
+        isNewUser = false
       } else {
-        throw inviteErr
+        throw linkErr
       }
     } else {
-      invitedUserId = invited.user.id
+      invitedUserId = linkData.user.id
+      actionLink = linkData.properties?.action_link ?? null
     }
 
     const { data: member, error: memberInsertErr } = await admin
@@ -130,6 +142,41 @@ Deno.serve(async (req) => {
       .select()
       .single()
     if (memberInsertErr) throw memberInsertErr
+
+    // Best-effort — membership is already created even if the email fails
+    // to send (owner/admin can see the pending row and resend later).
+    try {
+      const ctaUrl = actionLink ?? `${APP_URL}/login`
+      const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: Inter, Arial, sans-serif; background: #f9fafb; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;">
+    <div style="background: #1e40af; padding: 24px; color: white;">
+      <h1 style="margin: 0; font-size: 18px;">You've been invited to ${orgRow.name}</h1>
+    </div>
+    <div style="padding: 24px;">
+      <p style="color: #374151; font-size: 14px; margin: 0 0 16px;">
+        ${isNewUser
+          ? `You've been invited to join ${orgRow.name} on DigiPromix AI as ${role === 'admin' ? 'an Admin' : 'a Member'}. Set up your account to get started.`
+          : `You've been added to ${orgRow.name} on DigiPromix AI as ${role === 'admin' ? 'an Admin' : 'a Member'}. Log in with your existing account to access it.`}
+      </p>
+      <a href="${ctaUrl}" style="display: inline-block; background: #2563eb; color: white; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500;">
+        ${isNewUser ? 'Set up your account' : 'Sign in'}
+      </a>
+    </div>
+  </div>
+</body>
+</html>`
+      await sendGmailEmail({
+        to: email,
+        subject: `You've been invited to ${orgRow.name} on DigiPromix AI`,
+        html,
+        fromName: 'DigiPromix AI',
+      })
+    } catch (emailErr) {
+      console.error('invite-team-member: email send failed (membership still created):', emailErr)
+    }
 
     return json({ success: true, member })
   } catch (err) {
