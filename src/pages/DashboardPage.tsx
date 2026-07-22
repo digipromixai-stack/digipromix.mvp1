@@ -76,25 +76,25 @@ function HealthBar({ label, value, tone }: { label: string; value: number; tone:
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function DashboardPage() {
-  const { user } = useAuth()
+  const { user, businessId } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const valuePerLead = useValuePerLead()
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard_stats_v2', user?.id],
+    queryKey: ['dashboard_stats_v2', businessId],
     queryFn: async () => {
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
       const weekAgo = new Date(Date.now() - 7 * 86400000)
       const [competitors, changesToday, highSeverity7d, changes7d, openOpps, totalLeads, leads7d] = await Promise.all([
-        supabase.from('competitors').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('is_active', true),
-        supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).gte('detected_at', todayStart.toISOString()),
-        supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('severity', 'high').gte('detected_at', weekAgo.toISOString()),
-        supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).gte('detected_at', weekAgo.toISOString()),
-        supabase.from('opportunities').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).eq('status', 'open'),
-        supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user!.id),
-        supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user!.id).gte('created_at', weekAgo.toISOString()),
+        supabase.from('competitors').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).eq('is_active', true),
+        supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).gte('detected_at', todayStart.toISOString()),
+        supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).eq('severity', 'high').gte('detected_at', weekAgo.toISOString()),
+        supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).gte('detected_at', weekAgo.toISOString()),
+        supabase.from('opportunities').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).eq('status', 'open'),
+        supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', businessId!),
+        supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).gte('created_at', weekAgo.toISOString()),
       ])
       return {
         competitors:   competitors.count   ?? 0,
@@ -106,29 +106,29 @@ export function DashboardPage() {
         leads7d:       leads7d.count        ?? 0,
       }
     },
-    enabled: !!user,
+    enabled: !!businessId,
     refetchInterval: 30000,
   })
 
   const { data: topOpportunity, dataUpdatedAt } = useQuery({
-    queryKey: ['top_opportunity_dashboard', user?.id],
+    queryKey: ['top_opportunity_dashboard', businessId],
     queryFn: async () => {
       const { data } = await supabase
         .from('opportunities')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .eq('status', 'open')
         .order('opportunity_score', { ascending: false })
         .limit(1)
         .maybeSingle()
       return data as Opportunity | null
     },
-    enabled: !!user,
+    enabled: !!businessId,
     refetchInterval: 60000,
   })
 
   const seedDemo = useMutation({
-    mutationFn: () => supabase.rpc('seed_demo_data', { p_user_id: user!.id }) as unknown as Promise<unknown>,
+    mutationFn: () => supabase.rpc('seed_demo_data', { p_user_id: businessId! }) as unknown as Promise<unknown>,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['dashboard_stats_v2'] })
       qc.invalidateQueries({ queryKey: ['top_opportunity_dashboard'] })

@@ -6,21 +6,21 @@ import { useAuth } from '../../contexts/AuthContext'
 import { AlertDropdown } from './AlertDropdown'
 
 export function AlertBell() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const [open, setOpen] = useState(false)
 
   const { data: unreadCount = 0 } = useQuery({
-    queryKey: ['alerts', 'unread_count', user?.id],
+    queryKey: ['alerts', 'unread_count', businessId],
     queryFn: async () => {
       const { count } = await supabase
         .from('alerts')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .eq('channel', 'dashboard')
         .eq('status', 'pending')
       return count ?? 0
     },
-    enabled: !!user,
+    enabled: !!businessId,
     refetchInterval: 30000,
   })
 

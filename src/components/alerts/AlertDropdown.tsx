@@ -9,7 +9,7 @@ import { Spinner } from '../ui/Spinner'
 import type { AlertWithChange } from '../../types/database.types'
 
 export function AlertDropdown({ onClose }: { onClose: () => void }) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const qc = useQueryClient()
   const ref = useRef<HTMLDivElement>(null)
 
@@ -22,18 +22,18 @@ export function AlertDropdown({ onClose }: { onClose: () => void }) {
   }, [onClose])
 
   const { data: alerts = [], isLoading } = useQuery({
-    queryKey: ['alerts', 'dropdown', user?.id],
+    queryKey: ['alerts', 'dropdown', businessId],
     queryFn: async () => {
       const { data } = await supabase
         .from('alerts')
         .select(`*, detected_changes(*, competitors(id, name, website_url, industry), monitored_pages(url, page_type))`)
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .eq('channel', 'dashboard')
         .order('created_at', { ascending: false })
         .limit(10)
       return (data ?? []) as AlertWithChange[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 
   const markAllRead = useMutation({
@@ -41,7 +41,7 @@ export function AlertDropdown({ onClose }: { onClose: () => void }) {
       await supabase
         .from('alerts')
         .update({ status: 'sent' as const })
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .eq('channel', 'dashboard')
         .eq('status', 'pending')
     },

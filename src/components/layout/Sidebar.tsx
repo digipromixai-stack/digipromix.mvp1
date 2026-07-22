@@ -45,6 +45,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: '/analytics',     icon: 'analytics',       label: 'Analytics'  },
       { to: '/alerts',        icon: 'notifications',   label: 'Alerts'     },
+      { to: '/team',          icon: 'group',           label: 'Team'       },
       { to: '/settings',      icon: 'settings',        label: 'Settings'   },
     ],
   },

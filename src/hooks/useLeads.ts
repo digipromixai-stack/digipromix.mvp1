@@ -4,14 +4,14 @@ import { useAuth } from '../contexts/AuthContext'
 import type { LeadWithCampaign, LeadStatus } from '../types/database.types'
 
 export function useLeads(status?: LeadStatus) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   return useQuery<LeadWithCampaign[]>({
-    queryKey: ['leads', status, user?.id],
+    queryKey: ['leads', status, businessId],
     queryFn: async () => {
       let q = supabase
         .from('leads')
         .select('*, campaigns(campaign_name, competitor_name)')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('created_at', { ascending: false })
         .limit(200)
       if (status) q = q.eq('status', status)
@@ -19,7 +19,7 @@ export function useLeads(status?: LeadStatus) {
       if (error) throw error
       return (data ?? []) as LeadWithCampaign[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 }
 
@@ -46,9 +46,9 @@ export function useDeleteLead() {
 }
 
 export function useLeadTrends() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   return useQuery({
-    queryKey: ['lead_trends', user?.id],
+    queryKey: ['lead_trends', businessId],
     queryFn: async () => {
       const now = Date.now()
       const weekAgo = new Date(now - 7 * 86400000).toISOString()
@@ -56,7 +56,7 @@ export function useLeadTrends() {
       const { data, error } = await supabase
         .from('leads')
         .select('score, created_at, campaign_id')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .gte('created_at', twoWeeksAgo)
       if (error) throw error
       const rows = data ?? []
@@ -83,19 +83,19 @@ export function useLeadTrends() {
         low:    { changePct: pctChange(buckets.low.cur, buckets.low.prev),    activeCampaigns: buckets.low.campaigns.size },
       }
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 }
 
 export function useLeadStats() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   return useQuery({
-    queryKey: ['lead_stats', user?.id],
+    queryKey: ['lead_stats', businessId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
         .select('status, score')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
       if (error) throw error
       const all = data ?? []
       return {
@@ -110,6 +110,6 @@ export function useLeadStats() {
         low:    all.filter(l => (l.score ?? 0) < 40).length,
       }
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 }

@@ -21,7 +21,7 @@ interface OpportunityFilters {
 }
 
 export function useOpportunities(filters: OpportunityFilters = {}) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const {
     status = 'open',
     industry,
@@ -31,12 +31,12 @@ export function useOpportunities(filters: OpportunityFilters = {}) {
   } = filters
 
   return useQuery({
-    queryKey: ['opportunities', user?.id, status, industry, location, minScore, limit],
+    queryKey: ['opportunities', businessId, status, industry, location, minScore, limit],
     queryFn: async () => {
       let query = supabase
         .from('opportunities')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('opportunity_score', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(limit)
@@ -50,6 +50,6 @@ export function useOpportunities(filters: OpportunityFilters = {}) {
       if (error) throw error
       return (data ?? []) as Opportunity[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 }

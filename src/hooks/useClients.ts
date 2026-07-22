@@ -8,19 +8,19 @@ export type { Client }
 // ── Read ─────────────────────────────────────────────────────────────────────
 
 export function useClients() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   return useQuery({
-    queryKey: ['clients', user?.id],
+    queryKey: ['clients', businessId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as Client[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 }
 
@@ -35,12 +35,12 @@ export interface CreateClientInput {
 
 export function useCreateClient() {
   const qc = useQueryClient()
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   return useMutation({
     mutationFn: async (input: CreateClientInput) => {
       const { error } = await supabase
         .from('clients')
-        .insert({ user_id: user!.id, ...input })
+        .insert({ user_id: businessId!, ...input })
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
@@ -79,14 +79,14 @@ export function useDeleteClient() {
 // ── Stats helper ──────────────────────────────────────────────────────────────
 
 export function useClientStats(clientId: string) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   return useQuery({
     queryKey: ['client_stats', clientId],
     queryFn: async () => {
       const { data: campaigns } = await supabase
         .from('campaigns')
         .select('id, status, leads_count')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .eq('client_id', clientId)
       const rows = campaigns ?? []
       return {
@@ -95,6 +95,6 @@ export function useClientStats(clientId: string) {
         leads:   rows.reduce((s, c) => s + (c.leads_count ?? 0), 0),
       }
     },
-    enabled: !!user && !!clientId,
+    enabled: !!businessId && !!clientId,
   })
 }

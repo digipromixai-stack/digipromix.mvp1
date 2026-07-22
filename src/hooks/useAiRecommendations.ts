@@ -11,14 +11,14 @@ export interface AiRecommendationWithCampaign extends AiRecommendation {
 
 /** Fetch all active (not applied/dismissed) recommendations for this user. */
 export function useAiRecommendations(campaignId?: string) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   return useQuery({
-    queryKey: ['ai_recommendations', user?.id, campaignId ?? 'all'],
+    queryKey: ['ai_recommendations', businessId, campaignId ?? 'all'],
     queryFn: async () => {
       let q = supabase
         .from('ai_recommendations')
         .select('*, campaigns(campaign_name, status)')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .is('applied_at', null)
         .is('dismissed_at', null)
         .order('priority', { ascending: false })
@@ -31,7 +31,7 @@ export function useAiRecommendations(campaignId?: string) {
       if (error) throw error
       return (data ?? []) as AiRecommendationWithCampaign[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
     // Refresh every 5 min — optimize-campaigns runs daily so no need to poll faster
     staleTime: 5 * 60 * 1000,
   })

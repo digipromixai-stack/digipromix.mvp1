@@ -26,7 +26,7 @@ export interface CampaignMetricsSummary {
 }
 
 export function useCampaignMetrics(campaignId: string | undefined) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
 
   return useQuery({
     queryKey: ['campaign_metrics', campaignId],
@@ -35,7 +35,7 @@ export function useCampaignMetrics(campaignId: string | undefined) {
         .from('campaign_performance')
         .select('date, platform, impressions, clicks, spend, conversions, ctr, cpc, conversion_rate')
         .eq('campaign_id', campaignId!)
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('date', { ascending: false })
         .limit(30)
 
@@ -54,7 +54,7 @@ export function useCampaignMetrics(campaignId: string | undefined) {
 
       return { total_spend, total_clicks, total_impressions, total_conversions, avg_ctr, avg_cpc, rows, has_data: true }
     },
-    enabled: !!user && !!campaignId,
+    enabled: !!businessId && !!campaignId,
     staleTime: 10 * 60 * 1000, // 10 min — optimize-campaigns runs daily
   })
 }

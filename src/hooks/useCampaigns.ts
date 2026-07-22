@@ -4,19 +4,19 @@ import { useAuth } from '../contexts/AuthContext'
 import type { Campaign, CampaignStatus } from '../types/database.types'
 
 export function useCampaigns() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   return useQuery<Campaign[]>({
-    queryKey: ['campaigns', user?.id],
+    queryKey: ['campaigns', businessId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('campaigns')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as Campaign[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 }
 

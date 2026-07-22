@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import type { MonitoredPage, PageType } from '../types/database.types'
 
 export function useMonitoredPages(competitorId: string) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
 
   return useQuery({
     queryKey: ['monitored_pages', competitorId],
@@ -17,19 +17,19 @@ export function useMonitoredPages(competitorId: string) {
       if (error) throw error
       return data as MonitoredPage[]
     },
-    enabled: !!user && !!competitorId,
+    enabled: !!businessId && !!competitorId,
   })
 }
 
 export function useAddMonitoredPage() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
     mutationFn: async (payload: { competitor_id: string; url: string; page_type: PageType }) => {
       const { error } = await supabase
         .from('monitored_pages')
-        .insert({ ...payload, user_id: user!.id })
+        .insert({ ...payload, user_id: businessId! })
       if (error) throw error
     },
     onSuccess: (_data, variables) => {

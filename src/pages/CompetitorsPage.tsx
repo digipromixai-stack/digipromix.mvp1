@@ -308,23 +308,23 @@ function AiReconnaissance({ competitors }: { competitors: Competitor[] }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function CompetitorsPage() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const [addOpen, setAddOpen] = useState(false)
   const { data: competitors = [], isLoading } = useCompetitors()
 
   const { data: recentChanges = [] } = useQuery({
-    queryKey: ['competitors_intel', user?.id],
+    queryKey: ['competitors_intel', businessId],
     queryFn: async () => {
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
       const { data } = await supabase
         .from('detected_changes')
         .select('competitor_id, severity, change_type, detected_at, title, description')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .gte('detected_at', weekAgo)
         .order('detected_at', { ascending: false })
       return data ?? []
     },
-    enabled: !!user,
+    enabled: !!businessId,
     refetchInterval: 60000,
   })
 

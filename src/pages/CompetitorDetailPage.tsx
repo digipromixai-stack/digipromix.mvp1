@@ -17,7 +17,7 @@ import type { Competitor, DetectedChangeWithCompetitor } from '../types/database
 
 export function CompetitorDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { user } = useAuth()
+  const { businessId } = useAuth()
 
   const { data: competitor, isLoading: compLoading, isError: compError } = useQuery({
     queryKey: ['competitor', id],
@@ -26,27 +26,27 @@ export function CompetitorDetailPage() {
         .from('competitors')
         .select('*')
         .eq('id', id!)
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .single()
       if (error) throw error
       return data as Competitor | null
     },
-    enabled: !!id && !!user,
+    enabled: !!id && !!businessId,
   })
 
   const { data: recentChanges = [], isLoading: changesLoading } = useQuery({
-    queryKey: ['detected_changes', user?.id, id],
+    queryKey: ['detected_changes', businessId, id],
     queryFn: async () => {
       const { data } = await supabase
         .from('detected_changes')
         .select('*, competitors(id, name, website_url, industry), monitored_pages(url, page_type)')
         .eq('competitor_id', id!)
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('detected_at', { ascending: false })
         .limit(20)
       return (data ?? []) as DetectedChangeWithCompetitor[]
     },
-    enabled: !!id && !!user,
+    enabled: !!id && !!businessId,
   })
 
   const { crawlNow, loading: crawling } = useCrawlNow(id ?? '')
