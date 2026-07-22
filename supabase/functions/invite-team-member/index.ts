@@ -93,7 +93,11 @@ Deno.serve(async (req) => {
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
       type: 'invite',
       email,
-      options: { redirectTo: `${APP_URL}/login` },
+      // /auth/callback (not /login) — it waits for the session from the
+      // invite link to materialize and navigates into the app automatically.
+      // /login has no such logic, so clicking the link would silently sign
+      // the user in but leave them stuck looking at the sign-in form.
+      options: { redirectTo: `${APP_URL}/auth/callback` },
     })
 
     if (linkErr) {
