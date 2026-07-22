@@ -26,6 +26,7 @@ import { LandingPage } from './pages/LandingPage'
 import { LeadsPage } from './pages/LeadsPage'
 import { InterceptionPage } from './pages/InterceptionPage'
 import { ClientsPage } from './pages/ClientsPage'
+import { TeamPage } from './pages/TeamPage'
 import { PageSpinner } from './components/ui/Spinner'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { MarketingPage } from './pages/MarketingPage'
@@ -138,6 +139,7 @@ function AppRoutes() {
         <Route path="/leads" element={<LeadsPage />} />
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
+        <Route path="/team" element={<TeamPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 

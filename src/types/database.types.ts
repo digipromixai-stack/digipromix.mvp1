@@ -427,6 +427,38 @@ export interface LeadScore {
   created_at: string
 }
 
+// ── Multi-role business accounts (migration 018) ─────────────────────────────
+
+export type OrgPlan = 'free' | 'team'
+export type OrgRole = 'owner' | 'admin' | 'member'
+export type OrgMemberStatus = 'pending' | 'active' | 'removed'
+
+export interface Organization {
+  id: string
+  owner_id: string
+  name: string
+  plan: OrgPlan
+  created_at: string
+  updated_at: string
+}
+
+export interface OrganizationMember {
+  id: string
+  organization_id: string
+  user_id: string | null
+  email: string
+  role: OrgRole
+  status: OrgMemberStatus
+  invited_by: string | null
+  created_at: string
+  joined_at: string | null
+}
+
+interface OrganizationInsert { owner_id: string; name?: string; plan?: OrgPlan }
+interface OrganizationUpdate { name?: string; plan?: OrgPlan }
+interface OrganizationMemberInsert { organization_id: string; user_id?: string | null; email: string; role: OrgRole; status?: OrgMemberStatus; invited_by?: string | null }
+interface OrganizationMemberUpdate { role?: OrgRole; status?: OrgMemberStatus; joined_at?: string | null }
+
 // Supabase Database interface for createClient<Database> typing
 export interface Database {
   public: {
@@ -448,6 +480,8 @@ export interface Database {
       campaign_embeddings: { Row: CampaignEmbedding; Insert: Partial<CampaignEmbedding> & Pick<CampaignEmbedding, 'user_id'>; Update: Partial<CampaignEmbedding> }
       campaign_performance: { Row: CampaignPerformance; Insert: Partial<CampaignPerformance> & Pick<CampaignPerformance, 'campaign_id' | 'user_id' | 'date' | 'platform'>; Update: Partial<CampaignPerformance> }
       lead_scores: { Row: LeadScore; Insert: Partial<LeadScore> & Pick<LeadScore, 'lead_id' | 'user_id' | 'engagement_score' | 'score_type'>; Update: Partial<LeadScore> }
+      organizations: { Row: Organization; Insert: OrganizationInsert; Update: OrganizationUpdate }
+      organization_members: { Row: OrganizationMember; Insert: OrganizationMemberInsert; Update: OrganizationMemberUpdate }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

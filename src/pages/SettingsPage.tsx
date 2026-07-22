@@ -29,7 +29,7 @@ const ALERT_TYPES: { value: ChangeType; label: string }[] = [
 ]
 
 export function SettingsPage() {
-  const { user } = useAuth()
+  const { user, businessId } = useAuth()
   const { toast } = useToast()
   const qc = useQueryClient()
 
@@ -43,12 +43,12 @@ export function SettingsPage() {
   })
 
   const { data: prefs } = useQuery({
-    queryKey: ['alert_preferences', user?.id],
+    queryKey: ['alert_preferences', businessId],
     queryFn: async () => {
-      const { data } = await supabase.from('alert_preferences').select('*').eq('user_id', user!.id).single()
+      const { data } = await supabase.from('alert_preferences').select('*').eq('user_id', businessId!).single()
       return data as AlertPreferences | null
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 
   const [selectedAlerts, setSelectedAlerts] = useState<ChangeType[]>([])
@@ -102,10 +102,10 @@ export function SettingsPage() {
         whatsapp_alerts: whatsappAlerts && !!whatsappNumber.trim(),
       }
       if (prefs) {
-        const { error } = await supabase.from('alert_preferences').update(payload).eq('user_id', user!.id)
+        const { error } = await supabase.from('alert_preferences').update(payload).eq('user_id', businessId!)
         if (error) throw error
       } else {
-        const { error } = await supabase.from('alert_preferences').insert({ user_id: user!.id, ...payload })
+        const { error } = await supabase.from('alert_preferences').insert({ user_id: businessId!, ...payload })
         if (error) throw error
       }
     },

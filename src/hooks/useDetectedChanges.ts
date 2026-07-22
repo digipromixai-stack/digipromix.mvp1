@@ -10,16 +10,16 @@ interface ChangeFilters {
 }
 
 export function useDetectedChanges(filters: ChangeFilters = {}) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const { competitorId, changeType, limit = 50 } = filters
 
   return useQuery({
-    queryKey: ['detected_changes', user?.id, competitorId, changeType, limit],
+    queryKey: ['detected_changes', businessId, competitorId, changeType, limit],
     queryFn: async () => {
       let query = supabase
         .from('detected_changes')
         .select('*, competitors(id, name, website_url, industry), monitored_pages(url, page_type)')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('detected_at', { ascending: false })
         .limit(limit)
 
@@ -30,6 +30,6 @@ export function useDetectedChanges(filters: ChangeFilters = {}) {
       if (error) throw error
       return (data ?? []) as DetectedChangeWithCompetitor[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 }

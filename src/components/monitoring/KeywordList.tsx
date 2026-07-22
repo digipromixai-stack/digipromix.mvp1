@@ -13,7 +13,7 @@ interface Keyword {
 }
 
 export function KeywordList({ competitorId }: { competitorId: string }) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const { toast } = useToast()
   const qc = useQueryClient()
   const [input, setInput] = useState('')
@@ -34,7 +34,7 @@ export function KeywordList({ competitorId }: { competitorId: string }) {
   const addKeyword = useMutation({
     mutationFn: async (keyword: string) => {
       const { error } = await supabase.from('keyword_alerts').insert({
-        user_id: user!.id,
+        user_id: businessId!,
         competitor_id: competitorId,
         keyword: keyword.toLowerCase().trim(),
       })

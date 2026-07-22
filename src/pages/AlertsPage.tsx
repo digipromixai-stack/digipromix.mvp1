@@ -12,22 +12,22 @@ import { timeAgo } from '../lib/utils'
 import type { AlertWithChange } from '../types/database.types'
 
 export function AlertsPage() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const qc = useQueryClient()
 
   const { data: alerts = [], isLoading } = useQuery({
-    queryKey: ['alerts', 'all', user?.id],
+    queryKey: ['alerts', 'all', businessId],
     queryFn: async () => {
       const { data } = await supabase
         .from('alerts')
         .select('*, detected_changes(*, competitors(id, name, website_url, industry), monitored_pages(url, page_type))')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .eq('channel', 'dashboard')
         .order('created_at', { ascending: false })
         .limit(100)
       return (data ?? []) as AlertWithChange[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 
   const markAllRead = useMutation({
@@ -35,7 +35,7 @@ export function AlertsPage() {
       const { error } = await supabase
         .from('alerts')
         .update({ status: 'sent' as const })
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .eq('channel', 'dashboard')
         .eq('status', 'pending')
       if (error) throw error

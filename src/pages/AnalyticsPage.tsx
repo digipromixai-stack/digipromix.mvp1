@@ -60,21 +60,21 @@ function StatCard({ value, label, sub, color = 'text-on-surface' }: {
 // ── Tab: Competitor Intelligence ──────────────────────────────────────────────
 
 function CompetitorTab({ days }: { days: number }) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
 
   const { data: changes = [], isLoading, isError } = useQuery({
-    queryKey: ['analytics_changes', user?.id, days],
+    queryKey: ['analytics_changes', businessId, days],
     queryFn: async () => {
       const since = subDays(new Date(), days).toISOString()
       const { data } = await supabase
         .from('detected_changes')
         .select('*, competitors(id, name, website_url), monitored_pages(url, page_type)')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .gte('detected_at', since)
         .order('detected_at', { ascending: true })
       return (data ?? []) as DetectedChangeWithCompetitor[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 
   const dailyData = useMemo(() => {
@@ -246,34 +246,34 @@ function CompetitorTab({ days }: { days: number }) {
 // ── Tab: Campaigns & Leads ────────────────────────────────────────────────────
 
 function CampaignsLeadsTab({ days }: { days: number }) {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
 
   const { data: campaigns = [] } = useQuery({
-    queryKey: ['analytics_campaigns', user?.id],
+    queryKey: ['analytics_campaigns', businessId],
     queryFn: async () => {
       const { data } = await supabase
         .from('campaigns')
         .select('id, campaign_name, status, leads_count, channels, created_at, template')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('created_at', { ascending: false })
       return (data ?? []) as Campaign[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 
   const { data: leads = [] } = useQuery({
-    queryKey: ['analytics_leads', user?.id, days],
+    queryKey: ['analytics_leads', businessId, days],
     queryFn: async () => {
       const since = subDays(new Date(), days).toISOString()
       const { data } = await supabase
         .from('leads')
         .select('*, campaigns(campaign_name, competitor_name)')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .gte('created_at', since)
         .order('created_at', { ascending: true })
       return (data ?? []) as LeadWithCampaign[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 
   // Daily leads line chart
@@ -429,20 +429,20 @@ function CampaignsLeadsTab({ days }: { days: number }) {
 // by the Phase 1 Signal Engine. This is the core MVP 2 proactive intelligence.
 
 function MarketSignalsTab() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
 
   const { data: signals = [], isLoading } = useQuery({
-    queryKey: ['signals_analytics', user?.id],
+    queryKey: ['signals_analytics', businessId],
     queryFn: async () => {
       const { data } = await supabase
         .from('signals')
         .select('id, signal_type, source, keyword, industry, location, growth_pct, collected_at, competitor_id')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('collected_at', { ascending: false })
         .limit(200)
       return data ?? []
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 
   const spikes    = signals.filter(s => s.signal_type === 'SEARCH_SPIKE')

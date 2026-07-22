@@ -4,32 +4,32 @@ import { useAuth } from '../contexts/AuthContext'
 import type { Competitor } from '../types/database.types'
 
 export function useCompetitors() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
 
   return useQuery({
-    queryKey: ['competitors', user?.id],
+    queryKey: ['competitors', businessId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('competitors')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', businessId!)
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as Competitor[]
     },
-    enabled: !!user,
+    enabled: !!businessId,
   })
 }
 
 export function useAddCompetitor() {
-  const { user } = useAuth()
+  const { businessId } = useAuth()
   const qc = useQueryClient()
 
   return useMutation({
     mutationFn: async (payload: { name: string; website_url: string; industry?: string }) => {
       const { data, error } = await supabase
         .from('competitors')
-        .insert({ ...payload, user_id: user!.id })
+        .insert({ ...payload, user_id: businessId! })
         .select()
         .single()
       if (error) throw error
@@ -39,8 +39,8 @@ export function useAddCompetitor() {
       const pricingUrl = homeUrl + '/pricing'
       await supabase.from('monitored_pages').upsert(
         [
-          { competitor_id: data.id, user_id: user!.id, url: homeUrl, page_type: 'home' },
-          { competitor_id: data.id, user_id: user!.id, url: pricingUrl, page_type: 'pricing' },
+          { competitor_id: data.id, user_id: businessId!, url: homeUrl, page_type: 'home' },
+          { competitor_id: data.id, user_id: businessId!, url: pricingUrl, page_type: 'pricing' },
         ],
         { onConflict: 'competitor_id,url', ignoreDuplicates: true }
       )
