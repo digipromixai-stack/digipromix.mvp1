@@ -300,7 +300,7 @@ export function DashboardPage() {
                       </InfoTooltip>
                     </p>
                     <p className="font-mono text-2xl font-bold text-on-surface">{oppRevenue}</p>
-                    <SourceTag source="ai" className="mt-1.5" />
+                    <SourceTag source="estimated" className="mt-1.5" />
                   </div>
                   <div>
                     <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">

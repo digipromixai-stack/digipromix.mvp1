@@ -19,6 +19,7 @@ import {
 } from '../hooks/useAiRecommendations'
 import { useCampaignMetrics } from '../hooks/useCampaignMetrics'
 import { timeAgo } from '../lib/utils'
+import { SourceTag } from '../components/ui/MetricMeta'
 import type { Campaign, CampaignStatus } from '../types/database.types'
 
 const STATUS_CONFIG: Record<CampaignStatus, { label: string; color: string; icon: React.ElementType }> = {
@@ -296,19 +297,35 @@ function MetricsPanel({ campaignId }: { campaignId: string }) {
     return <p className="text-[11px] text-on-surface-variant italic mt-1">Performance data collected nightly — check back after 24h of running</p>
   }
   const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n))
+
+  // These four numbers are real platform data synced nightly from the ad
+  // APIs — label the actual source(s) + when they were last refreshed.
+  const platforms = [...new Set(m.rows.map(r => r.platform))]
+    .map(p => p === 'google' ? 'Google Ads' : 'Meta Ads')
+    .join(' + ')
+  const latestDate = m.rows[0]?.date // rows are date-desc
+
   return (
-    <div className="grid grid-cols-4 gap-1.5 mt-2">
-      {[
-        { label: 'Spend',       value: `$${m.total_spend.toFixed(2)}`, color: 'text-on-surface' },
-        { label: 'Clicks',      value: fmt(m.total_clicks),             color: 'text-primary' },
-        { label: 'Impressions', value: fmt(m.total_impressions),        color: 'text-on-surface-variant' },
-        { label: 'CTR',         value: m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '—', color: 'text-success' },
-      ].map(({ label, value, color }) => (
-        <div key={label} className="bg-surface-container-low rounded-lg p-1.5 text-center">
-          <div className="text-[9px] uppercase tracking-wide text-on-surface-variant">{label}</div>
-          <div className={`text-xs font-bold ${color} mt-0.5`}>{value}</div>
-        </div>
-      ))}
+    <div className="mt-2">
+      <div className="grid grid-cols-4 gap-1.5">
+        {[
+          { label: 'Spend',       value: `$${m.total_spend.toFixed(2)}`, color: 'text-on-surface' },
+          { label: 'Clicks',      value: fmt(m.total_clicks),             color: 'text-primary' },
+          { label: 'Impressions', value: fmt(m.total_impressions),        color: 'text-on-surface-variant' },
+          { label: 'CTR',         value: m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '—', color: 'text-success' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-surface-container-low rounded-lg p-1.5 text-center">
+            <div className="text-[9px] uppercase tracking-wide text-on-surface-variant">{label}</div>
+            <div className={`text-xs font-bold ${color} mt-0.5`}>{value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 mt-1.5">
+        <SourceTag source="live" label={platforms} />
+        {latestDate && (
+          <span className="text-[10px] text-on-surface-variant">Updated {timeAgo(latestDate)}</span>
+        )}
+      </div>
     </div>
   )
 }

@@ -286,7 +286,7 @@ function OpportunityCard({
           <p className="font-mono text-lg font-bold text-on-surface">
             {estRevenueValue != null ? `$${estRevenueValue.toLocaleString()}` : '—'}
           </p>
-          <SourceTag source="ai" className="mt-1.5" />
+          <SourceTag source="estimated" className="mt-1.5" />
         </div>
         <div className="bg-surface-container-low rounded-lg p-3">
           <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
