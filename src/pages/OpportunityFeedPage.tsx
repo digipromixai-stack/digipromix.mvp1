@@ -21,7 +21,7 @@ import { useToast } from '../components/ui/Toast'
 import { CampaignModal } from '../components/campaigns/CampaignModal'
 import type { Opportunity, DetectedChangeWithCompetitor } from '../types/database.types'
 import { SourceTag, InfoTooltip, confidenceLevel, confidenceTone } from '../components/ui/MetricMeta'
-import { opportunityScoreReasons } from './DashboardPage'
+import { opportunityScoreReasons, humanizeAction } from './DashboardPage'
 import { useValuePerLead } from '../hooks/useProfile'
 
 // ── Signal source badge ───────────────────────────────────────────────────────
@@ -331,7 +331,7 @@ function OpportunityCard({
       {opp.recommended_action && (
         <p className="text-xs text-on-surface-variant mb-3 flex items-start gap-1.5">
           <Sparkles size={12} className="shrink-0 mt-0.5 text-primary" />
-          <span><strong className="text-on-surface">AI Why:</strong> {opp.recommended_action}</span>
+          <span><strong className="text-on-surface">AI Why:</strong> {humanizeAction(opp.recommended_action)}</span>
         </p>
       )}
 

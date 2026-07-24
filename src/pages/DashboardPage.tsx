@@ -53,6 +53,11 @@ function KpiTile({ label, value, icon: Icon, tone = 'default', source, info }: {
 // Turns raw signal_sources/metadata into plain-language reasons a customer
 // can read: "Promotion detected", "Search demand increased", etc.
 
+// recommended_action is a snake_case enum (e.g. 'launch_campaign') — never show it raw to customers.
+export function humanizeAction(action: string): string {
+  return action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 export function opportunityScoreReasons(opp: Opportunity): string[] {
   const meta = (opp.metadata ?? {}) as Record<string, unknown>
   const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>
@@ -504,7 +509,7 @@ export function DashboardPage() {
                   <div>
                     <p className="font-bold text-sm text-on-surface mb-1">Why this score?</p>
                     {topOpportunity.recommended_action && (
-                      <p className="text-sm text-on-surface-variant leading-relaxed mb-2">{topOpportunity.recommended_action}</p>
+                      <p className="text-sm text-on-surface-variant leading-relaxed mb-2">{humanizeAction(topOpportunity.recommended_action)}</p>
                     )}
                     {scoreReasons.length > 0 && (
                       <ul className="space-y-1">

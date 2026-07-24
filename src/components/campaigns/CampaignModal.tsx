@@ -498,7 +498,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 {campaign.predicted_leads != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. leads</div>
-                    <div className="text-sm font-bold text-gray-900">{campaign.predicted_leads}</div>
+                    <div className="text-sm font-bold text-gray-900">{Math.round(campaign.predicted_leads) || '<1'}</div>
                   </div>
                 )}
                 {campaign.predicted_cpc != null && (
