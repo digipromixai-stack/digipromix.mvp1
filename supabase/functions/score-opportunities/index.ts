@@ -306,6 +306,13 @@ Return ONLY a JSON object (no markdown fences, no prose), shape:
         console.warn(`geminiEnrichTitle ${model} bad shape: ${text.slice(0, 150)}`)
         continue
       }
+      // Reject unfilled template placeholders like "[specific user segment]" —
+      // seen in the wild; the deterministic fallback title is better than a
+      // customer-facing bracket artifact.
+      if (/[\[\]{}]/.test(parsed.title) || /[\[\]{}]/.test(parsed.recommended_action)) {
+        console.warn(`geminiEnrichTitle ${model} placeholder artifact: ${parsed.title.slice(0, 100)}`)
+        continue
+      }
       return {
         title:              parsed.title.slice(0, 120),
         recommended_action: parsed.recommended_action.slice(0, 160),

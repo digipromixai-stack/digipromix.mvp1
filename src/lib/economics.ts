@@ -28,6 +28,7 @@ export const INDUSTRY_CPC: Record<string, { cpc: number; conversionRate: number 
   'legal':          { cpc: 6.50, conversionRate: 0.022 },
   'b2b saas':       { cpc: 3.80, conversionRate: 0.025 },
   'saas':           { cpc: 3.80, conversionRate: 0.025 },
+  'payments saas':  { cpc: 3.80, conversionRate: 0.025 },
   'software':       { cpc: 3.80, conversionRate: 0.025 },
   'automotive':     { cpc: 2.80, conversionRate: 0.022 },
   'default':        { cpc: 2.20, conversionRate: 0.025 },
