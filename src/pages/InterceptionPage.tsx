@@ -11,6 +11,8 @@ import { useCampaigns } from '../hooks/useCampaigns'
 import { timeAgo } from '../lib/utils'
 import type { Campaign, DetectedChangeWithCompetitor } from '../types/database.types'
 import { SourceTag, InfoTooltip } from '../components/ui/MetricMeta'
+import { industryBaseline } from '../lib/economics'
+import { useValuePerLead } from '../hooks/useProfile'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -41,13 +43,9 @@ function avatarColor(name = '') {
 
 function getInitial(name = '') { return (name[0] ?? '?').toUpperCase() }
 
-// Per-industry CPC baseline ($/click)
-const CPC_MAP: Record<string, number> = {
-  Healthcare: 4.50, 'Local-services': 3.20, SaaS: 6.50, Finance: 8.00,
-}
-const DEFAULT_CPC = 3.50
-const CONV_RATE  = 0.11
-const VALUE_PER_LEAD = 150
+// Per-industry CPC + conversion baselines come from src/lib/economics.ts —
+// the same table the backend (predict-budget / score-opportunities) uses, so
+// the numbers shown here can't drift from the rest of the product.
 
 // ── Helpers: generate counter content from real signal data ───────────────────
 
@@ -99,11 +97,12 @@ function CampaignSignalRow({
   const isLive = activeCampaign != null && activeCampaign.status !== 'draft'
   const headline = activeCampaign?.headline ?? genHeadlines(change)[0]
 
+  const valuePerLead = useValuePerLead()
   const budget = change.severity === 'high' ? 180 : change.severity === 'medium' ? 140 : 100
-  const cpc    = CPC_MAP[industry] ?? DEFAULT_CPC
+  const { cpc, conversionRate } = industryBaseline(industry)
   const weekly = budget * 7
-  const leads  = Math.max(1, Math.round((weekly / cpc) * CONV_RATE))
-  const revenue = leads * VALUE_PER_LEAD
+  const leads  = Math.max(1, Math.round((weekly / cpc) * conversionRate))
+  const revenue = leads * valuePerLead
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft hover:shadow-soft-md transition-shadow">
@@ -153,7 +152,7 @@ function CampaignSignalRow({
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
               Est. Leads
               <InfoTooltip title="How Estimated Leads are calculated">
-                (Weekly budget €{weekly} ÷ industry benchmark CPC €{cpc.toFixed(2)}) × {Math.round(CONV_RATE * 100)}% benchmark conversion rate.
+                (Weekly budget ${weekly} ÷ industry benchmark CPC ${cpc.toFixed(2)}) × {(conversionRate * 100).toFixed(1)}% benchmark conversion rate for {industry}.
                 Becomes Actual Leads once the campaign runs.
               </InfoTooltip>
             </p>
@@ -163,10 +162,10 @@ function CampaignSignalRow({
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
               Est. Revenue
               <InfoTooltip title="How Estimated Revenue is calculated">
-                Estimated Leads ({leads}) × €{VALUE_PER_LEAD} value per lead (industry benchmark).
+                Estimated Leads ({leads}) × your configured Value Per Lead (${valuePerLead}, set in Settings).
               </InfoTooltip>
             </p>
-            <p className="font-mono text-sm font-bold text-on-surface">€{revenue.toLocaleString()}</p>
+            <p className="font-mono text-sm font-bold text-on-surface">${revenue.toLocaleString()}</p>
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
@@ -175,7 +174,7 @@ function CampaignSignalRow({
                 Industry benchmark cost-per-click for {industry}.
               </InfoTooltip>
             </p>
-            <p className="font-mono text-sm font-bold text-on-surface">€{cpc.toFixed(2)}</p>
+            <p className="font-mono text-sm font-bold text-on-surface">${cpc.toFixed(2)}</p>
           </div>
         </div>
         <SourceTag source="benchmark" className="mt-2" />

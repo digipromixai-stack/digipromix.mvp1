@@ -349,6 +349,7 @@ export function OpportunityFeedPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterOpen, setFilterOpen] = useState(false)
   const { data: opportunities = [], isLoading, refetch, isRefetching } = useOpportunities({ status: statusFilter })
+  const feedValuePerLead = useValuePerLead()
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const { toast } = useToast()
@@ -418,7 +419,7 @@ export function OpportunityFeedPage() {
     }
   }
 
-  const revenueOf = (o: Opportunity) => (o.expected_leads ?? 0) * 80
+  const revenueOf = (o: Opportunity) => (o.expected_leads ?? 0) * feedValuePerLead
   const revenueP75 = useMemo(() => {
     if (opportunities.length === 0) return 0
     const sorted = [...opportunities].map(revenueOf).sort((a, b) => a - b)

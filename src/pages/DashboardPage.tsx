@@ -129,7 +129,7 @@ export function DashboardPage() {
         supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).gte('detected_at', todayStart.toISOString()),
         supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).eq('severity', 'high').gte('detected_at', weekAgo.toISOString()),
         supabase.from('detected_changes').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).gte('detected_at', weekAgo.toISOString()),
-        supabase.from('opportunities').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).eq('status', 'open'),
+        supabase.from('opportunities').select('expected_leads').eq('user_id', businessId!).eq('status', 'open'),
         supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', businessId!),
         supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', businessId!).gte('created_at', weekAgo.toISOString()),
       ])
@@ -138,7 +138,10 @@ export function DashboardPage() {
         changesToday:  changesToday.count   ?? 0,
         highSev7d:     highSeverity7d.count ?? 0,
         total7d:       changes7d.count      ?? 0,
-        openOpps:      openOpps.count       ?? 0,
+        openOpps:      openOpps.data?.length ?? 0,
+        // Sum of AI-estimated leads across all open opportunities — the real
+        // basis for the Est. Revenue tile (no per-opportunity guesswork).
+        openOppLeads:  (openOpps.data ?? []).reduce((s, o) => s + ((o as { expected_leads: number | null }).expected_leads ?? 0), 0),
         totalLeads:    totalLeads.count     ?? 0,
         leads7d:       leads7d.count        ?? 0,
       }
@@ -191,7 +194,8 @@ export function DashboardPage() {
   const highSev7d  = stats?.highSev7d ?? 0
   const leads7d    = stats?.leads7d ?? 0
   const totalLeads = stats?.totalLeads ?? 0
-  const potentialRevenue = openOpps * valuePerLead * 2 // rough estimate: ~2 leads/opportunity at your configured lead value
+  const openOppLeads     = stats?.openOppLeads ?? 0
+  const potentialRevenue = openOppLeads * valuePerLead // sum of AI-estimated leads across open opportunities × configured lead value
 
   const threatScore      = Math.max(0, 100 - highSev7d * 15)
   const opportunityScore = Math.min(100, openOpps * 10)
@@ -423,15 +427,15 @@ export function DashboardPage() {
                 icon={Target}
                 tone="primary"
                 source="estimated"
-                info={<>Open opportunities ({openOpps}) × ~2 leads each × your configured Value Per Lead (${valuePerLead}, set in Settings). Becomes Actual Revenue once campaigns generate real results.</>}
+                info={<>Total AI-estimated leads across your {openOpps} open opportunities ({openOppLeads}) × your configured Value Per Lead (${valuePerLead}, set in Settings). Becomes Actual Revenue once campaigns generate real results.</>}
               />
-              {expLeads > 0 ? (
+              {openOppLeads > 0 ? (
                 <KpiTile
                   label="Est. Leads"
-                  value={expLeads}
+                  value={openOppLeads}
                   icon={Users}
                   source="benchmark"
-                  info={<>Estimated from industry benchmark cost-per-click, competitor activity, and search demand for your top opportunity. Becomes Actual Leads once campaigns run.</>}
+                  info={<>Sum of AI-estimated leads across your {openOpps} open opportunities, from industry benchmark cost-per-click, competitor activity, and search demand. Matches the Est. Revenue tile (leads × ${valuePerLead}). Becomes Actual Leads once campaigns run.</>}
                 />
               ) : (
                 <KpiTile
