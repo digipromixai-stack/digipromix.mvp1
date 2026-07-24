@@ -16,7 +16,7 @@ export function Badge({ children, variant = 'default', size = 'xs', dot, classNa
     warning: 'bg-orange-tint text-warning ring-warning/20',
     danger:  'bg-red-tint text-danger ring-danger/20',
     info:    'bg-indigo-tint text-primary ring-primary/20',
-    purple:  'bg-purple-50 text-purple-700 ring-purple-200',
+    purple:  'bg-secondary-container text-on-secondary-container ring-secondary/20',
     pink:    'bg-pink-50 text-pink-700 ring-pink-200',
   }
 
@@ -26,7 +26,7 @@ export function Badge({ children, variant = 'default', size = 'xs', dot, classNa
     warning: 'bg-warning',
     danger:  'bg-danger',
     info:    'bg-primary',
-    purple:  'bg-purple-500',
+    purple:  'bg-secondary',
     pink:    'bg-pink-500',
   }
 

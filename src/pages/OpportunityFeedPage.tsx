@@ -175,26 +175,26 @@ function AiRecommendationCard({ opportunities }: { opportunities: Opportunity[] 
   if (!insight) return null
 
   return (
-    <div className="bg-ink text-white rounded-xl p-5 shadow-soft-lg flex flex-col">
+    <div className="bg-indigo-tint border-l-2 border-secondary rounded-xl p-5 shadow-soft-lg flex flex-col">
       <div className="flex items-center gap-2 mb-3">
-        <Sparkles size={15} className="text-primary" />
-        <span className="text-xs font-bold uppercase tracking-widest text-white/70">AI Recommendation</span>
+        <Sparkles size={15} className="text-secondary" />
+        <span className="text-xs font-bold uppercase tracking-widest text-secondary">AI Recommendation</span>
       </div>
-      <p className="text-sm text-white/90 leading-relaxed italic flex-1">
+      <p className="text-sm text-on-surface leading-relaxed italic flex-1">
         "Your current Top {insight.topCount} opportunities are concentrated in{' '}
-        <strong className="not-italic text-white">{insight.topIndustry}</strong>, with a combined{' '}
-        <strong className="not-italic text-white">{insight.totalLeads}</strong> predicted leads. We recommend
+        <strong className="not-italic text-on-surface">{insight.topIndustry}</strong>, with a combined{' '}
+        <strong className="not-italic text-on-surface">{insight.totalLeads}</strong> predicted leads. We recommend
         allocating additional budget there before competitors respond."
       </p>
       <div className="flex items-center gap-2 mt-4 mb-3">
         <span className="inline-flex items-center gap-1 text-xs font-bold text-success bg-success/15 px-2 py-1 rounded-full">
           {confidenceLevel(insight.avgConf / 100) ?? '—'}
         </span>
-        <span className="text-[11px] text-white/50">Average confidence · AI calculated</span>
+        <span className="text-[11px] text-on-surface-variant">Average confidence · AI calculated</span>
       </div>
       <Link
         to="/opportunities"
-        className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary hover:opacity-90 rounded-xl font-bold text-sm transition-all"
+        className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 bg-primary text-white hover:opacity-90 rounded-lg font-bold text-sm transition-all"
       >
         Apply All Optimizations
       </Link>

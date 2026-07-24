@@ -86,7 +86,7 @@ function Field({ label, value, multiline }: { label: string; value: string; mult
       </div>
       <p className={`text-sm text-gray-800 leading-relaxed ${multiline ? 'whitespace-pre-wrap' : ''}`}>{display}</p>
       {isLong && (
-        <button onClick={() => setExpanded(e => !e)} className="text-xs text-blue-500 mt-1 flex items-center gap-0.5">
+        <button onClick={() => setExpanded(e => !e)} className="text-xs text-primary mt-1 flex items-center gap-0.5">
           {expanded ? <><ChevronUp size={12} /> Show less</> : <><ChevronDown size={12} /> Show more</>}
         </button>
       )}
@@ -388,10 +388,10 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
 
           {/* Counter-play panel preview — shows the headline/offer already computed in the panel */}
           {counterHint && (
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 space-y-2.5">
+            <div className="rounded-xl border border-primary/10 bg-indigo-tint p-4 space-y-2.5">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <Zap size={11} className="text-indigo-600" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Counter-play preview</span>
+                <Zap size={11} className="text-primary" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Counter-play preview</span>
               </div>
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Headline</p>
@@ -405,23 +405,23 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Primary text</p>
                 <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{counterHint.primaryText}</p>
               </div>
-              <div className="flex items-center gap-2 pt-1 border-t border-indigo-100">
-                <span className="text-[10px] font-mono font-semibold text-indigo-500">${counterHint.budget}/day</span>
+              <div className="flex items-center gap-2 pt-1 border-t border-primary/10">
+                <span className="text-[10px] font-mono font-semibold text-primary">${counterHint.budget}/day</span>
                 <span className="text-gray-300">·</span>
-                <span className="text-[10px] text-indigo-500 font-semibold">{counterHint.channels.map(c => c === 'meta' ? 'Meta' : 'Google').join(' + ')}</span>
-                <span className="ml-auto text-[9px] text-indigo-400 italic">AI will enrich this →</span>
+                <span className="text-[10px] text-primary font-semibold">{counterHint.channels.map(c => c === 'meta' ? 'Meta' : 'Google').join(' + ')}</span>
+                <span className="ml-auto text-[9px] text-on-surface-variant italic">AI will enrich this →</span>
               </div>
             </div>
           )}
 
           {/* MVP 2.0 — pre-fill panel from Opportunity Radar */}
           {opportunityHint && (opportunityHint.recommended_budget != null || opportunityHint.expected_leads != null) && (
-            <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 p-4">
+            <div className="rounded-xl border border-secondary/20 bg-indigo-tint p-4">
               <div className="flex items-center gap-1.5 mb-2">
-                <Sparkles size={13} className="text-violet-600" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">AI Radar prediction</span>
+                <Sparkles size={13} className="text-secondary" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-secondary">AI Radar prediction</span>
                 {opportunityHint.confidence != null && (
-                  <span className="ml-auto text-[10px] text-violet-700 font-semibold">
+                  <span className="ml-auto text-[10px] text-secondary font-semibold">
                     {confidenceLevel(opportunityHint.confidence)} confidence
                   </span>
                 )}
@@ -484,10 +484,10 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
 
           {/* Budget predictions (arrive shortly after generation via predict-budget) */}
           {(campaign.predicted_leads != null || campaign.predicted_cpc != null) && (
-            <div className="rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 via-indigo-50 to-blue-50 p-3">
+            <div className="rounded-xl border border-secondary/20 bg-indigo-tint p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <Sparkles size={12} className="text-violet-600" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">AI Budget Prediction — 7-day outlook</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-secondary">AI Budget Prediction — 7-day outlook</span>
                 {campaign.confidence_score != null && (
                   <span className="ml-auto text-[10px] text-violet-600 font-semibold">
                     {confidenceLevel(campaign.confidence_score)} confidence
@@ -553,7 +553,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   <button
                     onClick={saveEdits}
                     disabled={savingEdit}
-                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-primary text-white hover:opacity-90 disabled:opacity-50"
                   >
                     {savingEdit ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
                     {savingEdit ? 'Saving…' : 'Save changes'}
@@ -572,8 +572,8 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
 
           {/* ── Ad content (view or edit) ────────────────────────────────── */}
           {editing && draft ? (
-            <div className="space-y-3 border border-blue-200 bg-blue-50/30 rounded-xl p-4">
-              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+            <div className="space-y-3 border border-primary/20 bg-indigo-tint rounded-xl p-4">
+              <p className="text-xs font-semibold text-primary flex items-center gap-1.5">
                 <Pencil size={11} /> Editing — changes save to DB and update your live landing page
               </p>
 
@@ -590,7 +590,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   maxLength={50}
                   value={draft.headline}
                   onChange={e => setDraft({ ...draft, headline: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 {draft.headline.length > 30 && (
                   <p className="text-[10px] text-orange-600 mt-0.5">Google Ads truncates headlines at 30 chars — first 30 will be used</p>
@@ -607,7 +607,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   rows={3}
                   value={draft.ad_copy}
                   onChange={e => setDraft({ ...draft, ad_copy: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                 />
               </div>
 
@@ -619,7 +619,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   value={draft.offer}
                   onChange={e => setDraft({ ...draft, offer: e.target.value })}
                   placeholder="e.g. 20% off this week only"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
 
@@ -632,7 +632,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   rows={3}
                   value={draft.social_copy}
                   onChange={e => setDraft({ ...draft, social_copy: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                 />
               </div>
 
@@ -643,7 +643,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 </label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {draft.keywords.map(kw => (
-                    <span key={kw} className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                    <span key={kw} className="inline-flex items-center gap-1 text-xs bg-primary-container text-on-primary-container px-2 py-0.5 rounded-full font-medium">
                       {kw}
                       <button onClick={() => removeKeyword(kw)} className="hover:text-red-600 ml-0.5">
                         <X size={10} />
@@ -658,7 +658,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                     onChange={e => setNewKeyword(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addKeyword() } }}
                     placeholder="Add keyword…"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                   <button
                     onClick={addKeyword}
@@ -670,7 +670,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
               </div>
 
               {/* Landing Page */}
-              <div className="space-y-2 border-t border-blue-100 pt-3">
+              <div className="space-y-2 border-t border-primary/10 pt-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Landing Page</p>
                 <div>
                   <label className="text-xs text-gray-400 mb-1 block">Hero Title</label>
@@ -678,7 +678,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                     type="text"
                     value={draft.landing_page_title}
                     onChange={e => setDraft({ ...draft, landing_page_title: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
                 <div>
@@ -687,7 +687,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                     rows={3}
                     value={draft.landing_page_body}
                     onChange={e => setDraft({ ...draft, landing_page_body: e.target.value })}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
                   />
                 </div>
                 <div>
@@ -697,7 +697,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                     value={draft.landing_page_cta}
                     onChange={e => setDraft({ ...draft, landing_page_cta: e.target.value })}
                     placeholder="e.g. Get My Free Quote"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
               </div>
@@ -714,7 +714,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide block mb-2">Keywords to target</span>
                   <div className="flex flex-wrap gap-1.5">
                     {campaign.keywords.map(kw => (
-                      <span key={kw} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">{kw}</span>
+                      <span key={kw} className="text-xs bg-indigo-tint text-primary px-2 py-0.5 rounded-full font-medium">{kw}</span>
                     ))}
                   </div>
                 </div>
@@ -748,13 +748,13 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   onClick={() => setTemplate(id)}
                   className={`flex items-start gap-2 p-2.5 rounded-lg border text-left transition-colors ${
                     template === id
-                      ? 'border-blue-400 bg-blue-50'
+                      ? 'border-primary bg-indigo-tint'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
                   <span className={`w-3 h-3 rounded-full mt-0.5 shrink-0 ${accent}`} />
                   <div>
-                    <p className={`text-xs font-semibold ${template === id ? 'text-blue-700' : 'text-gray-700'}`}>{label}</p>
+                    <p className={`text-xs font-semibold ${template === id ? 'text-primary' : 'text-gray-700'}`}>{label}</p>
                     <p className="text-[10px] text-gray-400 leading-snug mt-0.5">{desc}</p>
                   </div>
                 </button>
@@ -769,7 +769,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
               <select
                 value={clientId}
                 onChange={e => setClientId(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
                 <option value="">No client</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -801,7 +801,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                     value={dailyBudget}
                     onChange={e => setDailyBudget(e.target.value)}
                     placeholder={String(recommended)}
-                    className={`w-full pl-12 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full pl-12 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${
                       isRequired && dailyBudget && Number(dailyBudget) < minBudget
                         ? 'border-red-300 bg-red-50/40'
                         : 'border-gray-200'
@@ -837,7 +837,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                     key={id}
                     onClick={() => toggleChannel(id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
-                      active ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                      active ? 'border-primary bg-indigo-tint text-primary' : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                     }`}
                   >
                     <Icon size={13} className={active ? color : 'text-gray-400'} />
@@ -880,8 +880,8 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
 
           {/* Managed-mode quick details (business name needed for MCC sub-account) */}
           {((metaSelected && launchModes.meta === 'managed') || (googleSelected && launchModes.google === 'managed')) && (
-            <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-700">
+            <div className="bg-secondary-container border border-secondary/20 rounded-xl p-3 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-on-secondary-container">
                 <Sparkles size={12} /> Done-for-you details
               </div>
               <input
@@ -889,9 +889,9 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 placeholder="Your business name (used to create the managed ad account)"
                 value={managedBusinessName}
                 onChange={e => setManagedBusinessName(e.target.value)}
-                className="w-full bg-white border border-violet-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full bg-white border border-secondary/30 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30"
               />
-              <p className="text-[11px] text-violet-600 leading-relaxed">
+              <p className="text-[11px] text-on-secondary-container leading-relaxed">
                 Our team will provision a sub-account under our agency Manager (MCC) and launch your campaign within 24 hours.
                 Billing stays in your name — we'll send you a one-time setup link when ready.
               </p>
@@ -921,7 +921,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   placeholder="https://your-landing-page.com"
                   value={landingUrl}
                   onChange={e => setLandingUrl(e.target.value)}
-                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${
                     showError ? 'border-red-300 bg-red-50/40' : 'border-gray-200'
                   }`}
                 />
@@ -930,7 +930,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                     <>Tip: use your hosted landing page —{' '}
                     <button
                       type="button"
-                      className="text-blue-600 underline"
+                      className="text-primary underline"
                       onClick={() => setLandingUrl(`${window.location.origin}/lp/${campaign.slug}`)}
                     >
                       use this campaign's /lp/{campaign.slug}
@@ -958,7 +958,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 placeholder="https://your-site.com/og-image.png"
                 value={imageUrl}
                 onChange={e => setImageUrl(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
               <p className="text-[10px] text-gray-400 mt-1">
                 Must be a public PNG / JPG (not SVG), at least 600×600px. 1200×630 recommended.
@@ -995,18 +995,18 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
 
           {/* Landing page URL */}
           {campaign.slug && (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-left">
-              <div className="flex items-center gap-2 text-indigo-700 font-semibold text-sm mb-2">
+            <div className="bg-indigo-tint border border-primary/10 rounded-xl p-4 text-left">
+              <div className="flex items-center gap-2 text-primary font-semibold text-sm mb-2">
                 <Link2 size={14} />
                 Landing page is live
               </div>
               <div className="flex items-center gap-2">
-                <code className="text-xs text-indigo-600 bg-white border border-indigo-100 rounded px-2 py-1 flex-1 truncate">
+                <code className="text-xs text-primary bg-white border border-primary/10 rounded px-2 py-1 flex-1 truncate">
                   {window.location.origin}/lp/{campaign.slug}
                 </code>
                 <button
                   onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lp/${campaign.slug}`)}
-                  className="shrink-0 p-1.5 rounded text-indigo-500 hover:bg-indigo-100"
+                  className="shrink-0 p-1.5 rounded text-primary hover:bg-indigo-tint"
                   title="Copy link"
                 >
                   <Copy size={13} />
@@ -1015,23 +1015,23 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                   href={`/lp/${campaign.slug}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="shrink-0 p-1.5 rounded text-indigo-500 hover:bg-indigo-100"
+                  className="shrink-0 p-1.5 rounded text-primary hover:bg-indigo-tint"
                 >
                   <ExternalLink size={13} />
                 </a>
               </div>
-              <p className="text-xs text-indigo-500 mt-1.5">Share this link — leads who fill the form appear in your Leads page.</p>
+              <p className="text-xs text-on-surface-variant mt-1.5">Share this link — leads who fill the form appear in your Leads page.</p>
             </div>
           )}
 
           {/* Meta success */}
           {metaResult?.meta_campaign_id && (
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-left">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm mb-2">
+            <div className="bg-indigo-tint border border-primary/10 rounded-xl p-4 text-left">
+              <div className="flex items-center gap-2 text-primary font-semibold text-sm mb-2">
                 <Globe size={14} />
                 Meta campaign created
               </div>
-              <p className="text-xs text-blue-600">
+              <p className="text-xs text-on-surface-variant">
                 Campaign ID: <code className="font-mono">{metaResult.meta_campaign_id}</code>
               </p>
               <p className="text-xs text-green-600 mt-1">Status: <span className="font-semibold">ACTIVE</span> — running now. Pause or delete anytime from Campaigns.</p>
@@ -1039,7 +1039,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 href="https://business.facebook.com/adsmanager"
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-blue-600 underline mt-2"
+                className="inline-flex items-center gap-1 text-xs text-primary underline mt-2"
               >
                 Open Ads Manager <ExternalLink size={11} />
               </a>
@@ -1095,7 +1095,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
 
           {/* DigiPromix-managed channels */}
           {selectedChannels.some(ch => (ch === 'meta' && launchModes.meta === 'managed') || (ch === 'google' && launchModes.google === 'managed')) && (
-            <div className="bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 rounded-xl p-4 text-left">
+            <div className="bg-indigo-tint border border-secondary/20 rounded-xl p-4 text-left">
               <div className="flex items-center gap-1.5 text-violet-700 font-semibold text-sm mb-2">
                 <Sparkles size={14} /> Done-for-you queue
               </div>
@@ -1155,17 +1155,17 @@ function LaunchModeChooser({
           type="button"
           onClick={() => onChange('self')}
           className={`flex items-start gap-2.5 p-3 text-left transition-colors ${
-            mode === 'self' ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'
+            mode === 'self' ? 'bg-indigo-tint' : 'bg-white hover:bg-gray-50'
           }`}
         >
           <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-            mode === 'self' ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+            mode === 'self' ? 'border-primary bg-primary' : 'border-gray-300'
           }`}>
             {mode === 'self' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
           </span>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <p className={`text-sm font-semibold ${mode === 'self' ? 'text-blue-700' : 'text-gray-800'}`}>
+              <p className={`text-sm font-semibold ${mode === 'self' ? 'text-primary' : 'text-gray-800'}`}>
                 Connect my account
               </p>
               {connected && (
@@ -1177,7 +1177,7 @@ function LaunchModeChooser({
             <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
               {connected
                 ? "Your account is linked — we'll launch directly."
-                : <>You'll need to <Link to="/settings" className="text-blue-600 underline">connect in Settings</Link> first.</>}
+                : <>You'll need to <Link to="/settings" className="text-primary underline">connect in Settings</Link> first.</>}
             </p>
           </div>
         </button>
@@ -1187,14 +1187,14 @@ function LaunchModeChooser({
           type="button"
           onClick={() => onChange('managed')}
           className={`relative flex items-start gap-2.5 p-3 text-left transition-colors ${
-            mode === 'managed' ? 'bg-violet-50' : 'bg-white hover:bg-gray-50'
+            mode === 'managed' ? 'bg-secondary-container' : 'bg-white hover:bg-gray-50'
           }`}
         >
-          <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider bg-gradient-to-r from-violet-500 to-indigo-500 text-white px-1.5 py-0.5 rounded">
+          <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider bg-secondary text-white px-1.5 py-0.5 rounded">
             ⭐ Recommended
           </span>
           <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-            mode === 'managed' ? 'border-violet-500 bg-violet-500' : 'border-gray-300'
+            mode === 'managed' ? 'border-secondary bg-secondary' : 'border-gray-300'
           }`}>
             {mode === 'managed' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
           </span>

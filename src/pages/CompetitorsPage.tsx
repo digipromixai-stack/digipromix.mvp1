@@ -77,7 +77,7 @@ function CompetitorCard({ competitor, intel }: { competitor: Competitor; intel: 
     <>
       <div className="bg-surface-card border border-border-subtle rounded-2xl p-[18px] shadow-soft">
         <div className="flex items-center gap-3 mb-3.5">
-          <div className="w-[38px] h-[38px] rounded-[10px] bg-ink text-white flex items-center justify-center font-display font-semibold text-sm shrink-0">
+          <div className="w-[38px] h-[38px] rounded-[10px] bg-primary text-white flex items-center justify-center font-display font-semibold text-sm shrink-0">
             {getInitial(competitor.name)}
           </div>
           <div className="min-w-0 flex-1">
@@ -203,13 +203,13 @@ function AiReconnaissance({ competitors }: { competitors: Competitor[] }) {
   const isRecent = newest && Date.now() - new Date(newest.created_at).getTime() < 7 * 86400000
 
   return (
-    <div className="bg-gradient-to-br from-ink to-ink-2 rounded-2xl p-5 text-white flex flex-col justify-between">
+    <div className="bg-indigo-tint border-l-2 border-secondary rounded-2xl p-5 flex flex-col justify-between">
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Radar size={16} className="text-white/80" />
-          <h3 className="font-display text-[14.5px] font-semibold">AI Reconnaissance</h3>
+          <Radar size={16} className="text-secondary" />
+          <h3 className="font-display text-[14.5px] font-semibold text-secondary">AI Reconnaissance</h3>
         </div>
-        <p className="text-sm text-white/80 leading-relaxed">
+        <p className="text-sm text-on-surface leading-relaxed">
           {isRecent
             ? `A new competitor, "${newest.name}", was added to tracking this week. Monitoring has started across their key pages.`
             : competitors.length > 0
@@ -220,7 +220,7 @@ function AiReconnaissance({ competitors }: { competitors: Competitor[] }) {
       {newest && (
         <Link
           to={`/competitors/${newest.id}`}
-          className="inline-flex items-center justify-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-bold px-4 py-2 rounded-lg mt-4 w-fit transition-colors"
+          className="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-secondary-container text-secondary border border-secondary/20 text-xs font-bold px-4 py-2 rounded-lg mt-4 w-fit transition-colors"
         >
           View Profile
         </Link>

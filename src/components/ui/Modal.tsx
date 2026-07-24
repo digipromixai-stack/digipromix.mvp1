@@ -67,17 +67,17 @@ export function Modal({
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 pb-4 border-b border-gray-100">
+        <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 pb-4 border-b border-border-subtle">
           <div className="min-w-0">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{title}</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-on-surface truncate">{title}</h2>
             {description && (
-              <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{description}</p>
+              <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5">{description}</p>
             )}
           </div>
           {!hideClose && (
             <button
               onClick={onClose}
-              className="shrink-0 p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="shrink-0 p-2 -m-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
               aria-label="Close dialog"
             >
               <X size={18} />

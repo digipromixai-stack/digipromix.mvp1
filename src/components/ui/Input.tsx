@@ -28,11 +28,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={id}
             className={cn(
-              'block w-full rounded-xl border border-outline-variant bg-white',
+              'block w-full rounded-md border border-border-subtle bg-white',
               'px-4 py-3 text-sm placeholder-on-surface-variant/50 text-on-surface',
               'transition-all duration-150',
-              'focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary',
-              'disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed',
+              'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+              'disabled:bg-surface-container-low disabled:text-on-surface-variant disabled:cursor-not-allowed',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
               error && 'border-danger focus:border-danger focus:ring-danger/20',
@@ -41,13 +41,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
+            <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
               {rightIcon}
             </span>
           )}
         </div>
-        {error && <p className="text-xs text-red-600 flex items-center gap-1">{error}</p>}
-        {!error && hint && <p className="text-xs text-gray-500">{hint}</p>}
+        {error && <p className="text-xs text-danger flex items-center gap-1">{error}</p>}
+        {!error && hint && <p className="text-xs text-on-surface-variant">{hint}</p>}
       </div>
     )
   },

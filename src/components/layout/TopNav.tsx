@@ -4,7 +4,7 @@ import { AlertBell } from '../alerts/AlertBell'
 
 export function TopNav({ onMenuClick }: { onMenuClick: () => void }) {
   return (
-    <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-surface-main/90 backdrop-blur-xl border-b border-border-subtle z-20">
+    <header className="fixed top-0 left-0 lg:left-60 right-0 h-16 bg-surface-main/90 backdrop-blur-xl border-b border-border-subtle z-20">
       <div className="h-full flex items-center px-4 sm:px-6 gap-3">
         {/* Mobile menu button */}
         <button

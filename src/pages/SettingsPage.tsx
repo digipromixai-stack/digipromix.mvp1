@@ -241,7 +241,7 @@ export function SettingsPage() {
               { step: '3', text: 'Add the Google tag to your landing page (paste before </head> tag or tell me and I\'ll add it automatically).' },
             ].map(({ step, text }) => (
               <div key={step} className="flex gap-2.5 text-xs text-gray-600">
-                <span className="w-5 h-5 rounded-full bg-gray-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0">{step}</span>
+                <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[10px] font-bold shrink-0">{step}</span>
                 <p className="mt-0.5">{text}</p>
               </div>
             ))}
@@ -250,7 +250,7 @@ export function SettingsPage() {
             href="https://ads.google.com/aw/conversions"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline font-medium"
+            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
           >
             Open Google Ads Conversions →
           </a>
@@ -305,16 +305,16 @@ export function SettingsPage() {
                 <p className="text-xs text-gray-500 mt-0.5">{k.label}</p>
                 <p className="text-xs text-gray-400 mt-1">
                   {k.desc}{' '}
-                  <a href={k.link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">{k.linkLabel}</a>
+                  <a href={k.link} target="_blank" rel="noreferrer" className="text-primary hover:underline">{k.linkLabel}</a>
                 </p>
                 <p className="text-[10px] text-gray-400 mt-0.5 italic">Enables: {k.impact}</p>
               </div>
             </div>
           ))}
-          <div className="text-xs text-gray-400 bg-blue-50 border border-blue-100 rounded-lg p-3">
-            <p className="font-medium text-blue-700 mb-1">How to add secrets</p>
+          <div className="text-xs text-on-surface-variant bg-indigo-tint border border-primary/10 rounded-lg p-3">
+            <p className="font-medium text-primary mb-1">How to add secrets</p>
             <p>Supabase Dashboard → Project Settings → Edge Functions → Secrets → Add new secret</p>
-            <p className="mt-1">Or via CLI: <code className="font-mono bg-blue-100 px-1 rounded">supabase secrets set KEY=value --project-ref kvsjzsmlcycgfoazfunb</code></p>
+            <p className="mt-1">Or via CLI: <code className="font-mono bg-primary-container px-1 rounded">supabase secrets set KEY=value --project-ref kvsjzsmlcycgfoazfunb</code></p>
           </div>
         </CardContent>
       </Card>

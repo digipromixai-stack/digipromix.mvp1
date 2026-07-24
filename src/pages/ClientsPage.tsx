@@ -172,7 +172,7 @@ function ClientCard({ client, onEdit }: ClientCardProps) {
                 )}
                 <button
                   onClick={() => onEdit(client)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  className="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-indigo-tint transition-colors"
                   title="Edit"
                 >
                   <Pencil size={13} />

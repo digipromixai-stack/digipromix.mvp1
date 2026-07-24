@@ -11,7 +11,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, disabled, fullWidth, children, ...props }, ref) => {
     const base =
-      'relative inline-flex items-center justify-center font-bold rounded-xl ' +
+      'relative inline-flex items-center justify-center font-bold rounded-lg ' +
       'transition-all duration-150 ease-out select-none whitespace-nowrap ' +
       'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white ' +
       'active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100'
@@ -27,7 +27,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         'bg-transparent text-primary border border-primary/20 hover:bg-indigo-tint ' +
         'focus-visible:ring-primary',
       ghost:
-        'text-on-surface-variant hover:bg-surface-container hover:text-on-surface focus-visible:ring-gray-300',
+        'text-on-surface-variant hover:bg-surface-container hover:text-on-surface focus-visible:ring-border-subtle',
       danger:
         'text-white bg-danger shadow-soft hover:brightness-105 ' +
         'focus-visible:ring-danger',
@@ -37,7 +37,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     }
 
     const sizes = {
-      xs: 'px-2.5 py-1   text-xs   gap-1   rounded-lg',
+      xs: 'px-2.5 py-1   text-xs   gap-1   rounded-md',
       sm: 'px-3   py-1.5 text-sm   gap-1.5',
       md: 'px-4   py-2   text-sm   gap-2',
       lg: 'px-5   py-2.5 text-base gap-2',

@@ -48,7 +48,7 @@ function ToastItem({ toast: t, onDismiss }: { toast: Toast; onDismiss: (id: stri
   const icons = {
     success: <CheckCircle size={18} className="text-green-500 shrink-0" />,
     error: <AlertCircle size={18} className="text-red-500 shrink-0" />,
-    info: <Info size={18} className="text-blue-500 shrink-0" />,
+    info: <Info size={18} className="text-primary shrink-0" />,
   }
 
   return (

@@ -101,12 +101,12 @@ export function AlertsPage() {
             <Card
               key={alert.id}
               hover
-              className={alert.status === 'pending' ? 'ring-1 ring-blue-100 bg-blue-50/30' : ''}
+              className={alert.status === 'pending' ? 'ring-1 ring-primary/20 bg-indigo-tint/30' : ''}
             >
               <CardContent className="py-3.5 sm:py-4">
                 <div className="flex items-start gap-3">
                   {alert.status === 'pending' && (
-                    <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                    <span className="mt-1.5 w-2 h-2 rounded-full bg-primary shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap mb-1.5">

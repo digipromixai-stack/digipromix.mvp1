@@ -163,7 +163,7 @@ function RecommendationCard({ rec }: { rec: AiRecommendationWithCampaign }) {
             onClick={handleApply}
             disabled={isBusy}
             title={meta.applyLabel ?? 'Mark as applied'}
-            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-on-surface text-white hover:opacity-90 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-primary text-white hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             {isBusy ? '…' : <><Check size={11} /> {meta.applyLabel ?? 'Apply'}</>}
           </button>
@@ -216,20 +216,20 @@ function AiStrategicBar({ rec }: { rec: AiRecommendationWithCampaign }) {
   const busy = applying || dismissing || pausing
 
   return (
-    <div className="bg-ink rounded-xl p-4 sm:p-5 shadow-soft-lg">
+    <div className="bg-indigo-tint border-l-2 border-secondary rounded-xl p-4 sm:p-5 shadow-soft-lg">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0">
-            <Sparkles size={18} className="text-white" />
+          <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-soft">
+            <Sparkles size={18} className="text-secondary" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/50 mb-0.5">AI Strategic Recommendation</p>
-            <p className="text-sm text-white leading-snug">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-secondary mb-0.5">AI Strategic Recommendation</p>
+            <p className="text-sm text-on-surface leading-snug">
               {rec.recommendation}
-              {rec.campaigns && <span className="text-white/60"> — {rec.campaigns.campaign_name}</span>}
+              {rec.campaigns && <span className="text-on-surface-variant"> — {rec.campaigns.campaign_name}</span>}
             </p>
             {expanded && rec.rationale && (
-              <p className="text-xs text-white/50 mt-1.5">{rec.rationale}</p>
+              <p className="text-xs text-on-surface-variant mt-1.5">{rec.rationale}</p>
             )}
           </div>
         </div>
@@ -237,7 +237,7 @@ function AiStrategicBar({ rec }: { rec: AiRecommendationWithCampaign }) {
           {rec.rationale && (
             <button
               onClick={() => setExpanded(v => !v)}
-              className="text-xs font-bold text-white/70 hover:text-white px-3 py-2 rounded-lg border border-white/20 flex items-center gap-1"
+              className="text-xs font-bold text-on-surface-variant hover:text-on-surface px-3 py-2 rounded-lg border border-border-subtle flex items-center gap-1 bg-white"
             >
               Why? {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
@@ -255,7 +255,7 @@ function AiStrategicBar({ rec }: { rec: AiRecommendationWithCampaign }) {
               onError:   (e) => toast(`Error: ${(e as Error).message}`, 'error'),
             })}
             disabled={busy}
-            className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white transition-colors"
           >
             <X size={14} />
           </button>
@@ -659,11 +659,11 @@ export function CampaignsPage() {
           <div className="flex items-center rounded-xl border border-outline-variant bg-surface-card overflow-hidden shrink-0">
             <button
               onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === 'list' ? 'bg-on-surface text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === 'list' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
             ><LayoutList size={13} /> List</button>
             <button
               onClick={() => setView('kanban')}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === 'kanban' ? 'bg-on-surface text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === 'kanban' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
             ><Columns size={13} /> Kanban</button>
           </div>
         </div>
@@ -705,7 +705,7 @@ export function CampaignsPage() {
                   key={s}
                   onClick={() => setFilter(s)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize ${
-                    filter === s ? 'bg-on-surface text-white' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                    filter === s ? 'bg-primary text-white' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
                   }`}
                 >{s}</button>
               ))}

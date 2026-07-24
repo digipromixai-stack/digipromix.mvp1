@@ -250,15 +250,15 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Executive summary strip ── */}
-      <div className="bg-gradient-to-br from-ink to-ink-2 text-white rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 mb-6 shadow-soft">
-        <div className="w-[34px] h-[34px] rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+      {/* ── Executive summary strip (AI-generated content pattern) ── */}
+      <div className="bg-indigo-tint border-l-2 border-secondary rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 mb-6 shadow-soft">
+        <div className="w-[34px] h-[34px] rounded-lg bg-white flex items-center justify-center shrink-0 text-secondary shadow-soft">
           <Sparkles size={16} />
         </div>
         <div className="flex-1">
-          <p className="text-[10.5px] uppercase tracking-widest text-brand-200 font-bold mb-1">Today's Summary</p>
-          <p className="text-[14.5px] leading-relaxed text-[#EAF3EE] max-w-2xl">
-            <span className="text-white font-semibold">{openOpps} strategic {openOpps === 1 ? 'opportunity' : 'opportunities'}</span> detected across your active markets. Intelligence last updated {minsAgo} {minsAgo === 1 ? 'minute' : 'minutes'} ago.
+          <p className="text-[10.5px] uppercase tracking-widest text-secondary font-bold mb-1">Today's Summary</p>
+          <p className="text-[14.5px] leading-relaxed text-on-surface max-w-2xl">
+            <span className="text-primary font-semibold">{openOpps} strategic {openOpps === 1 ? 'opportunity' : 'opportunities'}</span> detected across your active markets. Intelligence last updated {minsAgo} {minsAgo === 1 ? 'minute' : 'minutes'} ago.
           </p>
         </div>
         <button
@@ -381,26 +381,26 @@ export function DashboardPage() {
               </div>
 
               {topOpportunity ? (
-                <div className="bg-gradient-to-br from-on-primary-container to-primary text-white rounded-2xl p-4 shadow-soft">
-                  <p className="text-[10.5px] uppercase tracking-widest opacity-85 font-bold mb-1.5">Best opportunity today</p>
-                  <p className="font-display text-base font-semibold mb-3 leading-snug">{topOpportunity.title}</p>
+                <div className="bg-indigo-tint border-l-2 border-secondary rounded-2xl p-4 shadow-soft">
+                  <p className="text-[10.5px] uppercase tracking-widest text-secondary font-bold mb-1.5">Best opportunity today</p>
+                  <p className="font-display text-base font-semibold mb-3 leading-snug text-on-surface">{topOpportunity.title}</p>
                   <div className="flex gap-5 mb-4">
                     <div>
-                      <span className="font-mono text-[15px] font-semibold block">{oppRevenue}</span>
-                      <span className="text-[10.5px] opacity-80">Est. revenue</span>
+                      <span className="font-mono text-[15px] font-semibold block text-on-surface">{oppRevenue}</span>
+                      <span className="text-[10.5px] text-on-surface-variant">Est. revenue</span>
                     </div>
                     <div>
-                      <span className="font-mono text-[15px] font-semibold block">{expLeads || '—'}</span>
-                      <span className="text-[10.5px] opacity-80">Est. leads</span>
+                      <span className="font-mono text-[15px] font-semibold block text-on-surface">{expLeads || '—'}</span>
+                      <span className="text-[10.5px] text-on-surface-variant">Est. leads</span>
                     </div>
                     <div>
-                      <span className="font-mono text-[15px] font-semibold block">{confLevel ?? '—'}</span>
-                      <span className="text-[10.5px] opacity-80">Confidence</span>
+                      <span className="font-mono text-[15px] font-semibold block text-on-surface">{confLevel ?? '—'}</span>
+                      <span className="text-[10.5px] text-on-surface-variant">Confidence</span>
                     </div>
                   </div>
                   <button
                     onClick={() => navigate('/opportunities')}
-                    className="inline-flex items-center gap-1.5 bg-white text-on-surface px-3.5 py-2 rounded-lg font-semibold text-[13px] w-fit hover:opacity-90 transition-opacity"
+                    className="inline-flex items-center gap-1.5 bg-primary text-white px-3.5 py-2 rounded-lg font-semibold text-[13px] w-fit hover:opacity-90 transition-opacity"
                   >
                     <Zap size={14} />
                     Launch counter campaign
@@ -409,16 +409,16 @@ export function DashboardPage() {
               ) : (
                 <Link
                   to="/opportunities"
-                  className="bg-ink text-white rounded-2xl p-5 shadow-soft relative overflow-hidden flex flex-col justify-between hover:opacity-95 transition-opacity"
+                  className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft relative overflow-hidden flex flex-col justify-between hover:border-primary/30 transition-colors"
                 >
-                  <ShieldCheck size={30} className="mb-3 opacity-90" />
-                  <h4 className="font-display font-semibold mb-1.5">No urgent opportunities right now</h4>
-                  <p className="text-sm text-white/70 mb-4">Competitors are quiet — great time to build your brand.</p>
-                  <span className="inline-flex items-center gap-1.5 bg-white text-on-surface px-4 py-2 rounded-lg font-bold text-sm w-fit">
+                  <ShieldCheck size={30} className="mb-3 text-primary" />
+                  <h4 className="font-display font-semibold mb-1.5 text-on-surface">No urgent opportunities right now</h4>
+                  <p className="text-sm text-on-surface-variant mb-4">Competitors are quiet — great time to build your brand.</p>
+                  <span className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-lg font-bold text-sm w-fit">
                     Explore opportunities <ArrowRight size={14} />
                   </span>
-                  <span className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-                    <Compass size={22} className="text-white/70" />
+                  <span className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-indigo-tint flex items-center justify-center">
+                    <Compass size={22} className="text-primary" />
                   </span>
                 </Link>
               )}

@@ -70,7 +70,7 @@ export function AlertDropdown({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-gray-900">Notifications</span>
           {unreadCount > 0 && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary-container text-on-primary-container">
               {unreadCount} new
             </span>
           )}
@@ -79,7 +79,7 @@ export function AlertDropdown({ onClose }: { onClose: () => void }) {
           <button
             onClick={() => markAllRead.mutate()}
             disabled={markAllRead.isPending}
-            className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+            className="text-xs text-primary hover:underline disabled:opacity-50"
           >
             Mark all read
           </button>
@@ -99,12 +99,12 @@ export function AlertDropdown({ onClose }: { onClose: () => void }) {
               if (alert.status === 'pending') markOneRead.mutate(alert.id)
               onClose()
             }}
-            className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors ${
-              alert.status === 'pending' ? 'bg-blue-50/40' : ''
+            className={`flex items-start gap-3 px-4 py-3 hover:bg-surface-container-low border-b border-gray-50 last:border-0 transition-colors ${
+              alert.status === 'pending' ? 'bg-indigo-tint/40' : ''
             }`}
           >
             {alert.status === 'pending' && (
-              <span className="mt-2 w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+              <span className="mt-2 w-2 h-2 rounded-full bg-primary shrink-0" />
             )}
             <div className="flex-1 min-w-0">
               <p className={`text-sm truncate ${alert.status === 'pending' ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
@@ -122,7 +122,7 @@ export function AlertDropdown({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="px-4 py-2 border-t border-gray-100">
-        <Link to="/alerts" onClick={onClose} className="text-xs text-blue-600 hover:underline">
+        <Link to="/alerts" onClick={onClose} className="text-xs text-primary hover:underline">
           View all notifications
         </Link>
       </div>

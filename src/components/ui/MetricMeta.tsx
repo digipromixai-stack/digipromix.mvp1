@@ -91,11 +91,11 @@ export function InfoTooltip({ title, children, className }: {
         <span
           id={id}
           role="tooltip"
-          className="absolute z-30 left-1/2 -translate-x-1/2 top-6 w-60 bg-on-surface text-white text-[11px] leading-relaxed rounded-lg p-3 shadow-lg text-left font-normal normal-case tracking-normal"
+          className="absolute z-30 left-1/2 -translate-x-1/2 top-6 w-60 bg-primary text-white text-[11px] leading-relaxed rounded-lg p-3 shadow-lg text-left font-normal normal-case tracking-normal"
         >
           {title && <span className="block font-bold mb-1">{title}</span>}
           {children}
-          <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-on-surface rotate-45" />
+          <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-primary rotate-45" />
         </span>
       )}
     </span>
