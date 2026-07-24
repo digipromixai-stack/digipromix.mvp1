@@ -216,7 +216,7 @@ function AiStrategicBar({ rec }: { rec: AiRecommendationWithCampaign }) {
   const busy = applying || dismissing || pausing
 
   return (
-    <div className="bg-on-surface rounded-xl p-4 sm:p-5 shadow-soft-lg">
+    <div className="bg-ink rounded-xl p-4 sm:p-5 shadow-soft-lg">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0">

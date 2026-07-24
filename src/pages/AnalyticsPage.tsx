@@ -118,7 +118,7 @@ function CompetitorTab({ days }: { days: number }) {
   return (
     <div className="space-y-6">
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard value={changes.length} label="Total changes" sub={`last ${days} days`} />
         <StatCard value={highCount} label="High severity" color={highCount > 0 ? 'text-danger' : 'text-on-surface'} sub="promotions & price changes" />
         <StatCard value={avgPerDay} label="Avg per day" sub="change velocity" />
@@ -321,7 +321,7 @@ function CampaignsLeadsTab({ days }: { days: number }) {
   return (
     <div className="space-y-6">
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard value={leads.length}   label="Total leads"      sub={`last ${days} days`} />
         <StatCard value={`${avgScore}%`} label="Avg lead score"   color={avgScore >= 60 ? 'text-success' : 'text-on-surface'} />
         <StatCard value={`${qualifiedRate}%`} label="Qualification rate" sub="qualified + closed" color={qualifiedRate >= 30 ? 'text-success' : 'text-on-surface'} />
@@ -499,7 +499,7 @@ function MarketSignalsTab() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
         {[
           { label: 'Search Spikes',    value: spikes.length,    icon: TrendingUp,   color: 'text-success'  },
           { label: 'Rising Keywords',  value: rising.length,    icon: TrendingUp,   color: 'text-primary'   },

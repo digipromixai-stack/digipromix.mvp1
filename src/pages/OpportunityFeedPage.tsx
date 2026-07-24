@@ -175,7 +175,7 @@ function AiRecommendationCard({ opportunities }: { opportunities: Opportunity[] 
   if (!insight) return null
 
   return (
-    <div className="bg-on-surface text-white rounded-xl p-5 shadow-soft-lg flex flex-col">
+    <div className="bg-ink text-white rounded-xl p-5 shadow-soft-lg flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles size={15} className="text-primary" />
         <span className="text-xs font-bold uppercase tracking-widest text-white/70">AI Recommendation</span>
@@ -600,8 +600,8 @@ export function OpportunityFeedPage() {
 
       {/* Trend analysis + AI recommendation */}
       {opportunities.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mt-6">
+          <div className="xl:col-span-2">
             <OpportunityTrendChart opportunities={opportunities} />
           </div>
           <AiRecommendationCard opportunities={opportunities} />

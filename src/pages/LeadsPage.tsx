@@ -242,7 +242,7 @@ export function LeadsPage() {
           description="Post a campaign with a landing page — when visitors fill in the form, leads appear here."
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr,320px] gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr,320px] gap-4">
           {/* Priority Intelligence Feed */}
           <div>
             <div className="flex items-center justify-between mb-3">

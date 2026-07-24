@@ -21,11 +21,10 @@ export default {
           800: '#0f0069',
           900: '#0a0047',
         },
-        // Dark-neutral tokens used by the sidebar/banner layout — kept distinct
-        // from `on-surface` so those elements stay a deliberate near-black,
-        // independent of the primary brand hue.
-        ink: '#1b1b24',
-        'ink-2': '#26263a',
+        // Dark-blue tokens used by the sidebar/banner layout — deliberately
+        // blue, not black/neutral, per explicit request (blue + white only).
+        ink: '#1E3A8A',
+        'ink-2': '#1D4ED8',
         primary: '#3525cd',
         'on-primary': '#ffffff',
         // Light-tint / dark-text pair (used as chip/badge/gradient-stop

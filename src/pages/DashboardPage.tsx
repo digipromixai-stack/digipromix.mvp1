@@ -289,7 +289,7 @@ export function DashboardPage() {
       ) : (
         <>
           {/* ── KPI row ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3.5 mb-5">
             <KpiTile
               label="Est. Revenue"
               value={`$${potentialRevenue.toLocaleString()}`}
@@ -333,7 +333,7 @@ export function DashboardPage() {
           </div>
 
           {/* ── Two-column: Business Health / What changed + Best opportunity ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 mb-5">
+          <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_1fr] gap-4 mb-5">
 
             {/* Left: Business Activity Index */}
             <div className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft h-full flex flex-col">
@@ -409,7 +409,7 @@ export function DashboardPage() {
               ) : (
                 <Link
                   to="/opportunities"
-                  className="bg-on-surface text-white rounded-2xl p-5 shadow-soft relative overflow-hidden flex flex-col justify-between hover:opacity-95 transition-opacity"
+                  className="bg-ink text-white rounded-2xl p-5 shadow-soft relative overflow-hidden flex flex-col justify-between hover:opacity-95 transition-opacity"
                 >
                   <ShieldCheck size={30} className="mb-3 opacity-90" />
                   <h4 className="font-display font-semibold mb-1.5">No urgent opportunities right now</h4>
