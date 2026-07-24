@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -16,18 +16,22 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-surface-main text-on-surface antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  h1 {
+    font-family: 'Fraunces', ui-serif, Georgia, serif;
   }
 
   /* Focus rings — visible but tasteful */
   :focus-visible {
-    @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-white rounded;
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-white rounded;
   }
 
   /* Better selection colors */
   ::selection {
-    @apply bg-blue-100 text-blue-900;
+    @apply bg-primary-container text-on-primary-container;
   }
 
   /* Modern scrollbar (Chromium / WebKit) */
@@ -39,16 +43,16 @@
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-200 rounded-full border-2 border-solid border-transparent bg-clip-padding;
+    @apply bg-surface-container-high rounded-full border-2 border-solid border-transparent bg-clip-padding;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-300;
+    @apply bg-outline-variant;
   }
 
   /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgb(229 231 235) transparent;
+    scrollbar-color: #ECE9E1 transparent;
   }
 
   /* Prevent zoom on input focus on iOS — inputs need ≥16px font */

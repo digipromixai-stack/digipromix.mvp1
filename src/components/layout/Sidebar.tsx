@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { NavLink, Link } from 'react-router-dom'
-import { Menu, X, Plus } from 'lucide-react'
+import { NavLink } from 'react-router-dom'
+import { X, LogOut } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useAuth } from '../../contexts/AuthContext'
 
 type NavItem = {
   to: string
@@ -51,25 +51,17 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ]
 
-export function Sidebar() {
-  const [open, setOpen] = useState(false)
+export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { user, signOut } = useAuth()
+  const initials = (user?.email ?? '?').split('@')[0].slice(0, 2).toUpperCase()
 
   return (
     <>
-      {/* Mobile hamburger */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed top-3.5 left-3.5 z-50 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary text-white shadow-soft-md hover:brightness-110 active:scale-95 transition-all lg:hidden"
-        aria-label="Open menu"
-      >
-        <Menu size={20} />
-      </button>
-
       {/* Overlay (mobile) */}
       {open && (
         <div
-          className="fixed inset-0 bg-on-surface/40 backdrop-blur-sm z-30 lg:hidden animate-fade-in"
-          onClick={() => setOpen(false)}
+          className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-30 lg:hidden animate-fade-in"
+          onClick={onClose}
           aria-hidden="true"
         />
       )}
@@ -77,43 +69,36 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 h-screen w-64 z-40 flex flex-col py-6 px-4',
-          'bg-surface-container-low border-r border-outline-variant',
+          'fixed left-0 top-0 h-screen w-64 z-40 flex flex-col',
+          'bg-ink text-[#EAF3EE]',
           'transition-transform duration-300 ease-out',
           'shadow-soft-xl lg:shadow-none',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
         {/* Brand */}
-        <div className="flex items-center justify-between mb-8 px-2">
-          <div>
-            <h1 className="text-lg font-bold text-primary leading-none">DigiPromix AI</h1>
-            <p className="text-[10px] uppercase tracking-widest text-secondary font-bold mt-1">AI Decision Engine</p>
+        <div className="flex items-center gap-2.5 px-5 py-[22px] border-b border-white/10">
+          <div className="w-[30px] h-[30px] rounded-lg bg-gradient-to-br from-primary to-warning flex items-center justify-center font-display font-bold text-ink text-[15px] shrink-0">
+            D
+          </div>
+          <div className="min-w-0">
+            <div className="font-display font-semibold text-[16.5px] leading-none tracking-wide truncate">DigiPromix AI</div>
+            <div className="text-[10px] uppercase tracking-widest text-[#8FB3A2] mt-0.5">AI Decision Engine</div>
           </div>
           <button
-            onClick={() => setOpen(false)}
-            className="lg:hidden p-1.5 -mr-1 rounded-md text-secondary hover:text-on-surface hover:bg-surface-container transition-colors"
+            onClick={onClose}
+            className="lg:hidden ml-auto p-1.5 rounded-md text-[#8FB3A2] hover:text-white hover:bg-white/10 transition-colors"
             aria-label="Close menu"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* New campaign */}
-        <Link
-          to="/interception"
-          onClick={() => setOpen(false)}
-          className="flex items-center justify-center gap-2 mb-6 px-3 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all shadow-soft"
-        >
-          <Plus size={16} />
-          New Campaign
-        </Link>
-
         {/* Nav sections */}
-        <nav className="flex-1 overflow-y-auto space-y-5">
+        <nav className="flex-1 overflow-y-auto px-3 py-3.5 space-y-1">
           {NAV_SECTIONS.map((section) => (
             <div key={section.label}>
-              <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-secondary/70">
+              <p className="px-2.5 pt-3.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-widest text-[#6E8B7E]">
                 {section.label}
               </p>
               <div className="space-y-0.5">
@@ -121,22 +106,22 @@ export function Sidebar() {
                   <NavLink
                     key={to}
                     to={to}
-                    onClick={() => setOpen(false)}
+                    onClick={onClose}
                     className={({ isActive }) =>
                       cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
+                        'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13.6px] font-medium transition-all duration-150',
                         isActive
-                          ? 'bg-primary-container text-on-primary-container font-bold'
+                          ? 'bg-primary/[0.22] text-white'
                           : highlight
-                            ? 'text-primary hover:bg-indigo-tint'
-                            : 'text-secondary hover:bg-surface-container-high',
+                            ? 'text-[#9AD3B4] hover:bg-white/[0.06] hover:text-white'
+                            : 'text-[#C9DBD1] hover:bg-white/[0.06] hover:text-white',
                       )
                     }
                   >
-                    <span className="material-symbols-outlined text-[20px]">{icon}</span>
+                    <span className="material-symbols-outlined text-[18px] opacity-90">{icon}</span>
                     <span className="flex-1">{label}</span>
                     {badge && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-primary text-white">
+                      <span className="text-[10.5px] font-bold px-1.5 py-px rounded-full bg-warning text-ink">
                         {badge}
                       </span>
                     )}
@@ -146,6 +131,27 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
+
+        {/* User chip */}
+        <div className="p-3.5 border-t border-white/10">
+          <div className="flex items-center gap-2.5 p-2 rounded-xl">
+            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-primary text-white text-xs font-semibold shrink-0">
+              {initials}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12.8px] font-semibold text-white truncate">{user?.email}</div>
+              <div className="text-[11px] text-[#8FB3A2]">Signed in</div>
+            </div>
+            <button
+              onClick={signOut}
+              className="p-1.5 rounded-md text-[#8FB3A2] hover:text-white hover:bg-white/10 transition-colors shrink-0"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+        </div>
       </aside>
     </>
   )
