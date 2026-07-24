@@ -643,20 +643,18 @@ export function CampaignsPage() {
   return (
     <div className="max-w-[1400px] mx-auto space-y-5">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-primary">Campaign Studio</h1>
+      <h1 className="text-2xl font-bold text-primary">Campaign Studio</h1>
 
+      {/* Toolbar — primary action up front, matching the reference layout */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search campaigns…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="border border-outline-variant bg-surface-card rounded-xl pl-9 pr-3 py-2 text-sm w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
-          </div>
+          <Link
+            to="/interception"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:opacity-90 transition-colors shadow-soft shrink-0"
+          >
+            <Plus size={14} />
+            New Campaign
+          </Link>
 
           <div className="flex items-center rounded-xl border border-outline-variant bg-surface-card overflow-hidden shrink-0">
             <button
@@ -668,14 +666,17 @@ export function CampaignsPage() {
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold transition-colors ${view === 'kanban' ? 'bg-on-surface text-white' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
             ><Columns size={13} /> Kanban</button>
           </div>
+        </div>
 
-          <Link
-            to="/interception"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-sm font-bold rounded-xl hover:opacity-90 transition-colors shadow-soft shrink-0"
-          >
-            <Plus size={14} />
-            New Campaign
-          </Link>
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search campaigns…"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="border border-outline-variant bg-surface-card rounded-xl pl-9 pr-3 py-2 text-sm w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
         </div>
       </div>
 

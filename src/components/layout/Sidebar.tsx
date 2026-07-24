@@ -83,11 +83,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           </div>
           <div className="min-w-0">
             <div className="font-display font-semibold text-[16.5px] leading-none tracking-wide truncate">DigiPromix AI</div>
-            <div className="text-[10px] uppercase tracking-widest text-[#8FB3A2] mt-0.5">AI Decision Engine</div>
+            <div className="text-[10px] uppercase tracking-widest text-[#9C9AC2] mt-0.5">AI Decision Engine</div>
           </div>
           <button
             onClick={onClose}
-            className="lg:hidden ml-auto p-1.5 rounded-md text-[#8FB3A2] hover:text-white hover:bg-white/10 transition-colors"
+            className="lg:hidden ml-auto p-1.5 rounded-md text-[#9C9AC2] hover:text-white hover:bg-white/10 transition-colors"
             aria-label="Close menu"
           >
             <X size={18} />
@@ -98,7 +98,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         <nav className="flex-1 overflow-y-auto px-3 py-3.5 space-y-1">
           {NAV_SECTIONS.map((section) => (
             <div key={section.label}>
-              <p className="px-2.5 pt-3.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-widest text-[#6E8B7E]">
+              <p className="px-2.5 pt-3.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-widest text-[#6E6B8C]">
                 {section.label}
               </p>
               <div className="space-y-0.5">
@@ -111,10 +111,10 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                       cn(
                         'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13.6px] font-medium transition-all duration-150',
                         isActive
-                          ? 'bg-primary/[0.22] text-white'
+                          ? 'bg-primary/[0.28] text-white'
                           : highlight
-                            ? 'text-[#9AD3B4] hover:bg-white/[0.06] hover:text-white'
-                            : 'text-[#C9DBD1] hover:bg-white/[0.06] hover:text-white',
+                            ? 'text-brand-300 hover:bg-white/[0.06] hover:text-white'
+                            : 'text-[#C9C6E0] hover:bg-white/[0.06] hover:text-white',
                       )
                     }
                   >
@@ -140,11 +140,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-[12.8px] font-semibold text-white truncate">{user?.email}</div>
-              <div className="text-[11px] text-[#8FB3A2]">Signed in</div>
+              <div className="text-[11px] text-[#9C9AC2]">Signed in</div>
             </div>
             <button
               onClick={signOut}
-              className="p-1.5 rounded-md text-[#8FB3A2] hover:text-white hover:bg-white/10 transition-colors shrink-0"
+              className="p-1.5 rounded-md text-[#9C9AC2] hover:text-white hover:bg-white/10 transition-colors shrink-0"
               aria-label="Sign out"
               title="Sign out"
             >

@@ -333,10 +333,10 @@ export function DashboardPage() {
           </div>
 
           {/* ── Two-column: Business Health / What changed + Best opportunity ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 items-start mb-5">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 mb-5">
 
             {/* Left: Business Activity Index */}
-            <div className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft">
+            <div className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft h-full flex flex-col">
               <h3 className="font-display text-[16.5px] font-semibold text-on-surface mb-1 flex items-center gap-1.5">
                 Business Activity Index
                 <InfoTooltip title="How the Business Activity Index is calculated">
@@ -348,7 +348,7 @@ export function DashboardPage() {
               <p className="text-xs text-on-surface-variant mb-5">
                 Based on recent activity volume (open opportunities, competitor threats, new leads) — not a performance, revenue, or ROI metric.
               </p>
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+              <div className="flex-1 flex flex-col sm:flex-row items-center gap-6">
                 <HealthRing score={healthScore} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3 flex-1 w-full">
                   <HealthBar label="Opportunity Volume" value={opportunityScore} tone="primary" />
