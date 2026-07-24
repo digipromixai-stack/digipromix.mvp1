@@ -29,6 +29,7 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { baselineFor } from '../_shared/heuristic-forecast.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -56,34 +57,21 @@ const SEVERITY_WEIGHT: Record<string, number> = {
   low:    10,
 }
 
-// Industry CPC + conversion baselines — kept in sync with predict-budget/index.ts
-const INDUSTRY_CPC: Record<string, { cpc: number; conversion_rate: number }> = {
-  'real-estate':    { cpc: 2.50, conversion_rate: 0.025 },
-  'real estate':    { cpc: 2.50, conversion_rate: 0.025 },
-  'healthcare':     { cpc: 3.20, conversion_rate: 0.030 },
-  'medical':        { cpc: 3.20, conversion_rate: 0.030 },
-  'dental':         { cpc: 3.00, conversion_rate: 0.028 },
-  'retail':         { cpc: 1.40, conversion_rate: 0.035 },
-  'ecommerce':      { cpc: 1.60, conversion_rate: 0.030 },
-  'education':      { cpc: 2.10, conversion_rate: 0.045 },
-  'school':         { cpc: 2.10, conversion_rate: 0.045 },
-  'restaurant':     { cpc: 1.20, conversion_rate: 0.050 },
-  'restaurants':    { cpc: 1.20, conversion_rate: 0.050 },
-  'local services': { cpc: 4.50, conversion_rate: 0.035 },
-  'plumbing':       { cpc: 5.20, conversion_rate: 0.040 },
-  'finance':        { cpc: 5.80, conversion_rate: 0.020 },
-  'legal':          { cpc: 6.50, conversion_rate: 0.022 },
-  'b2b saas':       { cpc: 3.80, conversion_rate: 0.025 },
-  'software':       { cpc: 3.80, conversion_rate: 0.025 },
-  'payments saas':  { cpc: 3.80, conversion_rate: 0.025 },
-  'automotive':     { cpc: 2.80, conversion_rate: 0.022 },
-  default:          { cpc: 2.20, conversion_rate: 0.025 },
-}
-
-function baselineFor(industry: string | null | undefined) {
-  if (!industry) return INDUSTRY_CPC.default
-  return INDUSTRY_CPC[industry.toLowerCase().trim()] ?? INDUSTRY_CPC.default
-}
+// Industry CPC + conversion baselines now live in _shared/heuristic-forecast.ts
+// (imported above as `baselineFor`) — this cron used to keep its own copy of
+// the table, which is exactly the kind of drift that motivated centralizing it.
+//
+// This cron intentionally stays heuristic-only rather than calling the live
+// Google/Meta forecast APIs (see _shared/forecast-engine.ts, used by
+// predict-budget / forecast-campaign): it scores potentially hundreds of
+// opportunities across many users on an hourly schedule, and a per-opportunity
+// live API call would multiply out to a lot of latency + rate-limit exposure
+// across users' ad accounts for numbers that are just feed-ranking signals,
+// not a number the user is about to spend against. The live forecast only
+// runs synchronously, once, when a user actually opens a specific opportunity
+// to launch a campaign (CampaignModal → forecast-campaign) — that's the
+// moment the accuracy actually matters and the cost of one API call is
+// trivial. The feed is labeled a "benchmark estimate" in the UI accordingly.
 
 // Recency factor: 0.0 (just-detected, very recent) → 1.0 (>= 48h old)
 // Recent signals get up to +20 points; old signals get 0.
@@ -720,6 +708,32 @@ Deno.serve(async (req) => {
         ? `${finalTitle} · +${siblings.length} more today`
         : finalTitle
 
+      // Customer-readable score explanation (Priority 5 — shown in the UI
+      // instead of the technical breakdown below, which stays for debugging)
+      const changeTypeLabels: Record<string, string> = {
+        promotion:        'Promotion detected on competitor site',
+        price_change:     'Competitor price change detected',
+        campaign_launch:  'New competitor campaign launched',
+        new_landing_page: 'New competitor landing page published',
+        new_blog_post:    'New competitor blog post published',
+        banner_change:    'Competitor homepage banner updated',
+        content_change:   'Competitor website content updated',
+      }
+      const scoreReasons = [
+        changeTypeLabels[change.change_type as string] ?? 'Competitor website change detected',
+        change.severity === 'high' ? 'High-impact, customer-facing change' : null,
+        meta.is_coordinated === true ? 'Coordinated changes across multiple pages' : null,
+        siblings.length > 0 ? `${siblings.length + 1} changes from this competitor today` : null,
+        promoCodes > 0 ? `Promo code${promoCodes > 1 ? 's' : ''} found on the page` : null,
+        priceAfter > 0 ? 'Price points changed' : null,
+        cs.signalTypes.includes('SEARCH_SPIKE')    ? 'Search demand increased in your market' : null,
+        cs.signalTypes.includes('AD_VOLUME_SPIKE') ? 'Competitor ad activity increased' : null,
+        cs.signalTypes.includes('NEW_CREATIVE')    ? 'New competitor ad creative detected' : null,
+        cs.signalTypes.includes('OFFER_REPEAT')    ? 'Competitor is repeating a proven offer' : null,
+        vectorReason?.startsWith('past_similar_won')     ? 'A similar past campaign of yours performed well' : null,
+        vectorReason?.startsWith('past_similar_flopped') ? 'Note: a similar past campaign underperformed' : null,
+      ].filter(Boolean) as string[]
+
       // 7-day competitor activity count for this (user, industry) pair
       const industryKey = `${change.user_id as string}|${(industry ?? '').toLowerCase().trim()}`
       const competitorActivity7d = activityMap.get(industryKey) ?? 0
@@ -766,6 +780,7 @@ Deno.serve(async (req) => {
         status: 'open' as const,
         expires_at: expiresAt,
         metadata: {
+          score_reasons:       scoreReasons,
           source_change_id:    change.id,
           source_competitor:   competitor?.name ?? null,
           change_type:         change.change_type,
@@ -958,6 +973,14 @@ Deno.serve(async (req) => {
             status:    'open',
             expires_at: expiresAt,
             metadata: {
+              score_reasons: [
+                isTrend
+                  ? `Search demand for "${kw}" increased +${growth}%`
+                  : `Competitor ad volume increased +${growth}%`,
+                industry ? `Matched to your industry: ${industry}` : null,
+                location ? `Location: ${location}` : null,
+                growth >= 50 ? 'Strong growth — window closes as competitors respond' : null,
+              ].filter(Boolean),
               source_signal_id:  sig.id,
               source_change_id:  linkedChangeId,  // best-effort: linked for Launch button
               signal_type:       sig.signal_type,

@@ -6,16 +6,19 @@ import { PageSpinner } from '../components/ui/Spinner'
 import { useToast } from '../components/ui/Toast'
 import {
   ArrowRight, Sparkles, Zap, Target, Users, AlertTriangle,
-  CheckCircle, HelpCircle, TrendingUp, Compass, ShieldCheck,
+  CheckCircle, TrendingUp, Compass, ShieldCheck,
 } from 'lucide-react'
 import type { Opportunity } from '../types/database.types'
 import { useValuePerLead } from '../hooks/useProfile'
+import { SourceTag, InfoTooltip, confidenceLevel, confidenceTone, type DataSource } from '../components/ui/MetricMeta'
 
 // ── KPI tile (2x2 cluster) ──────────────────────────────────────────────────
 
-function KpiTile({ label, value, icon: Icon, tone = 'default' }: {
+function KpiTile({ label, value, icon: Icon, tone = 'default', source, info }: {
   label: string; value: string | number; icon: typeof Target
   tone?: 'default' | 'primary' | 'success' | 'warning'
+  source?: DataSource
+  info?: React.ReactNode
 }) {
   const toneClasses: Record<string, string> = {
     default: 'text-on-surface',
@@ -28,10 +31,44 @@ function KpiTile({ label, value, icon: Icon, tone = 'default' }: {
       <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 flex items-center gap-1.5">
         <Icon size={12} />
         {label}
+        {info && <InfoTooltip title={`How ${label} is calculated`}>{info}</InfoTooltip>}
       </p>
       <p className={`font-mono text-2xl font-bold ${toneClasses[tone]}`}>{value}</p>
+      {source && <SourceTag source={source} className="mt-2" />}
     </div>
   )
+}
+
+// ── Opportunity score explanation (Priority 5) ──────────────────────────────
+// Turns raw signal_sources/metadata into plain-language reasons a customer
+// can read: "Promotion detected", "Search demand increased", etc.
+
+export function opportunityScoreReasons(opp: Opportunity): string[] {
+  const meta = (opp.metadata ?? {}) as Record<string, unknown>
+  const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>
+
+  // Preferred: plain-language reasons written by the scoring engine itself
+  // (score-opportunities → metadata.score_reasons). Fall back to deriving
+  // from raw signals for opportunities scored before that deploy.
+  if (Array.isArray(meta.score_reasons) && meta.score_reasons.length > 0) {
+    return (meta.score_reasons as unknown[]).filter((r): r is string => typeof r === 'string').slice(0, 5)
+  }
+
+  const reasons: string[] = []
+
+  if (meta.source_competitor) reasons.push(`Competitor change detected (${meta.source_competitor})`)
+  if (sources.some(s => s.signal_type === 'SEARCH_SPIKE')) {
+    const spike = sources.find(s => s.signal_type === 'SEARCH_SPIKE')
+    const pct = spike?.growth_pct
+    reasons.push(typeof pct === 'number' ? `Search demand increased +${Math.round(pct)}%` : 'Search demand increased')
+  }
+  if (sources.some(s => s.signal_type === 'AD_VOLUME_SPIKE')) reasons.push('Competitor ad activity increased')
+  if (sources.some(s => s.signal_type === 'NEW_CREATIVE')) reasons.push('New competitor ad creative detected')
+  if (sources.some(s => s.signal_type === 'OFFER_REPEAT')) reasons.push('Competitor offer is repeating — proven to work')
+  if (sources.length > 1) reasons.push(`${sources.length} independent signals corroborate this opportunity`)
+  if (reasons.length === 0 && opp.reasoning) reasons.push(opp.reasoning)
+
+  return reasons
 }
 
 // ── Business health ring ─────────────────────────────────────────────────────
@@ -162,7 +199,8 @@ export function DashboardPage() {
   const healthScore      = Math.round((threatScore + opportunityScore + leadScore) / 3)
 
   const score      = topOpportunity ? Math.round(topOpportunity.opportunity_score) : 0
-  const confidence = topOpportunity ? Math.round((topOpportunity.confidence ?? 0) * 100) : 0
+  const confLevel  = topOpportunity ? confidenceLevel(topOpportunity.confidence) : null
+  const scoreReasons = topOpportunity ? opportunityScoreReasons(topOpportunity) : []
   const expLeads   = topOpportunity?.expected_leads ?? 0
   const oppRevenue = expLeads > 0 ? `$${(expLeads * valuePerLead).toLocaleString()}` : '—'
   // recommended_budget is a DAILY figure (see score-opportunities: expected_leads is derived
@@ -249,32 +287,72 @@ export function DashboardPage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-5 border-y border-border-subtle mb-5">
                   <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1" title="Estimate based on your configured value per lead (Settings), not a guaranteed outcome">Potential Revenue (Est.)</p>
+                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                      Estimated Revenue
+                      <InfoTooltip title="How Estimated Revenue is calculated">
+                        Estimated Leads ({expLeads || '—'}) × your configured Value Per Lead (${valuePerLead}).
+                        Estimated Leads are based on industry benchmarks, competitor activity, and search demand.
+                        Once your campaigns generate real results, this becomes Actual Revenue.
+                      </InfoTooltip>
+                    </p>
                     <p className="font-mono text-2xl font-bold text-on-surface">{oppRevenue}</p>
+                    <SourceTag source="ai" className="mt-1.5" />
                   </div>
                   <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Confidence</p>
-                    <div className="flex items-center gap-1.5">
-                      <p className="font-mono text-2xl font-bold text-success">{confidence}%</p>
-                      <HelpCircle size={16} className="text-success/60" />
-                    </div>
+                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                      Confidence
+                      <InfoTooltip title="How Confidence is determined">
+                        Based on how many independent signals corroborate this opportunity
+                        (competitor changes, search demand, ad activity). Shown as High / Medium / Low
+                        until enough historical campaign data exists to compute it precisely.
+                      </InfoTooltip>
+                    </p>
+                    <p className={`font-mono text-2xl font-bold ${confLevel ? confidenceTone(confLevel) : 'text-on-surface-variant'}`}>{confLevel ?? '—'}</p>
+                    <SourceTag source="ai" className="mt-1.5" />
                   </div>
                   <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">AI Score</p>
+                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                      Opportunity Score
+                      <InfoTooltip title="How the Opportunity Score is calculated">
+                        A 0–100 ranking combining competitor activity, search demand, signal strength,
+                        and how recent the signals are. Higher = act sooner.
+                      </InfoTooltip>
+                    </p>
                     <p className="font-mono text-2xl font-bold text-on-surface">{score}</p>
+                    <SourceTag source="ai" className="mt-1.5" />
                   </div>
                   <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1" title="Industry-benchmark estimate, not measured performance — refine it in Settings">Expected ROI (Est.)</p>
+                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                      Estimated ROI
+                      <InfoTooltip title="How Estimated ROI is calculated">
+                        (Estimated Leads × Value Per Lead) ÷ estimated weekly ad spend
+                        (recommended daily budget × 7). An industry-benchmark projection, not a
+                        measured result — it becomes Actual ROI once real campaign data arrives.
+                      </InfoTooltip>
+                    </p>
                     <p className="font-mono text-2xl font-bold text-primary">{roi === '—' ? '—' : `${roi}x`}</p>
+                    <SourceTag source="benchmark" className="mt-1.5" />
                   </div>
                 </div>
 
-                {topOpportunity.recommended_action && (
+                {(topOpportunity.recommended_action || scoreReasons.length > 0) && (
                   <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30 flex gap-3 mb-5">
                     <TrendingUp size={18} className="text-primary shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-sm text-on-surface mb-1">Why this is recommended?</p>
-                      <p className="text-sm text-on-surface-variant leading-relaxed">{topOpportunity.recommended_action}</p>
+                      <p className="font-bold text-sm text-on-surface mb-1">Why this score?</p>
+                      {topOpportunity.recommended_action && (
+                        <p className="text-sm text-on-surface-variant leading-relaxed mb-2">{topOpportunity.recommended_action}</p>
+                      )}
+                      {scoreReasons.length > 0 && (
+                        <ul className="space-y-1">
+                          {scoreReasons.map((r) => (
+                            <li key={r} className="text-sm text-on-surface-variant flex items-start gap-1.5">
+                              <CheckCircle size={13} className="text-success shrink-0 mt-0.5" />
+                              {r}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </div>
                 )}
@@ -339,19 +417,57 @@ export function DashboardPage() {
           <div className="lg:col-span-4 flex flex-col gap-5 min-w-0">
 
             <div className="grid grid-cols-2 gap-3">
-              <KpiTile label="Potential Rev." value={`$${potentialRevenue.toLocaleString()}`} icon={Target} tone="primary" />
-              <KpiTile label="Expected Leads" value={expLeads || totalLeads} icon={Users} />
-              <KpiTile label="Opportunities" value={openOpps} icon={Compass} />
+              <KpiTile
+                label="Est. Revenue"
+                value={`$${potentialRevenue.toLocaleString()}`}
+                icon={Target}
+                tone="primary"
+                source="estimated"
+                info={<>Open opportunities ({openOpps}) × ~2 leads each × your configured Value Per Lead (${valuePerLead}, set in Settings). Becomes Actual Revenue once campaigns generate real results.</>}
+              />
+              {expLeads > 0 ? (
+                <KpiTile
+                  label="Est. Leads"
+                  value={expLeads}
+                  icon={Users}
+                  source="benchmark"
+                  info={<>Estimated from industry benchmark cost-per-click, competitor activity, and search demand for your top opportunity. Becomes Actual Leads once campaigns run.</>}
+                />
+              ) : (
+                <KpiTile
+                  label="Actual Leads"
+                  value={totalLeads}
+                  icon={Users}
+                  source="live"
+                  info={<>Real leads captured from your landing pages and campaigns — not an estimate.</>}
+                />
+              )}
+              <KpiTile
+                label="Opportunities"
+                value={openOpps}
+                icon={Compass}
+                source="ai"
+                info={<>Open revenue opportunities detected by the AI scoring engine from competitor changes, Google Trends, and ad-activity signals.</>}
+              />
               <KpiTile
                 label="Threat Level"
                 value={highSev7d > 0 ? (highSev7d >= 3 ? 'High' : 'Medium') : 'Low'}
                 icon={AlertTriangle}
                 tone={highSev7d > 0 ? 'warning' : 'success'}
+                source="ai"
+                info={<>Based on high-severity competitor changes detected in the last 7 days ({highSev7d} found). 0 = Low, 1–2 = Medium, 3+ = High.</>}
               />
             </div>
 
             <div className="bg-surface-card border border-border-subtle rounded-xl p-6 shadow-soft">
-              <h3 className="font-bold text-on-surface mb-1">Weekly Activity Score</h3>
+              <h3 className="font-bold text-on-surface mb-1 flex items-center gap-1.5">
+                Business Activity Index
+                <InfoTooltip title="How the Business Activity Index is calculated">
+                  Average of three activity measures: open opportunity volume, competitive calm
+                  (fewer high-severity threats = higher), and new-lead volume this week.
+                  It measures market activity around your business — not revenue or ROI.
+                </InfoTooltip>
+              </h3>
               <p className="text-[11px] text-on-surface-variant mb-4">
                 Based on recent activity volume (open opportunities, competitor threats, new leads) — not a performance, revenue, or ROI metric.
               </p>

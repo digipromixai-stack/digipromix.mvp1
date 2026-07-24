@@ -37,6 +37,30 @@ export function SourceTag({ source, label, className }: { source: DataSource; la
   )
 }
 
+// ── Confidence level (Priority 6) ────────────────────────────────────────────
+// Until we have enough historical customer data to justify precise percentages,
+// confidence is shown as High / Medium / Low.
+
+export type ConfidenceLevel = 'High' | 'Medium' | 'Low'
+
+export function confidenceLevel(confidence: number | null | undefined): ConfidenceLevel | null {
+  if (confidence == null) return null
+  const c = confidence > 1 ? confidence / 100 : confidence
+  if (c >= 0.75) return 'High'
+  if (c >= 0.5) return 'Medium'
+  return 'Low'
+}
+
+const confidenceClasses: Record<ConfidenceLevel, string> = {
+  High:   'text-success',
+  Medium: 'text-warning',
+  Low:    'text-on-surface-variant',
+}
+
+export function confidenceTone(level: ConfidenceLevel): string {
+  return confidenceClasses[level]
+}
+
 // ── "How this was calculated" tooltip (Priority 3) ───────────────────────────
 // An (i) icon that reveals a plain-language explanation of the number.
 

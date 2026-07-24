@@ -10,6 +10,7 @@ import { useDetectedChanges } from '../hooks/useDetectedChanges'
 import { useCampaigns } from '../hooks/useCampaigns'
 import { timeAgo } from '../lib/utils'
 import type { Campaign, DetectedChangeWithCompetitor } from '../types/database.types'
+import { SourceTag, InfoTooltip } from '../components/ui/MetricMeta'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -149,18 +150,35 @@ function CampaignSignalRow({
 
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5">Est. Leads</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
+              Est. Leads
+              <InfoTooltip title="How Estimated Leads are calculated">
+                (Weekly budget €{weekly} ÷ industry benchmark CPC €{cpc.toFixed(2)}) × {Math.round(CONV_RATE * 100)}% benchmark conversion rate.
+                Becomes Actual Leads once the campaign runs.
+              </InfoTooltip>
+            </p>
             <p className="font-mono text-sm font-bold text-on-surface">{leads}</p>
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5">Est. Revenue</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
+              Est. Revenue
+              <InfoTooltip title="How Estimated Revenue is calculated">
+                Estimated Leads ({leads}) × €{VALUE_PER_LEAD} value per lead (industry benchmark).
+              </InfoTooltip>
+            </p>
             <p className="font-mono text-sm font-bold text-on-surface">€{revenue.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5">Avg. CPC</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
+              Avg. CPC
+              <InfoTooltip title="Where Avg. CPC comes from">
+                Industry benchmark cost-per-click for {industry}.
+              </InfoTooltip>
+            </p>
             <p className="font-mono text-sm font-bold text-on-surface">€{cpc.toFixed(2)}</p>
           </div>
         </div>
+        <SourceTag source="benchmark" className="mt-2" />
       </div>
 
       {/* Right: action */}

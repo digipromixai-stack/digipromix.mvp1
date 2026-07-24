@@ -14,6 +14,7 @@ import { useMetaIntegration, useGoogleAdsIntegration, minDailyForCurrency } from
 import { useClients } from '../../hooks/useClients'
 import type { Campaign, LandingTemplate } from '../../types/database.types'
 import type { DetectedChangeWithCompetitor } from '../../types/database.types'
+import { confidenceLevel } from '../ui/MetricMeta'
 
 // ── Template options ──────────────────────────────────────────────────────────
 
@@ -421,7 +422,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">AI Radar prediction</span>
                 {opportunityHint.confidence != null && (
                   <span className="ml-auto text-[10px] text-violet-700 font-semibold">
-                    {Math.round(opportunityHint.confidence * 100)}% confidence
+                    {confidenceLevel(opportunityHint.confidence)} confidence
                   </span>
                 )}
               </div>
@@ -429,12 +430,12 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 {opportunityHint.recommended_budget != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Recommended budget</div>
-                    <div className="text-sm font-bold text-gray-900">${opportunityHint.recommended_budget}/wk</div>
+                    <div className="text-sm font-bold text-gray-900">${opportunityHint.recommended_budget}/day</div>
                   </div>
                 )}
                 {opportunityHint.expected_leads != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
-                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Expected leads</div>
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Estimated leads</div>
                     <div className="text-sm font-bold text-gray-900">{opportunityHint.expected_leads}</div>
                   </div>
                 )}
@@ -489,7 +490,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700">AI Budget Prediction — 7-day outlook</span>
                 {campaign.confidence_score != null && (
                   <span className="ml-auto text-[10px] text-violet-600 font-semibold">
-                    {Math.round(campaign.confidence_score * 100)}% confidence
+                    {confidenceLevel(campaign.confidence_score)} confidence
                   </span>
                 )}
               </div>
@@ -508,7 +509,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 )}
                 {campaign.predicted_cpl != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
-                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Cost/lead</div>
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. cost/lead</div>
                     <div className="text-sm font-bold text-gray-900">${campaign.predicted_cpl.toFixed(2)}</div>
                   </div>
                 )}

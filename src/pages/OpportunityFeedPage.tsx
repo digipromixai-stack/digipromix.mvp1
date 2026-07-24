@@ -20,6 +20,9 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { CampaignModal } from '../components/campaigns/CampaignModal'
 import type { Opportunity, DetectedChangeWithCompetitor } from '../types/database.types'
+import { SourceTag, InfoTooltip, confidenceLevel, confidenceTone } from '../components/ui/MetricMeta'
+import { opportunityScoreReasons } from './DashboardPage'
+import { useValuePerLead } from '../hooks/useProfile'
 
 // ── Signal source badge ───────────────────────────────────────────────────────
 // Shows where this opportunity came from: Google Trends, Meta Ads, or a
@@ -90,13 +93,13 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
       {open && (
         <div className="mt-2 rounded-lg border border-border-subtle overflow-hidden text-xs">
           <div className="grid grid-cols-3 bg-surface-container-low text-[10px] uppercase tracking-wide text-on-surface-variant px-2 py-1.5 border-b border-border-subtle">
-            <span>Budget/wk</span><span className="text-center">Est. leads</span><span className="text-right">Impact</span>
+            <span>Budget/day</span><span className="text-center">Est. leads</span><span className="text-right">Impact</span>
           </div>
           {tiers.map(t => (
             <div key={t.label} className={`grid grid-cols-3 px-2 py-2 border-b border-border-subtle last:border-0 ${t.active ? 'bg-indigo-tint' : ''}`}>
               <span className={`flex items-center gap-1.5 ${t.active ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.active ? 'bg-primary' : 'bg-gray-400'}`} />
-                ${t.budget}/wk
+                ${t.budget}/day
               </span>
               <span className={`text-center ${t.active ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>{leadsFor(t.budget)}</span>
               <span className="text-right text-[10px] text-on-surface-variant">{t.tag}</span>
@@ -185,9 +188,9 @@ function AiRecommendationCard({ opportunities }: { opportunities: Opportunity[] 
       </p>
       <div className="flex items-center gap-2 mt-4 mb-3">
         <span className="inline-flex items-center gap-1 text-xs font-bold text-success bg-success/15 px-2 py-1 rounded-full">
-          +{insight.avgConf}%
+          {confidenceLevel(insight.avgConf / 100) ?? '—'}
         </span>
-        <span className="text-[11px] text-white/50">Estimated confidence lift</span>
+        <span className="text-[11px] text-white/50">Average confidence · AI calculated</span>
       </div>
       <Link
         to="/opportunities"
@@ -217,19 +220,22 @@ function OpportunityCard({
   onDismiss: (opp: Opportunity) => void
   busy: boolean
 }) {
+  const valuePerLead = useValuePerLead()
   const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>
   const topSignal = sources.find(s => s.growth_pct != null)
   const growthPct = topSignal?.growth_pct as number | undefined
 
-  const estRevenueValue = opp.expected_leads != null ? opp.expected_leads * 80 : null
+  const estRevenueValue = opp.expected_leads != null ? opp.expected_leads * valuePerLead : null
+  // recommended_budget is a DAILY figure (see score-opportunities) — weekly spend is ×7
   const roiMultiplier = opp.expected_leads != null && opp.recommended_budget != null && opp.recommended_budget > 0
-    ? Math.round((opp.expected_leads * 80) / (opp.recommended_budget * 4))
+    ? ((opp.expected_leads * valuePerLead) / (opp.recommended_budget * 7)).toFixed(1)
     : null
 
   const isUrgent = opp.opportunity_score >= 85 ||
     (opp.expires_at != null && new Date(opp.expires_at) < new Date(Date.now() + 24 * 3600000))
   const tier = isUrgent ? TIER_META.urgent : TIER_META.normal
-  const confidence = opp.confidence != null ? Math.round(opp.confidence * 100) : null
+  const confLevel = confidenceLevel(opp.confidence)
+  const scoreReasons = opportunityScoreReasons(opp)
 
   return (
     <div className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft hover:shadow-soft-md transition-shadow relative">
@@ -247,6 +253,15 @@ function OpportunityCard({
         </span>
         <span className="inline-flex items-center gap-1 bg-surface-container-low px-2.5 py-1 rounded-full border border-border-subtle text-[10px] font-bold text-on-surface-variant">
           SCORE {Math.round(opp.opportunity_score)}
+          <InfoTooltip title="Why this score?">
+            {scoreReasons.length > 0 ? (
+              <span className="block space-y-1">
+                {scoreReasons.map(r => <span key={r} className="block">• {r}</span>)}
+              </span>
+            ) : (
+              'A 0–100 ranking combining competitor activity, search demand, signal strength, and recency.'
+            )}
+          </InfoTooltip>
         </span>
       </div>
 
@@ -261,20 +276,34 @@ function OpportunityCard({
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-surface-container-low rounded-lg p-3">
-          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Potential Revenue</p>
+          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+            Estimated Revenue
+            <InfoTooltip title="How Estimated Revenue is calculated">
+              Estimated Leads ({opp.expected_leads ?? '—'}) × your configured Value Per Lead (${valuePerLead}).
+              Becomes Actual Revenue once campaigns generate real results.
+            </InfoTooltip>
+          </p>
           <p className="font-mono text-lg font-bold text-on-surface">
             {estRevenueValue != null ? `$${estRevenueValue.toLocaleString()}` : '—'}
           </p>
+          <SourceTag source="ai" className="mt-1.5" />
         </div>
         <div className="bg-surface-container-low rounded-lg p-3">
-          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1">Confidence</p>
-          <p className="font-mono text-lg font-bold text-success">{confidence != null ? `${confidence}%` : '—'}</p>
+          <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+            Confidence
+            <InfoTooltip title="How Confidence is determined">
+              Based on how many independent signals corroborate this opportunity. Shown as
+              High / Medium / Low until enough historical campaign data exists to compute it precisely.
+            </InfoTooltip>
+          </p>
+          <p className={`font-mono text-lg font-bold ${confLevel ? confidenceTone(confLevel) : 'text-on-surface-variant'}`}>{confLevel ?? '—'}</p>
+          <SourceTag source="ai" className="mt-1.5" />
         </div>
       </div>
 
       <div className="flex items-center justify-between text-xs text-on-surface-variant mb-3 pb-3 border-b border-border-subtle">
-        <span>Expected Leads <strong className="text-on-surface">{opp.expected_leads ?? '—'}</strong></span>
-        <span>ROI Forecast <strong className="text-success">{roiMultiplier != null ? `${roiMultiplier}x` : '—'}</strong></span>
+        <span>Estimated Leads <strong className="text-on-surface">{opp.expected_leads ?? '—'}</strong></span>
+        <span>Estimated ROI <strong className="text-success">{roiMultiplier != null ? `${roiMultiplier}x` : '—'}</strong></span>
       </div>
 
       {opp.recommended_action && (
