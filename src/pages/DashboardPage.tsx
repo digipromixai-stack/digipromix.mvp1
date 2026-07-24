@@ -20,21 +20,31 @@ function KpiTile({ label, value, icon: Icon, tone = 'default', source, info }: {
   source?: DataSource
   info?: React.ReactNode
 }) {
-  const toneClasses: Record<string, string> = {
+  const valueTone: Record<string, string> = {
     default: 'text-on-surface',
     primary: 'text-primary',
     success: 'text-success',
     warning: 'text-warning',
   }
+  const iconTone: Record<string, string> = {
+    default: 'bg-surface-container text-on-surface-variant',
+    primary: 'bg-primary-container text-on-primary-container',
+    success: 'bg-primary-container text-on-primary-container',
+    warning: 'bg-orange-tint text-warning',
+  }
   return (
-    <div className="bg-surface-card border border-border-subtle rounded-xl p-4 shadow-soft">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 flex items-center gap-1.5">
-        <Icon size={12} />
-        {label}
-        {info && <InfoTooltip title={`How ${label} is calculated`}>{info}</InfoTooltip>}
-      </p>
-      <p className={`font-mono text-2xl font-bold ${toneClasses[tone]}`}>{value}</p>
-      {source && <SourceTag source={source} className="mt-2" />}
+    <div className="bg-surface-card border border-border-subtle rounded-2xl p-4 shadow-soft">
+      <div className="flex items-center justify-between mb-2.5">
+        <p className="text-xs font-semibold text-on-surface-variant flex items-center gap-1">
+          {label}
+          {info && <InfoTooltip title={`How ${label} is calculated`}>{info}</InfoTooltip>}
+        </p>
+        <span className={`w-[30px] h-[30px] rounded-lg flex items-center justify-center shrink-0 ${iconTone[tone]}`}>
+          <Icon size={15} />
+        </span>
+      </div>
+      <p className={`font-display text-[26px] font-semibold leading-none ${valueTone[tone]}`}>{value}</p>
+      {source && <SourceTag source={source} className="mt-2.5" />}
     </div>
   )
 }
@@ -78,18 +88,18 @@ function HealthRing({ score }: { score: number }) {
   const circumference = 2 * Math.PI * r
   const offset = circumference * (1 - score / 100)
   return (
-    <div className="relative w-40 h-40 mx-auto">
+    <div className="relative w-[112px] h-[112px] shrink-0">
       <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="#e5e7eb" strokeWidth="8" />
+        <circle cx="50" cy="50" r={r} fill="none" stroke="#EFEDE5" strokeWidth="8" />
         <circle
-          cx="50" cy="50" r={r} fill="none" stroke="#3525cd" strokeWidth="8"
+          cx="50" cy="50" r={r} fill="none" stroke="#1E8A5C" strokeWidth="8"
           strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: 'stroke-dashoffset .6s ease' }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-black text-on-surface">{score}</span>
-        <span className="text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">/100</span>
+        <span className="font-display text-2xl font-bold text-on-surface leading-none">{score}</span>
+        <span className="text-[10px] text-on-surface-variant mt-1">/ 100</span>
       </div>
     </div>
   )
@@ -212,6 +222,11 @@ export function DashboardPage() {
   const weeklySpend = topOpportunity?.recommended_budget != null ? topOpportunity.recommended_budget * 7 : 0
   const roi        = expLeads > 0 && weeklySpend > 0 ? (((expLeads * valuePerLead) / weeklySpend)).toFixed(1) : '—'
   const minsAgo    = Math.max(0, Math.round((Date.now() - dataUpdatedAt) / 60000))
+  // Real derived figures for the "what changed" delta — not fabricated:
+  // signals as of yesterday = signals in the last 7 days minus today's signals.
+  const signalsTotal     = stats?.total7d ?? 0
+  const signalsToday     = stats?.changesToday ?? 0
+  const signalsYesterday = Math.max(0, signalsTotal - signalsToday)
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1440px] mx-auto">
@@ -219,7 +234,7 @@ export function DashboardPage() {
       {/* ── Greeting header ── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-on-surface flex items-center gap-2">
+          <h1 className="text-2xl text-on-surface flex items-center gap-2">
             {greeting} 👋
           </h1>
           <p className="text-on-surface-variant text-sm mt-1">
@@ -235,18 +250,22 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Executive summary bar ── */}
-      <div className="bg-indigo-tint border border-primary/20 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3 mb-6 shadow-soft">
-        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary shrink-0">
-          <Sparkles size={18} />
+      {/* ── Executive summary strip ── */}
+      <div className="bg-gradient-to-br from-ink to-ink-2 text-white rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center gap-3.5 mb-6 shadow-soft">
+        <div className="w-[34px] h-[34px] rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+          <Sparkles size={16} />
         </div>
         <div className="flex-1">
-          <p className="text-on-surface-variant text-sm">
-            <span className="font-bold text-primary">{openOpps} Strategic {openOpps === 1 ? 'Opportunity' : 'Opportunities'}</span> detected across your active markets. Intelligence last updated {minsAgo} {minsAgo === 1 ? 'minute' : 'minutes'} ago.
+          <p className="text-[10.5px] uppercase tracking-widest text-brand-200 font-bold mb-1">Today's Summary</p>
+          <p className="text-[14.5px] leading-relaxed text-[#EAF3EE] max-w-2xl">
+            <span className="text-white font-semibold">{openOpps} strategic {openOpps === 1 ? 'opportunity' : 'opportunities'}</span> detected across your active markets. Intelligence last updated {minsAgo} {minsAgo === 1 ? 'minute' : 'minutes'} ago.
           </p>
         </div>
-        <button onClick={refreshAll} className="text-primary font-bold text-sm hover:underline shrink-0 text-left sm:text-right">
-          Refresh Data
+        <button
+          onClick={refreshAll}
+          className="sm:ml-auto shrink-0 inline-flex items-center justify-center gap-1.5 bg-primary text-white text-[13px] font-semibold px-3.5 py-2 rounded-lg hover:bg-on-primary-container transition-colors"
+        >
+          Refresh data
         </button>
       </div>
 
@@ -268,203 +287,57 @@ export function DashboardPage() {
           </div>
         </div>
       ) : (
-        /* ── Bento grid ── */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-
-          {/* Left column */}
-          <div className="lg:col-span-8 flex flex-col gap-5 min-w-0">
-
-            {topOpportunity ? (
-              <div className="bg-surface-card border border-border-subtle rounded-xl p-6 shadow-soft relative overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
-                  <div>
-                    <h2 className="text-xl font-bold text-primary mb-1">{topOpportunity.title}</h2>
-                    {topOpportunity.industry && (
-                      <p className="text-xs text-on-surface-variant">{topOpportunity.industry}{topOpportunity.location ? ` · ${topOpportunity.location}` : ''}</p>
-                    )}
-                  </div>
-                  <div className="inline-flex items-center gap-2 bg-indigo-tint text-primary px-3 py-1.5 rounded-full border border-primary/10 text-[10px] font-bold uppercase tracking-widest shrink-0">
-                    <Sparkles size={12} />
-                    Today's Best Opportunity
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-5 border-y border-border-subtle mb-5">
-                  <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
-                      Estimated Revenue
-                      <InfoTooltip title="How Estimated Revenue is calculated">
-                        Estimated Leads ({expLeads || '—'}) × your configured Value Per Lead (${valuePerLead}).
-                        Estimated Leads are based on industry benchmarks, competitor activity, and search demand.
-                        Once your campaigns generate real results, this becomes Actual Revenue.
-                      </InfoTooltip>
-                    </p>
-                    <p className="font-mono text-2xl font-bold text-on-surface">{oppRevenue}</p>
-                    <SourceTag source="estimated" className="mt-1.5" />
-                  </div>
-                  <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
-                      Confidence
-                      <InfoTooltip title="How Confidence is determined">
-                        Based on how many independent signals corroborate this opportunity
-                        (competitor changes, search demand, ad activity). Shown as High / Medium / Low
-                        until enough historical campaign data exists to compute it precisely.
-                      </InfoTooltip>
-                    </p>
-                    <p className={`font-mono text-2xl font-bold ${confLevel ? confidenceTone(confLevel) : 'text-on-surface-variant'}`}>{confLevel ?? '—'}</p>
-                    <SourceTag source="ai" className="mt-1.5" />
-                  </div>
-                  <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
-                      Opportunity Score
-                      <InfoTooltip title="How the Opportunity Score is calculated">
-                        A 0–100 ranking combining competitor activity, search demand, signal strength,
-                        and how recent the signals are. Higher = act sooner.
-                      </InfoTooltip>
-                    </p>
-                    <p className="font-mono text-2xl font-bold text-on-surface">{score}</p>
-                    <SourceTag source="ai" className="mt-1.5" />
-                  </div>
-                  <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
-                      Estimated ROI
-                      <InfoTooltip title="How Estimated ROI is calculated">
-                        (Estimated Leads × Value Per Lead) ÷ estimated weekly ad spend
-                        (recommended daily budget × 7). An industry-benchmark projection, not a
-                        measured result — it becomes Actual ROI once real campaign data arrives.
-                      </InfoTooltip>
-                    </p>
-                    <p className="font-mono text-2xl font-bold text-primary">{roi === '—' ? '—' : `${roi}x`}</p>
-                    <SourceTag source="benchmark" className="mt-1.5" />
-                  </div>
-                </div>
-
-                {(topOpportunity.recommended_action || scoreReasons.length > 0) && (
-                  <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30 flex gap-3 mb-5">
-                    <TrendingUp size={18} className="text-primary shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-sm text-on-surface mb-1">Why this score?</p>
-                      {topOpportunity.recommended_action && (
-                        <p className="text-sm text-on-surface-variant leading-relaxed mb-2">{topOpportunity.recommended_action}</p>
-                      )}
-                      {scoreReasons.length > 0 && (
-                        <ul className="space-y-1">
-                          {scoreReasons.map((r) => (
-                            <li key={r} className="text-sm text-on-surface-variant flex items-start gap-1.5">
-                              <CheckCircle size={13} className="text-success shrink-0 mt-0.5" />
-                              {r}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={() => navigate('/opportunities')}
-                    className="flex-1 inline-flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-soft hover:opacity-90 active:scale-[0.98] transition-all"
-                  >
-                    <Zap size={16} />
-                    Launch Counter Campaign
-                  </button>
-                  <Link
-                    to="/opportunities"
-                    className="px-6 border border-outline-variant text-on-surface-variant py-3 rounded-xl font-bold text-sm hover:bg-surface-container-low text-center transition-all"
-                  >
-                    View Details
-                  </Link>
-                </div>
-              </div>
+        <>
+          {/* ── KPI row ── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
+            <KpiTile
+              label="Est. Revenue"
+              value={`$${potentialRevenue.toLocaleString()}`}
+              icon={Target}
+              tone="primary"
+              source="estimated"
+              info={<>Total AI-estimated leads across your {openOpps} open opportunities ({openOppLeads}) × your configured Value Per Lead (${valuePerLead}, set in Settings). Becomes Actual Revenue once campaigns generate real results.</>}
+            />
+            {openOppLeads > 0 ? (
+              <KpiTile
+                label="Est. Leads"
+                value={openOppLeads}
+                icon={Users}
+                source="benchmark"
+                info={<>Sum of AI-estimated leads across your {openOpps} open opportunities, from industry benchmark cost-per-click, competitor activity, and search demand. Matches the Est. Revenue tile (leads × ${valuePerLead}). Becomes Actual Leads once campaigns run.</>}
+              />
             ) : (
-              <div className="bg-surface-card border border-border-subtle rounded-xl p-6 shadow-soft flex items-center gap-4">
-                <CheckCircle size={22} className="text-success shrink-0" />
-                <div>
-                  <p className="font-bold text-on-surface text-sm">No urgent opportunities right now</p>
-                  <p className="text-xs text-on-surface-variant mt-1">Competitors are quiet — great time to build your brand.</p>
-                </div>
-              </div>
+              <KpiTile
+                label="Actual Leads"
+                value={totalLeads}
+                icon={Users}
+                source="live"
+                info={<>Real leads captured from your landing pages and campaigns — not an estimate.</>}
+              />
             )}
-
-            {/* Delta panel */}
-            <div className="bg-surface-card border border-border-subtle rounded-xl p-6 shadow-soft">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="font-bold text-on-surface">What Changed Since Yesterday</h3>
-                <span className="text-xs text-on-surface-variant">Last 24 Hours</span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="w-12 h-12 bg-success/10 rounded-2xl flex items-center justify-center text-success">
-                    <TrendingUp size={22} />
-                  </div>
-                  <div>
-                    <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">Signals Today</p>
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-mono text-2xl font-bold text-on-surface">{stats?.total7d ?? 0}</span>
-                      <span className="text-success font-bold text-sm">+{stats?.changesToday ?? 0}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-1 p-3 bg-indigo-tint rounded-xl border border-primary/10 w-full">
-                  <p className="text-sm italic text-on-surface-variant">
-                    {highSev7d > 0
-                      ? `${highSev7d} high-threat signal${highSev7d > 1 ? 's' : ''} detected this week — recommend reviewing counter-campaign priorities.`
-                      : 'No high-threat signals this week. Competitors are quiet.'}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <KpiTile
+              label="Opportunities"
+              value={openOpps}
+              icon={Compass}
+              source="ai"
+              info={<>Open revenue opportunities detected by the AI scoring engine from competitor changes, Google Trends, and ad-activity signals.</>}
+            />
+            <KpiTile
+              label="Threat Level"
+              value={highSev7d > 0 ? (highSev7d >= 3 ? 'High' : 'Medium') : 'Low'}
+              icon={AlertTriangle}
+              tone={highSev7d > 0 ? 'warning' : 'success'}
+              source="ai"
+              info={<>Based on high-severity competitor changes detected in the last 7 days ({highSev7d} found). 0 = Low, 1–2 = Medium, 3+ = High.</>}
+            />
           </div>
 
-          {/* Right column */}
-          <div className="lg:col-span-4 flex flex-col gap-5 min-w-0">
+          {/* ── Two-column: Business Health / What changed + Best opportunity ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-4 items-start mb-5">
 
-            <div className="grid grid-cols-2 gap-3">
-              <KpiTile
-                label="Est. Revenue"
-                value={`$${potentialRevenue.toLocaleString()}`}
-                icon={Target}
-                tone="primary"
-                source="estimated"
-                info={<>Total AI-estimated leads across your {openOpps} open opportunities ({openOppLeads}) × your configured Value Per Lead (${valuePerLead}, set in Settings). Becomes Actual Revenue once campaigns generate real results.</>}
-              />
-              {openOppLeads > 0 ? (
-                <KpiTile
-                  label="Est. Leads"
-                  value={openOppLeads}
-                  icon={Users}
-                  source="benchmark"
-                  info={<>Sum of AI-estimated leads across your {openOpps} open opportunities, from industry benchmark cost-per-click, competitor activity, and search demand. Matches the Est. Revenue tile (leads × ${valuePerLead}). Becomes Actual Leads once campaigns run.</>}
-                />
-              ) : (
-                <KpiTile
-                  label="Actual Leads"
-                  value={totalLeads}
-                  icon={Users}
-                  source="live"
-                  info={<>Real leads captured from your landing pages and campaigns — not an estimate.</>}
-                />
-              )}
-              <KpiTile
-                label="Opportunities"
-                value={openOpps}
-                icon={Compass}
-                source="ai"
-                info={<>Open revenue opportunities detected by the AI scoring engine from competitor changes, Google Trends, and ad-activity signals.</>}
-              />
-              <KpiTile
-                label="Threat Level"
-                value={highSev7d > 0 ? (highSev7d >= 3 ? 'High' : 'Medium') : 'Low'}
-                icon={AlertTriangle}
-                tone={highSev7d > 0 ? 'warning' : 'success'}
-                source="ai"
-                info={<>Based on high-severity competitor changes detected in the last 7 days ({highSev7d} found). 0 = Low, 1–2 = Medium, 3+ = High.</>}
-              />
-            </div>
-
-            <div className="bg-surface-card border border-border-subtle rounded-xl p-6 shadow-soft">
-              <h3 className="font-bold text-on-surface mb-1 flex items-center gap-1.5">
+            {/* Left: Business Activity Index */}
+            <div className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft">
+              <h3 className="font-display text-[16.5px] font-semibold text-on-surface mb-1 flex items-center gap-1.5">
                 Business Activity Index
                 <InfoTooltip title="How the Business Activity Index is calculated">
                   Average of three activity measures: open opportunity volume, competitive calm
@@ -472,34 +345,199 @@ export function DashboardPage() {
                   It measures market activity around your business — not revenue or ROI.
                 </InfoTooltip>
               </h3>
-              <p className="text-[11px] text-on-surface-variant mb-4">
+              <p className="text-xs text-on-surface-variant mb-5">
                 Based on recent activity volume (open opportunities, competitor threats, new leads) — not a performance, revenue, or ROI metric.
               </p>
-              <HealthRing score={healthScore} />
-              <div className="mt-6 space-y-3">
-                <HealthBar label="Opportunity Volume" value={opportunityScore} tone="primary" />
-                <HealthBar label="Competitive Calm" value={threatScore} tone={threatScore > 60 ? 'success' : 'warning'} />
-                <HealthBar label="Overall Momentum" value={Math.round((opportunityScore + leadScore) / 2)} tone="primary" />
-                <HealthBar label="Lead Volume" value={leadScore} tone="success" />
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                <HealthRing score={healthScore} />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3 flex-1 w-full">
+                  <HealthBar label="Opportunity Volume" value={opportunityScore} tone="primary" />
+                  <HealthBar label="Competitive Calm" value={threatScore} tone={threatScore > 60 ? 'success' : 'warning'} />
+                  <HealthBar label="Overall Momentum" value={Math.round((opportunityScore + leadScore) / 2)} tone="primary" />
+                  <HealthBar label="Lead Volume" value={leadScore} tone="success" />
+                </div>
               </div>
             </div>
 
-            <Link
-              to="/opportunities"
-              className="bg-on-surface text-white rounded-xl p-6 shadow-soft relative overflow-hidden flex flex-col justify-between hover:opacity-95 transition-opacity"
-            >
-              <ShieldCheck size={36} className="mb-4 opacity-90" />
-              <h4 className="font-bold mb-2">Unlock Growth</h4>
-              <p className="text-sm text-white/70 mb-4">The AI detected new opportunities in your market. Ready to explore?</p>
-              <span className="inline-flex items-center gap-1.5 bg-white text-on-surface px-4 py-2 rounded-lg font-bold text-sm w-fit">
-                Explore Now <ArrowRight size={14} />
-              </span>
-              <span className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-                <Compass size={22} className="text-white/70" />
-              </span>
-            </Link>
+            {/* Right: What changed + best opportunity */}
+            <div className="flex flex-col gap-4 min-w-0">
+              <div className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="font-display text-[14.5px] font-semibold text-on-surface">What changed since yesterday</h3>
+                </div>
+                <div className="flex items-center gap-3 py-3">
+                  <span className="font-display text-[19px] font-semibold text-on-surface">{signalsYesterday}</span>
+                  <span className="text-on-surface-variant text-sm">→</span>
+                  <span className="font-display text-[19px] font-semibold text-on-surface">{signalsTotal}</span>
+                  <span className="ml-auto font-mono text-xs font-semibold text-on-primary-container bg-primary-container px-2 py-0.5 rounded-full">
+                    +{signalsToday} signals
+                  </span>
+                </div>
+                <p className="text-[11.5px] text-on-surface-variant border-t border-border-subtle pt-3">
+                  {highSev7d > 0
+                    ? `${highSev7d} high-threat signal${highSev7d > 1 ? 's' : ''} detected this week — recommend reviewing counter-campaign priorities.`
+                    : 'No high-threat signals this week. Competitors are quiet.'}
+                </p>
+              </div>
+
+              {topOpportunity ? (
+                <div className="bg-gradient-to-br from-on-primary-container to-primary text-white rounded-2xl p-4 shadow-soft">
+                  <p className="text-[10.5px] uppercase tracking-widest opacity-85 font-bold mb-1.5">Best opportunity today</p>
+                  <p className="font-display text-base font-semibold mb-3 leading-snug">{topOpportunity.title}</p>
+                  <div className="flex gap-5 mb-4">
+                    <div>
+                      <span className="font-mono text-[15px] font-semibold block">{oppRevenue}</span>
+                      <span className="text-[10.5px] opacity-80">Est. revenue</span>
+                    </div>
+                    <div>
+                      <span className="font-mono text-[15px] font-semibold block">{expLeads || '—'}</span>
+                      <span className="text-[10.5px] opacity-80">Est. leads</span>
+                    </div>
+                    <div>
+                      <span className="font-mono text-[15px] font-semibold block">{confLevel ?? '—'}</span>
+                      <span className="text-[10.5px] opacity-80">Confidence</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => navigate('/opportunities')}
+                    className="inline-flex items-center gap-1.5 bg-white text-on-surface px-3.5 py-2 rounded-lg font-semibold text-[13px] w-fit hover:opacity-90 transition-opacity"
+                  >
+                    <Zap size={14} />
+                    Launch counter campaign
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/opportunities"
+                  className="bg-on-surface text-white rounded-2xl p-5 shadow-soft relative overflow-hidden flex flex-col justify-between hover:opacity-95 transition-opacity"
+                >
+                  <ShieldCheck size={30} className="mb-3 opacity-90" />
+                  <h4 className="font-display font-semibold mb-1.5">No urgent opportunities right now</h4>
+                  <p className="text-sm text-white/70 mb-4">Competitors are quiet — great time to build your brand.</p>
+                  <span className="inline-flex items-center gap-1.5 bg-white text-on-surface px-4 py-2 rounded-lg font-bold text-sm w-fit">
+                    Explore opportunities <ArrowRight size={14} />
+                  </span>
+                  <span className="absolute -bottom-3 -right-3 w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+                    <Compass size={22} className="text-white/70" />
+                  </span>
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* ── AI Recommendation ── */}
+          {topOpportunity && (
+            <div className="bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft">
+              <div className="flex items-center mb-4">
+                <div>
+                  <h3 className="font-display text-[16.5px] font-semibold text-on-surface">AI Recommendation</h3>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Ranked by expected impact on revenue</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
+                <div>
+                  <h4 className="font-display text-xl font-semibold text-primary mb-1">{topOpportunity.title}</h4>
+                  {topOpportunity.industry && (
+                    <p className="text-xs text-on-surface-variant">{topOpportunity.industry}{topOpportunity.location ? ` · ${topOpportunity.location}` : ''}</p>
+                  )}
+                </div>
+                <div className="inline-flex items-center gap-2 bg-primary-container text-on-primary-container px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest shrink-0">
+                  <Sparkles size={12} />
+                  Today's Best Opportunity
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-5 border-y border-border-subtle mb-5">
+                <div>
+                  <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                    Estimated Revenue
+                    <InfoTooltip title="How Estimated Revenue is calculated">
+                      Estimated Leads ({expLeads || '—'}) × your configured Value Per Lead (${valuePerLead}).
+                      Estimated Leads are based on industry benchmarks, competitor activity, and search demand.
+                      Once your campaigns generate real results, this becomes Actual Revenue.
+                    </InfoTooltip>
+                  </p>
+                  <p className="font-mono text-2xl font-bold text-on-surface">{oppRevenue}</p>
+                  <SourceTag source="estimated" className="mt-1.5" />
+                </div>
+                <div>
+                  <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                    Confidence
+                    <InfoTooltip title="How Confidence is determined">
+                      Based on how many independent signals corroborate this opportunity
+                      (competitor changes, search demand, ad activity). Shown as High / Medium / Low
+                      until enough historical campaign data exists to compute it precisely.
+                    </InfoTooltip>
+                  </p>
+                  <p className={`font-mono text-2xl font-bold ${confLevel ? confidenceTone(confLevel) : 'text-on-surface-variant'}`}>{confLevel ?? '—'}</p>
+                  <SourceTag source="ai" className="mt-1.5" />
+                </div>
+                <div>
+                  <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                    Opportunity Score
+                    <InfoTooltip title="How the Opportunity Score is calculated">
+                      A 0–100 ranking combining competitor activity, search demand, signal strength,
+                      and how recent the signals are. Higher = act sooner.
+                    </InfoTooltip>
+                  </p>
+                  <p className="font-mono text-2xl font-bold text-on-surface">{score}</p>
+                  <SourceTag source="ai" className="mt-1.5" />
+                </div>
+                <div>
+                  <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
+                    Estimated ROI
+                    <InfoTooltip title="How Estimated ROI is calculated">
+                      (Estimated Leads × Value Per Lead) ÷ estimated weekly ad spend
+                      (recommended daily budget × 7). An industry-benchmark projection, not a
+                      measured result — it becomes Actual ROI once real campaign data arrives.
+                    </InfoTooltip>
+                  </p>
+                  <p className="font-mono text-2xl font-bold text-primary">{roi === '—' ? '—' : `${roi}x`}</p>
+                  <SourceTag source="benchmark" className="mt-1.5" />
+                </div>
+              </div>
+
+              {(topOpportunity.recommended_action || scoreReasons.length > 0) && (
+                <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/30 flex gap-3 mb-5">
+                  <TrendingUp size={18} className="text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-sm text-on-surface mb-1">Why this score?</p>
+                    {topOpportunity.recommended_action && (
+                      <p className="text-sm text-on-surface-variant leading-relaxed mb-2">{topOpportunity.recommended_action}</p>
+                    )}
+                    {scoreReasons.length > 0 && (
+                      <ul className="space-y-1">
+                        {scoreReasons.map((r) => (
+                          <li key={r} className="text-sm text-on-surface-variant flex items-start gap-1.5">
+                            <CheckCircle size={13} className="text-success shrink-0 mt-0.5" />
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => navigate('/opportunities')}
+                  className="flex-1 inline-flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-xl font-bold text-sm shadow-soft hover:opacity-90 active:scale-[0.98] transition-all"
+                >
+                  <Zap size={16} />
+                  Launch Counter Campaign
+                </button>
+                <Link
+                  to="/opportunities"
+                  className="px-6 border border-outline-variant text-on-surface-variant py-3 rounded-xl font-bold text-sm hover:bg-surface-container-low text-center transition-all"
+                >
+                  View Details
+                </Link>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

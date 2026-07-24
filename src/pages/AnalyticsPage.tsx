@@ -49,8 +49,8 @@ function StatCard({ value, label, sub, color = 'text-on-surface' }: {
   value: string | number; label: string; sub?: string; color?: string
 }) {
   return (
-    <div className="bg-surface-card rounded-xl border border-border-subtle p-5">
-      <p className={`text-3xl font-bold ${color} leading-none`}>{value}</p>
+    <div className="bg-surface-card rounded-2xl border border-border-subtle p-5 shadow-soft">
+      <p className={`font-display text-3xl font-semibold ${color} leading-none`}>{value}</p>
       <p className="text-sm text-on-surface-variant mt-1.5">{label}</p>
       {sub && <p className="text-xs text-on-surface-variant mt-0.5">{sub}</p>}
     </div>
@@ -113,14 +113,14 @@ function CompetitorTab({ days }: { days: number }) {
   const topCompetitor = ranking[0]?.name ?? '—'
 
   if (isLoading) return <PageSpinner />
-  if (isError) return <p className="text-sm text-red-500 text-center py-8">Failed to load competitor data.</p>
+  if (isError) return <p className="text-sm text-danger text-center py-8">Failed to load competitor data.</p>
 
   return (
     <div className="space-y-6">
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard value={changes.length} label="Total changes" sub={`last ${days} days`} />
-        <StatCard value={highCount} label="High severity" color={highCount > 0 ? 'text-red-600' : 'text-on-surface'} sub="promotions & price changes" />
+        <StatCard value={highCount} label="High severity" color={highCount > 0 ? 'text-danger' : 'text-on-surface'} sub="promotions & price changes" />
         <StatCard value={avgPerDay} label="Avg per day" sub="change velocity" />
         <StatCard value={topCompetitor} label="Most active" sub={`${ranking[0]?.total ?? 0} changes`} />
       </div>
@@ -185,7 +185,7 @@ function CompetitorTab({ days }: { days: number }) {
                         <span className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">{c.name}</span>
                         <div className="flex items-center gap-2">
                           {c.high > 0 && (
-                            <span className="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+                            <span className="text-xs bg-red-100 text-danger px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
                               <AlertTriangle size={10} />{c.high}
                             </span>
                           )}
@@ -209,7 +209,7 @@ function CompetitorTab({ days }: { days: number }) {
       {changes.filter((c) => c.severity === 'high').length > 0 && (
         <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
           <h2 className="text-sm font-semibold text-on-surface mb-1 flex items-center gap-2">
-            <Zap size={14} className="text-red-500" /> High-Priority Moves
+            <Zap size={14} className="text-danger" /> High-Priority Moves
           </h2>
           <p className="text-xs text-on-surface-variant mb-4">Promotions and price changes in this period</p>
           <div className="space-y-3">
@@ -323,8 +323,8 @@ function CampaignsLeadsTab({ days }: { days: number }) {
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard value={leads.length}   label="Total leads"      sub={`last ${days} days`} />
-        <StatCard value={`${avgScore}%`} label="Avg lead score"   color={avgScore >= 60 ? 'text-green-600' : 'text-on-surface'} />
-        <StatCard value={`${qualifiedRate}%`} label="Qualification rate" sub="qualified + closed" color={qualifiedRate >= 30 ? 'text-green-600' : 'text-on-surface'} />
+        <StatCard value={`${avgScore}%`} label="Avg lead score"   color={avgScore >= 60 ? 'text-success' : 'text-on-surface'} />
+        <StatCard value={`${qualifiedRate}%`} label="Qualification rate" sub="qualified + closed" color={qualifiedRate >= 30 ? 'text-success' : 'text-on-surface'} />
         <StatCard value={campaigns.filter(c => c.status === 'active').length} label="Active campaigns" sub="currently running" />
       </div>
 
@@ -371,7 +371,7 @@ function CampaignsLeadsTab({ days }: { days: number }) {
 
         <div className="bg-surface-card rounded-xl border border-border-subtle p-6">
           <h2 className="text-sm font-semibold text-on-surface mb-1 flex items-center gap-2">
-            <Rocket size={14} className="text-orange-500" /> Top Campaigns by Leads
+            <Rocket size={14} className="text-warning" /> Top Campaigns by Leads
           </h2>
           <p className="text-xs text-on-surface-variant mb-4">Best performing landing pages</p>
           {topCampaigns.length === 0 ? (
@@ -501,11 +501,11 @@ function MarketSignalsTab() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
-          { label: 'Search Spikes',    value: spikes.length,    icon: TrendingUp,   color: 'text-green-600'  },
+          { label: 'Search Spikes',    value: spikes.length,    icon: TrendingUp,   color: 'text-success'  },
           { label: 'Rising Keywords',  value: rising.length,    icon: TrendingUp,   color: 'text-primary'   },
           { label: 'Ad Vol. Spikes',   value: adVolume.length,  icon: BarChart2,    color: 'text-violet-600' },
           { label: 'New Creatives',    value: newCreative.length, icon: Zap,        color: 'text-amber-600'  },
-          { label: 'Offer Repeats',    value: offerRepeat.length, icon: Target,     color: 'text-red-600'    },
+          { label: 'Offer Repeats',    value: offerRepeat.length, icon: Target,     color: 'text-danger'    },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="bg-surface-card border border-border-subtle rounded-xl p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -521,7 +521,7 @@ function MarketSignalsTab() {
         {/* Top growing keywords */}
         <div className="bg-surface-card border border-border-subtle rounded-xl p-6">
           <h2 className="text-sm font-semibold text-on-surface mb-4 flex items-center gap-2">
-            <TrendingUp size={14} className="text-green-500" /> Top Growing Keywords
+            <TrendingUp size={14} className="text-success" /> Top Growing Keywords
           </h2>
           {topGrowing.length === 0 ? (
             <p className="text-sm text-on-surface-variant text-center py-8">No positive growth signals yet</p>
@@ -535,7 +535,7 @@ function MarketSignalsTab() {
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      Number(s.growth_pct) >= 30 ? 'bg-green-100 text-green-700' : 'bg-indigo-tint text-primary'
+                      Number(s.growth_pct) >= 30 ? 'bg-primary-container text-on-primary-container' : 'bg-indigo-tint text-primary'
                     }`}>
                       +{Math.round(Number(s.growth_pct))}%
                     </span>
@@ -602,7 +602,7 @@ function MarketSignalsTab() {
                   <td className="py-2 pr-3 text-on-surface-variant">{s.location ?? 'Global'}</td>
                   <td className="py-2 pr-3 text-right">
                     {s.growth_pct != null ? (
-                      <span className={`text-xs font-bold ${Number(s.growth_pct) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      <span className={`text-xs font-bold ${Number(s.growth_pct) >= 0 ? 'text-success' : 'text-danger'}`}>
                         {Number(s.growth_pct) >= 0 ? '+' : ''}{Math.round(Number(s.growth_pct))}%
                       </span>
                     ) : '—'}

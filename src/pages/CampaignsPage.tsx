@@ -23,11 +23,11 @@ import { SourceTag } from '../components/ui/MetricMeta'
 import type { Campaign, CampaignStatus } from '../types/database.types'
 
 const STATUS_CONFIG: Record<CampaignStatus, { label: string; color: string; icon: React.ElementType }> = {
-  draft:     { label: 'Draft',     color: 'bg-gray-100 text-gray-600',     icon: FileEdit       },
-  active:    { label: 'Active',    color: 'bg-green-100 text-green-700',   icon: Play           },
-  paused:    { label: 'Paused',    color: 'bg-yellow-100 text-yellow-700', icon: Pause          },
-  failed:    { label: 'Failed',    color: 'bg-red-100 text-red-700',       icon: AlertTriangle  },
-  completed: { label: 'Completed', color: 'bg-blue-100 text-blue-700',     icon: CheckCircle2   },
+  draft:     { label: 'Draft',     color: 'bg-surface-container text-on-surface-variant', icon: FileEdit       },
+  active:    { label: 'Active',    color: 'bg-primary-container text-on-primary-container', icon: Play           },
+  paused:    { label: 'Paused',    color: 'bg-orange-tint text-warning',   icon: Pause          },
+  failed:    { label: 'Failed',    color: 'bg-red-tint text-danger',       icon: AlertTriangle  },
+  completed: { label: 'Completed', color: 'bg-surface-container-high text-on-surface',     icon: CheckCircle2   },
 }
 
 const CHANNEL_ICONS: Record<string, React.ElementType> = {
@@ -592,24 +592,24 @@ function KanbanCard({ campaign }: { campaign: Campaign }) {
 
 // ── Kanban board ──────────────────────────────────────────────────────────────
 
-const KANBAN_COLS: { status: CampaignStatus; label: string; dot: string; countBg: string; countText: string }[] = [
-  { status: 'draft',     label: 'Draft',     dot: 'bg-gray-400',   countBg: 'bg-surface-container-low', countText: 'text-on-surface-variant' },
-  { status: 'active',    label: 'Running',   dot: 'bg-success',    countBg: 'bg-emerald-50',             countText: 'text-success' },
-  { status: 'paused',    label: 'Paused',    dot: 'bg-warning',    countBg: 'bg-orange-tint',            countText: 'text-warning' },
-  { status: 'completed', label: 'Completed', dot: 'bg-primary',    countBg: 'bg-indigo-tint',            countText: 'text-primary' },
+const KANBAN_COLS: { status: CampaignStatus; label: string; dot: string; countText: string }[] = [
+  { status: 'draft',     label: 'Draft',     dot: 'bg-secondary',  countText: 'text-on-surface-variant' },
+  { status: 'active',    label: 'Running',   dot: 'bg-success',    countText: 'text-success' },
+  { status: 'paused',    label: 'Paused',    dot: 'bg-warning',    countText: 'text-warning' },
+  { status: 'completed', label: 'Completed', dot: 'bg-primary',    countText: 'text-primary' },
 ]
 
 function KanbanBoard({ campaigns }: { campaigns: Campaign[] }) {
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
+    <div className="flex gap-3.5 overflow-x-auto pb-4 -mx-1 px-1">
       {KANBAN_COLS.map(col => {
         const colCampaigns = campaigns.filter(c => c.status === col.status)
         return (
-          <div key={col.status} className="shrink-0 w-72 flex flex-col">
+          <div key={col.status} className="shrink-0 w-72 flex flex-col bg-surface-container rounded-2xl p-3">
             <div className="flex items-center gap-2 mb-3 px-1">
               <span className={`w-2 h-2 rounded-full ${col.dot}`} />
               <span className="text-xs font-bold text-on-surface-variant uppercase tracking-[.06em]">{col.label}</span>
-              <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${col.countBg} ${col.countText}`}>
+              <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-surface-card ${col.countText}`}>
                 {colCampaigns.length}
               </span>
             </div>

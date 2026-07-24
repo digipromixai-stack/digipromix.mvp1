@@ -63,12 +63,6 @@ function PriorityTile({ icon: Icon, iconBg, label, value, sublabel, subTone }: {
 
 // ── Priority lead row ────────────────────────────────────────────────────────
 
-const ACTION_BTN: Record<'solid' | 'success' | 'neutral', string> = {
-  solid:   'bg-primary text-white hover:opacity-90',
-  success: 'bg-transparent text-success border border-success/30 hover:bg-success/10',
-  neutral: 'bg-transparent text-on-surface-variant border border-outline-variant hover:bg-surface-container-low',
-}
-
 function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
   const { mutate: updateStatus, isPending: updating } = useUpdateLeadStatus()
   const { mutate: deleteLead, isPending: deleting } = useDeleteLead()
@@ -100,17 +94,12 @@ function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-[auto,1fr] gap-3 mb-3">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">AI Next Best Action</p>
-              <button className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-colors ${ACTION_BTN[action.tone]}`}>
-                <ActionIcon size={12} /> {action.label}
-              </button>
-            </div>
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Why?</p>
-              <p className="text-xs text-on-surface-variant leading-relaxed">{whyText(lead)}</p>
-            </div>
+          <div className="bg-orange-tint rounded-lg p-3 mb-3">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-warning mb-1">AI Next Best Action</p>
+            <button className={`inline-flex items-center gap-1.5 text-[13px] font-bold mb-1 transition-colors ${action.tone === 'solid' ? 'text-primary' : 'text-[#5B3D10]'}`}>
+              <ActionIcon size={12} /> {action.label}
+            </button>
+            <p className="text-[11.5px] text-[#8A6A32] leading-relaxed">{whyText(lead)}</p>
           </div>
 
           <div className="flex flex-wrap gap-3 mb-2">
@@ -170,7 +159,7 @@ function LeadSourceBreakdown({ leads }: { leads: LeadWithCampaign[] }) {
     <div className="bg-surface-card rounded-2xl border border-border-subtle p-4 shadow-soft">
       <div className="flex items-center gap-2 mb-4">
         <PieChart size={15} className="text-primary" />
-        <h3 className="text-sm font-bold text-on-surface">Lead Source Breakdown</h3>
+        <h3 className="font-display text-[14.5px] font-semibold text-on-surface">Lead Source Breakdown</h3>
       </div>
       {breakdown.length === 0 ? (
         <p className="text-xs text-on-surface-variant">No leads yet.</p>

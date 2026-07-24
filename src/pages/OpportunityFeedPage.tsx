@@ -134,7 +134,7 @@ function OpportunityTrendChart({ opportunities }: { opportunities: Opportunity[]
 
   return (
     <div className="bg-surface-card border border-border-subtle rounded-xl p-5 shadow-soft">
-      <h3 className="font-bold text-on-surface mb-4 flex items-center gap-2">
+      <h3 className="font-display font-semibold text-on-surface mb-4 flex items-center gap-2">
         <TrendingUp size={16} className="text-primary" />
         Opportunity Trend Analysis
       </h3>
@@ -206,7 +206,29 @@ function AiRecommendationCard({ opportunities }: { opportunities: Opportunity[] 
 
 const TIER_META = {
   urgent: { label: 'URGENT',       badgeBg: 'bg-red-tint',    badgeText: 'text-danger' },
-  normal: { label: 'AI GENERATED', badgeBg: 'bg-indigo-tint', badgeText: 'text-primary' },
+  normal: { label: 'AI GENERATED', badgeBg: 'bg-orange-tint', badgeText: 'text-warning' },
+}
+
+// Small circular score ring, mirrors the reference design's confidence ring.
+function ScoreRing({ score }: { score: number }) {
+  const r = 16
+  const circumference = 2 * Math.PI * r
+  const offset = circumference * (1 - Math.min(100, Math.max(0, score)) / 100)
+  const color = score >= 75 ? '#1E8A5C' : score >= 50 ? '#D98A2B' : '#5B6A63'
+  return (
+    <div className="relative w-[38px] h-[38px] shrink-0">
+      <svg viewBox="0 0 38 38" className="w-full h-full -rotate-90">
+        <circle cx="19" cy="19" r={r} fill="none" stroke="#EFEDE5" strokeWidth="4" />
+        <circle
+          cx="19" cy="19" r={r} fill="none" stroke={color} strokeWidth="4"
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] font-bold text-on-surface">
+        {Math.round(score)}
+      </div>
+    </div>
+  )
 }
 
 function OpportunityCard({
@@ -248,11 +270,11 @@ function OpportunityCard({
       </button>
 
       <div className="flex items-center justify-between gap-2 mb-3 pr-5">
-        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${tier.badgeBg} ${tier.badgeText}`}>
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase tracking-wide ${tier.badgeBg} ${tier.badgeText}`}>
           {tier.label}
         </span>
-        <span className="inline-flex items-center gap-1 bg-surface-container-low px-2.5 py-1 rounded-full border border-border-subtle text-[10px] font-bold text-on-surface-variant">
-          SCORE {Math.round(opp.opportunity_score)}
+        <span className="inline-flex items-center gap-1">
+          <ScoreRing score={opp.opportunity_score} />
           <InfoTooltip title="Why this score?">
             {scoreReasons.length > 0 ? (
               <span className="block space-y-1">
@@ -269,7 +291,7 @@ function OpportunityCard({
         {opp.market_name ?? `${opp.industry ?? 'General'} · ${opp.location ?? 'Global'}`}
         {growthPct != null && <span className="text-success ml-1.5">+{Math.round(growthPct)}% demand</span>}
       </p>
-      <h3 className="font-bold text-on-surface text-base leading-snug mb-2">{opp.title}</h3>
+      <h3 className="font-display font-semibold text-on-surface text-base leading-snug mb-2">{opp.title}</h3>
       {opp.description && (
         <p className="text-sm text-on-surface-variant mb-4 line-clamp-2">{opp.description}</p>
       )}
@@ -301,7 +323,7 @@ function OpportunityCard({
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-on-surface-variant mb-3 pb-3 border-b border-border-subtle">
+      <div className="flex items-center justify-between text-xs text-on-surface-variant mb-3 pt-3 pb-1 border-t border-dashed border-border-subtle">
         <span>Estimated Leads <strong className="text-on-surface">{opp.expected_leads ?? '—'}</strong></span>
         <span>Estimated ROI <strong className="text-success">{roiMultiplier != null ? `${roiMultiplier}x` : '—'}</strong></span>
       </div>
