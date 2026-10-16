@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
     }
     const keywordCounts = new Map<string, number>()
     for (const k of allKeywords) keywordCounts.set(k, (keywordCounts.get(k) ?? 0) + 1)
-    const repeats = [...keywordCounts.entries()].filter(([_, n]) => n >= 3)
+    const repeats = [...keywordCounts.entries()].filter(([, n]) => n >= 3)
     if (repeats.length > 0) {
       inserts.push({
         user_id: userId, competitor_id: compId,

@@ -24,7 +24,7 @@
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -296,16 +296,25 @@ Deno.serve(async (req) => {
     if (cErr) return json({ error: cErr.message }, 500)
     if (!campaigns || campaigns.length === 0) return json({ checked: 0, reason: 'no_launched_campaigns' })
 
+    interface IntegrationItem {
+      platform: string
+      access_token: string | null
+      refresh_token: string | null
+      account_id: string | null
+      login_customer_id: string | null
+    }
+
     // Cache ad integrations per user
-    const integrationCache = new Map<string, { meta: any; google: any }>()
+    const integrationCache = new Map<string, { meta: IntegrationItem | null; google: IntegrationItem | null }>()
     async function getIntegrations(userId: string) {
       if (integrationCache.has(userId)) return integrationCache.get(userId)!
       const { data } = await admin.from('ad_integrations')
         .select('platform, access_token, refresh_token, account_id, login_customer_id')
         .eq('user_id', userId).eq('is_active', true)
+      const list = (data ?? []) as IntegrationItem[]
       const cache = {
-        meta:   (data ?? []).find((d) => d.platform === 'meta')   ?? null,
-        google: (data ?? []).find((d) => d.platform === 'google') ?? null,
+        meta:   list.find((d) => d.platform === 'meta')   ?? null,
+        google: list.find((d) => d.platform === 'google') ?? null,
       }
       integrationCache.set(userId, cache)
       return cache

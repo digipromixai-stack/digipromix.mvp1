@@ -208,6 +208,7 @@ Market context (use only to understand the opportunity — do NOT copy or refere
 - Opportunity signal: ${change.title}
 - Relevant keywords in market: ${promoKeywords || 'N/A'}
 - Active promotions in market: ${promoCodes !== 'none' ? 'Yes — consider matching or beating with your own offer' : 'None detected'}
+- Market shift summary: ${addedContent || 'N/A'}
 - Market intensity score: ${campaignScore}/150
 ${ragContext}
 Your task: Write campaign content that:
@@ -262,7 +263,7 @@ Return ONLY a valid JSON object (no markdown, no extra text) with these exact fi
     try {
       generated = JSON.parse(cleaned)
     } catch (parseErr) {
-      console.error('JSON parse failed. Raw (500 chars):', rawText.slice(0, 500))
+      console.error('JSON parse failed:', parseErr, 'Raw (500 chars):', rawText.slice(0, 500))
       return jsonResponse({ error: 'AI returned invalid JSON', detail: rawText.slice(0, 300) }, 500)
     }
 

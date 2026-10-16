@@ -1,5 +1,4 @@
 import {
-  extractText,
   extractLinks,
   extractPrices,
   detectPromotionKeywords,

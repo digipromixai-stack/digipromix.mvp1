@@ -118,7 +118,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 // Each replace() previously allocated a new string of the entire HTML — with
 // 5 passes on a 1 MB page that's ~5 MB of intermediate string allocations.
 const NOISE_RE = /<(?:script|style|noscript|svg)(?:\s[^>]*)?>[\s\S]*?<\/(?:script|style|noscript|svg)>|<!--[\s\S]*?-->/gi
-const PRICE_REGEX = /(?:[\$€£¥][\d,]+\.?\d{0,2}|\d+[.,]\d{2}\s*(?:USD|EUR|GBP|CAD|AUD))/g
+const PRICE_REGEX = /(?:[$€£¥][\d,]+\.?\d{0,2}|\d+[.,]\d{2}\s*(?:USD|EUR|GBP|CAD|AUD))/g
 
 function stripNoise(html: string): string { return html.replace(NOISE_RE, ' ') }
 

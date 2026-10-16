@@ -60,9 +60,13 @@ Deno.serve(async (req) => {
       .select('id, snapshot_before, snapshot_after, diff_storage_path, page_snapshots!detected_changes_snapshot_after_fkey(storage_path)')
       .not('diff_storage_path', 'is', null)
     if (error) return json({ error: error.message }, 500)
-    changeIds = (data ?? [])
-      .filter((r: any) => r.page_snapshots?.storage_path?.endsWith('.gz'))
-      .map((r: any) => r.id)
+    interface SnapshotRow {
+      id: string
+      page_snapshots?: { storage_path?: string } | null
+    }
+    changeIds = ((data ?? []) as unknown as SnapshotRow[])
+      .filter((r) => r.page_snapshots?.storage_path?.endsWith('.gz'))
+      .map((r) => r.id)
   } else {
     return json({ error: 'Pass {change_id} or {all_gzipped:true}' }, 400)
   }

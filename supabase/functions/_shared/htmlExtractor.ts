@@ -16,7 +16,7 @@ const UI_NOISE_PATTERNS = [
   /^(?:log\s*in|sign\s*in|sign\s*up|register|wishlist|cart|my\s*cart|checkout|track\s*order|my\s*account|help\s*center|contact\s*us|customer\s*care|about\s*us|privacy\s*policy|terms\s*of\s*service|all\s*rights\s*reserved)$/i,
 ]
 
-const PRICE_REGEX = /(?:[\$€£¥][\d,]+\.?\d{0,2}|\d+[.,]\d{2}\s*(?:USD|EUR|GBP|CAD|AUD))/g
+const PRICE_REGEX = /(?:[$€£¥][\d,]+\.?\d{0,2}|\d+[.,]\d{2}\s*(?:USD|EUR|GBP|CAD|AUD))/g
 
 const PROMOTION_KEYWORDS = [
   // ── Price / discount ──────────────────────────────────────────────────────

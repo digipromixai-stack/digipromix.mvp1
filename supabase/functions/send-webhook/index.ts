@@ -40,8 +40,8 @@ Deno.serve(async (req) => {
     )
 
     // Resolve user_id — either from body (internal call) or JWT
-    const body = await req.json()
-    let { change_id, user_id } = body as { change_id?: string; user_id?: string }
+    const { change_id } = body as { change_id?: string }
+    let { user_id } = body as { user_id?: string }
 
     if (!user_id) {
       const authHeader = req.headers.get('Authorization') ?? ''

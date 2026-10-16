@@ -6,7 +6,7 @@
  * urgency, and a direct launch path into the campaign modal.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Sparkles, TrendingUp, Target, DollarSign, Zap,
@@ -441,12 +441,12 @@ export function OpportunityFeedPage() {
     }
   }
 
-  const revenueOf = (o: Opportunity) => (o.expected_leads ?? 0) * feedValuePerLead
+  const revenueOf = useCallback((o: Opportunity) => (o.expected_leads ?? 0) * feedValuePerLead, [feedValuePerLead])
   const revenueP75 = useMemo(() => {
     if (opportunities.length === 0) return 0
     const sorted = [...opportunities].map(revenueOf).sort((a, b) => a - b)
     return sorted[Math.floor(sorted.length * 0.75)] ?? sorted[sorted.length - 1]
-  }, [opportunities])
+  }, [opportunities, revenueOf])
   const cpcP25 = useMemo(() => {
     const withCpc = opportunities.filter(o => o.estimated_cpc != null && o.estimated_cpc > 0)
     if (withCpc.length === 0) return null
@@ -469,7 +469,7 @@ export function OpportunityFeedPage() {
       )
     }
     return list
-  }, [opportunities, scoreFilter, searchQuery, revenueP75, cpcP25])
+  }, [opportunities, scoreFilter, searchQuery, revenueP75, cpcP25, revenueOf])
 
   async function handleDismiss(opp: Opportunity) {
     const { error } = await supabase
