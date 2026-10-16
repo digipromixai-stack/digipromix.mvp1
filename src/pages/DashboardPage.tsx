@@ -54,10 +54,12 @@ function KpiTile({ label, value, icon: Icon, tone = 'default', source, info }: {
 // can read: "Promotion detected", "Search demand increased", etc.
 
 // recommended_action is a snake_case enum (e.g. 'launch_campaign') — never show it raw to customers.
+// eslint-disable-next-line react-refresh/only-export-components
 export function humanizeAction(action: string): string {
   return action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function opportunityScoreReasons(opp: Opportunity): string[] {
   const meta = (opp.metadata ?? {}) as Record<string, unknown>
   const sources = (opp.signal_sources ?? []) as Array<Record<string, unknown>>

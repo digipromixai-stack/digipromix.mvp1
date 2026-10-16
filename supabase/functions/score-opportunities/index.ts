@@ -793,8 +793,8 @@ Deno.serve(async (req) => {
           llmUsed       ? `llm_enriched` : null,
         ].filter(Boolean).join(' · '),
         signal_sources: [
-          { type: 'detected_change', id: change.id },
-          ...siblings.map((s) => ({ type: 'detected_change' as const, id: s.id, change_type: s.change_type })),
+          { type: 'detected_change', id: change.id, signal_type: change.change_type, change_type: change.change_type },
+          ...siblings.map((s) => ({ type: 'detected_change' as const, id: s.id, signal_type: s.change_type, change_type: s.change_type })),
           ...cs.signalIds.map((id, i) => ({ type: 'signal' as const, id, signal_type: cs.signalTypes[i] })),
         ],
         status: 'open' as const,

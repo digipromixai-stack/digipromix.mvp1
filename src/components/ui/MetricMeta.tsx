@@ -43,6 +43,7 @@ export function SourceTag({ source, label, className }: { source: DataSource; la
 
 export type ConfidenceLevel = 'High' | 'Medium' | 'Low'
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function confidenceLevel(confidence: number | null | undefined): ConfidenceLevel | null {
   if (confidence == null) return null
   const c = confidence > 1 ? confidence / 100 : confidence
@@ -57,6 +58,7 @@ const confidenceClasses: Record<ConfidenceLevel, string> = {
   Low:    'text-on-surface-variant',
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function confidenceTone(level: ConfidenceLevel): string {
   return confidenceClasses[level]
 }

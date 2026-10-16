@@ -66,6 +66,7 @@ export function CookieConsent() {
 }
 
 /** Returns current consent state — use in analytics hooks to gate tracking */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getCookieConsent(): 'accepted' | 'declined' | null {
   try {
     const v = localStorage.getItem(STORAGE_KEY)

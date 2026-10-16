@@ -102,7 +102,7 @@ function buildHeadlines(
   const ctas = [
     'Get Started Today',
     'Free Consultation',
-    'Limited Time Offer',
+    'Book a Free Demo',
     'Book Now & Save',
     'Get Instant Access',
     'Start Free Today',
@@ -162,8 +162,8 @@ function buildDescriptions(campaign: Record<string, unknown>): string[] {
   const body = sanitize(String(campaign.landing_page_body ?? ''))
   if (body) add(body.split('.')[0].trim().slice(0, 90))
 
-  // 4. Social proof / urgency fallback
-  add('Act now - limited time offer. See why thousands trust us. Click to learn more.')
+  // 4. Action-focused fallback
+  add('Contact us today for a personalised consultation. Fast results and expert support.')
 
   // Pad to minimum 2
   while (out.length < 2) out.push(out[0]?.slice(0, 90) ?? 'Click to learn more today.')
@@ -437,7 +437,7 @@ Deno.serve(async (req) => {
     // Resolve daily budget (param → campaign field → default $10), with validation
     const budgetUsd = Number(daily_budget_usd ?? campaign.daily_budget ?? 10)
     if (!Number.isFinite(budgetUsd) || budgetUsd < 1) {
-      const msg = 'Daily budget must be at least $1.'
+      const msg = 'Daily budget must be at least 1 €.'
       await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
       return json({ error: msg }, 400)
     }

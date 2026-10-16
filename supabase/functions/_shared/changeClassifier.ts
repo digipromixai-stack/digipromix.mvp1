@@ -154,7 +154,7 @@ export function classifyChange(
   const bannerInAfter  = BANNER_CLASS_REGEX.test(afterHtml)
   const hasPromoNow    = hasPromoStructure(afterHtml)
   const hadPromoBefore = hasPromoStructure(beforeHtml)
-  if (campaignScore >= 15 || (!bannerInBefore && bannerInAfter) || (!hadPromoBefore && hasPromoNow)) {
+  if ((!bannerInBefore && bannerInAfter) || (!hadPromoBefore && hasPromoNow) || (campaignScore >= 45 && bannerInAfter)) {
     return {
       change_type: 'banner_change',
       severity: 'medium',

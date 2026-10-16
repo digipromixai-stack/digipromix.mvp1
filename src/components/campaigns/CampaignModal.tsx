@@ -135,8 +135,8 @@ function validateAdCopy(
 
 export function CampaignModal({ change, open, onClose, opportunityHint, counterHint }: Props) {
   const qc = useQueryClient()
-  const { metaIntegration }    = useMetaIntegration()
-  const { googleIntegration }  = useGoogleAdsIntegration()
+  const { metaIntegration, isExpired: metaExpired }    = useMetaIntegration()
+  const { googleIntegration, isExpired: googleExpired }  = useGoogleAdsIntegration()
   const { data: clients = [] } = useClients()
   const { data: profile }      = useProfile()
 
@@ -321,6 +321,15 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
     const googleWillLaunch =
       selectedChannels.includes('google') &&
       (launchModes.google === 'managed' || !!googleIntegration)
+
+    if (selectedChannels.includes('meta') && launchModes.meta === 'self' && metaExpired) {
+      setError('Your Meta connection has expired. Please reconnect in Settings before launching.')
+      return
+    }
+    if (selectedChannels.includes('google') && launchModes.google === 'self' && googleExpired) {
+      setError('Your Google Ads connection has expired. Please reconnect in Settings before launching.')
+      return
+    }
 
     if (metaWillLaunch || googleWillLaunch) {
       try {
@@ -911,10 +920,10 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                     <Icon size={13} className={active ? color : 'text-gray-400'} />
                     {label}
                     {id === 'meta' && metaIntegration && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400" title="Connected" />
+                      <span className={`w-1.5 h-1.5 rounded-full ${metaExpired ? 'bg-red-500' : 'bg-green-400'}`} title={metaExpired ? 'Token Expired' : 'Connected'} />
                     )}
                     {id === 'google' && googleIntegration && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400" title="Connected" />
+                      <span className={`w-1.5 h-1.5 rounded-full ${googleExpired ? 'bg-red-500' : 'bg-green-400'}`} title={googleExpired ? 'Token Expired' : 'Connected'} />
                     )}
                   </button>
                 )
@@ -931,6 +940,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 <LaunchModeChooser
                   platform="Meta"
                   connected={!!metaIntegration}
+                  isExpired={metaExpired}
                   mode={launchModes.meta ?? 'managed'}
                   onChange={mode => setLaunchModes(prev => ({ ...prev, meta: mode }))}
                 />
@@ -939,6 +949,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 <LaunchModeChooser
                   platform="Google Ads"
                   connected={!!googleIntegration}
+                  isExpired={googleExpired}
                   mode={launchModes.google ?? 'managed'}
                   onChange={mode => setLaunchModes(prev => ({ ...prev, google: mode }))}
                 />
@@ -1058,7 +1069,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
           <CheckCircle2 size={48} className="text-green-500 mx-auto" />
           <div>
             <p className="text-lg font-bold text-gray-900">{campaign.campaign_name}</p>
-            <p className="text-sm text-gray-500 mt-1">Campaign is now <span className="text-green-600 font-semibold">active</span></p>
+            <p className="text-sm text-gray-500 mt-1">Campaign saved — <span className="text-amber-600 font-semibold">PAUSED</span>. Activate from Campaigns when ready to spend.</p>
           </div>
 
           {/* Landing page URL */}
@@ -1102,7 +1113,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
               <p className="text-xs text-on-surface-variant">
                 Campaign ID: <code className="font-mono">{metaResult.meta_campaign_id}</code>
               </p>
-              <p className="text-xs text-green-600 mt-1">Status: <span className="font-semibold">ACTIVE</span> — running now. Pause or delete anytime from Campaigns.</p>
+              <p className="text-xs text-amber-700 mt-1">Status: <span className="font-semibold">PAUSED</span> — created in paused mode. Activate from Campaigns when ready to spend.</p>
               <a
                 href="https://business.facebook.com/adsmanager"
                 target="_blank"
@@ -1204,11 +1215,13 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
 function LaunchModeChooser({
   platform,
   connected,
+  isExpired,
   mode,
   onChange,
 }: {
   platform: 'Meta' | 'Google Ads'
   connected: boolean
+  isExpired?: boolean
   mode: 'self' | 'managed'
   onChange: (mode: 'self' | 'managed') => void
 }) {
@@ -1236,15 +1249,22 @@ function LaunchModeChooser({
               <p className={`text-sm font-semibold ${mode === 'self' ? 'text-primary' : 'text-gray-800'}`}>
                 Connect my account
               </p>
-              {connected && (
+              {connected && !isExpired && (
                 <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
                   <span className="w-1 h-1 rounded-full bg-green-500" /> Connected
                 </span>
               )}
+              {connected && isExpired && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">
+                  <span className="w-1 h-1 rounded-full bg-red-500" /> Expired
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
-              {connected
+              {connected && !isExpired
                 ? "Your account is linked — we'll launch directly."
+                : connected && isExpired
+                ? <>Token expired. Please <Link to="/settings" className="text-red-600 underline font-medium">reconnect in Settings</Link>.</>
                 : <>You'll need to <Link to="/settings" className="text-primary underline">connect in Settings</Link> first.</>}
             </p>
           </div>
