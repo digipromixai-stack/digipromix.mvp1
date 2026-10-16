@@ -84,10 +84,16 @@ def _clean_text(text: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 
+UI_NOISE_RE = re.compile(
+    r'^(?:log\s*in|sign\s*in|sign\s*up|register|wishlist|cart|my\s*cart|checkout|track\s*order|my\s*account|help\s*center|contact\s*us|customer\s*care|about\s*us|privacy\s*policy|terms\s*of\s*service|all\s*rights\s*reserved)$',
+    re.IGNORECASE,
+)
+
+
 def strip_noise(html: str) -> str:
-    """Remove scripts, styles, SVGs, noscripts, and HTML comments."""
+    """Remove scripts, styles, SVGs, noscripts, layout wrappers (header, footer, nav, aside, dialog), and HTML comments."""
     soup = _make_soup(html)
-    for el in soup(['script', 'style', 'noscript', 'svg', 'iframe']):
+    for el in soup(['script', 'style', 'noscript', 'svg', 'iframe', 'header', 'footer', 'nav', 'aside', 'dialog']):
         el.decompose()
     cleaned = str(soup)
     return re.sub(r'<!--[\s\S]*?-->', ' ', cleaned)
@@ -111,7 +117,7 @@ def extract_normalized_lines(html: str) -> List[str]:
     lines = []
     for raw in text.split('\n'):
         line = re.sub(r'\s+', ' ', raw).strip()
-        if len(line) > 3:
+        if len(line) > 3 and not UI_NOISE_RE.match(line):
             lines.append(line)
     return lines
 
