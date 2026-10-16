@@ -16,11 +16,12 @@ export function GoogleAdsIntegration() {
   const { toast } = useToast()
   const [disconnecting, setDisconnecting] = useState(false)
 
-  const clientId = import.meta.env.VITE_GOOGLE_ADS_CLIENT_ID as string | undefined
+  const DEFAULT_GOOGLE_ADS_CLIENT_ID = '890062231147-dettb6t67pp65n2jj8cvgf17relkegj7.apps.googleusercontent.com'
+  const clientId = (import.meta.env.VITE_GOOGLE_ADS_CLIENT_ID as string | undefined) || DEFAULT_GOOGLE_ADS_CLIENT_ID
 
   const connect = () => {
     if (!clientId) {
-      toast('VITE_GOOGLE_ADS_CLIENT_ID is not set in your environment', 'error')
+      toast('Google Ads Client ID is not configured', 'error')
       return
     }
     const state = crypto.randomUUID()
