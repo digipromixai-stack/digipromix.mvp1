@@ -50,29 +50,29 @@ function getInitial(name = '') { return (name[0] ?? '?').toUpperCase() }
 // ── Helpers: generate counter content from real signal data ───────────────────
 
 function genHeadlines(c: DetectedChangeWithCompetitor): [string, string] {
-  const comp = c.competitors?.name ?? 'Competitor'
   const t = c.change_type
   if (t === 'price_change')
-    return [`Beat ${comp}'s New Pricing — Get More for Less`, `${comp} Changed Prices — Here's Your Better Deal`]
+    return ['Best Value Guarantee — Premium Quality for Less', 'Transparent Pricing & Fair Deals for You']
   if (t === 'promotion' || t === 'campaign_launch')
-    return [`Beat ${comp}'s Deal — Our Exclusive Offer Inside`, `Better Than ${comp}'s Deal — Limited Time`]
+    return ['Special Seasonal Savings — Claim Your Benefit', 'Switch to Premium Quality with Extra Value']
   if (t === 'new_landing_page')
-    return [`${comp} Is Targeting New Customers — So Are We`, `Don't Let ${comp} Win That Traffic`]
-  return [`${comp} Just Made a Move — Here's Your Counter`, `Stay Ahead of ${comp} with This Offer`]
+    return ['Discover the Smarter Choice in the Market', 'High Quality Services Designed for You']
+  return ['Market Advantage Offer — Switch & Save', 'Your Trusted Alternative with Better Value']
 }
 
 function genPrimaryText(c: DetectedChangeWithCompetitor): string {
-  const comp = c.competitors?.name ?? 'competitor'
-  if (c.description) return c.description.length > 180 ? c.description.slice(0, 177) + '…' : c.description
-  return `${comp} just made a move in the market. Now is the perfect time to capture their undecided customers with a targeted counter-campaign — before they convert.`
+  if (c.description && !/new promotional content/i.test(c.description)) {
+    return c.description.length > 180 ? c.description.slice(0, 177) + '…' : c.description
+  }
+  return 'Market dynamics just shifted. Now is the ideal moment to capture active buyers with a compelling, benefit-driven value proposition.'
 }
 
 function genOffer(c: DetectedChangeWithCompetitor): string {
   const t = c.change_type
-  if (t === 'price_change') return 'better value · price match guarantee'
-  if (t === 'promotion') return 'exclusive limited-time offer'
-  if (t === 'campaign_launch') return 'our competitive advantage'
-  return 'tailored offer for switchers'
+  if (t === 'price_change') return 'Fair pricing guarantee & direct support'
+  if (t === 'promotion') return 'Special introductory discount for new clients'
+  if (t === 'campaign_launch') return 'Comprehensive service package with bonus consultation'
+  return 'Premium onboarding with tailored service package'
 }
 
 type SignalFilter = 'all' | 'high' | 'price_change' | 'promotion' | 'campaign_launch'
@@ -152,7 +152,7 @@ function CampaignSignalRow({
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
               Est. Leads
               <InfoTooltip title="How Estimated Leads are calculated">
-                (Weekly budget ${weekly} ÷ industry benchmark CPC ${cpc.toFixed(2)}) × {(conversionRate * 100).toFixed(1)}% benchmark conversion rate for {industry}.
+                (Weekly budget {weekly} € ÷ industry benchmark CPC {cpc.toFixed(2)} €) × {(conversionRate * 100).toFixed(1)}% benchmark conversion rate for {industry}.
                 Becomes Actual Leads once the campaign runs.
               </InfoTooltip>
             </p>
@@ -162,10 +162,10 @@ function CampaignSignalRow({
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
               Est. Revenue
               <InfoTooltip title="How Estimated Revenue is calculated">
-                Estimated Leads ({leads}) × your configured Value Per Lead (${valuePerLead}, set in Settings).
+                Estimated Leads ({leads}) × your configured Value Per Lead ({valuePerLead} €, set in Settings).
               </InfoTooltip>
             </p>
-            <p className="font-mono text-sm font-bold text-on-surface">${revenue.toLocaleString()}</p>
+            <p className="font-mono text-sm font-bold text-on-surface">{revenue.toLocaleString('de-DE')} €</p>
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
@@ -174,7 +174,7 @@ function CampaignSignalRow({
                 Industry benchmark cost-per-click for {industry}.
               </InfoTooltip>
             </p>
-            <p className="font-mono text-sm font-bold text-on-surface">${cpc.toFixed(2)}</p>
+            <p className="font-mono text-sm font-bold text-on-surface">{cpc.toFixed(2)} €</p>
           </div>
         </div>
         <SourceTag source="benchmark" className="mt-2" />

@@ -31,16 +31,23 @@ interface IntelStats {
 const EMPTY_INTEL: IntelStats = { total7d: 0, high7d: 0, types: [], lastAt: null, lastTitle: null, lastDescription: null }
 
 function computeAggression(intel: IntelStats) {
-  return Math.min(100, intel.high7d * 20 + intel.total7d * 7)
+  // If only minor content/banner changes with no high-severity events, cap aggression at 20
+  const hasMajor = intel.high7d > 0 || intel.types.some(t => t === 'promotion' || t === 'price_change' || t === 'campaign_launch')
+  if (!hasMajor) {
+    return Math.min(20, intel.total7d * 3)
+  }
+  return Math.min(100, intel.high7d * 20 + intel.total7d * 5)
 }
 function threatTone(aggression: number) {
   if (aggression >= 70) return { label: 'High risk', pill: 'bg-red-tint text-danger' }
   if (aggression >= 35) return { label: 'Medium risk', pill: 'bg-orange-tint text-warning' }
   return { label: 'Low risk', pill: 'bg-primary-container text-on-primary-container' }
 }
-function churnRisk(aggression: number, high7d: number) {
-  const prob = Math.min(97, Math.round(aggression * 0.9 + high7d * 4))
-  const label = prob >= 70 ? 'HIGH' : prob >= 35 ? 'MEDIUM' : 'LOW'
+function churnRisk(aggression: number, high7d: number, hasMajor: boolean) {
+  // Do NOT show scary churn percentage when changes are just small content updates
+  if (!hasMajor || high7d === 0) return null
+  const prob = Math.min(90, Math.round(aggression * 0.7 + high7d * 5))
+  const label = prob >= 70 ? 'HIGH' : prob >= 40 ? 'MEDIUM' : 'LOW'
   return { prob, label }
 }
 function whyText(name: string, intel: IntelStats) {
@@ -68,9 +75,10 @@ function CompetitorCard({ competitor, intel }: { competitor: Competitor; intel: 
   const [editOpen, setEditOpen] = useState(false)
   const deleteMutation = useDeleteCompetitor()
 
+  const hasMajor = intel.high7d > 0 || intel.types.some(t => t === 'promotion' || t === 'price_change' || t === 'campaign_launch')
   const aggression = computeAggression(intel)
   const tone = threatTone(aggression)
-  const churn = churnRisk(aggression, intel.high7d)
+  const churn = churnRisk(aggression, intel.high7d, hasMajor)
   const isHigh = aggression >= 70
 
   return (
@@ -132,7 +140,11 @@ function CompetitorCard({ competitor, intel }: { competitor: Competitor; intel: 
           <div className={`rounded-lg p-2.5 flex gap-2 text-[12.3px] mb-3 ${isHigh ? 'bg-red-tint text-[#7A2A1D]' : 'bg-orange-tint text-[#7A5416]'}`}>
             <span className="shrink-0">{isHigh ? '⚠️' : 'ℹ️'}</span>
             <span>
-              <strong>Probability of losing customers: {churn.label} ({churn.prob}%).</strong>{' '}
+              {churn ? (
+                <><strong>Probability of losing customers: {churn.label} ({churn.prob}%).</strong>{' '}</>
+              ) : (
+                <><strong>Market activity:</strong>{' '}</>
+              )}
               {intel.lastDescription ?? whyText(competitor.name, intel)}
             </span>
           </div>

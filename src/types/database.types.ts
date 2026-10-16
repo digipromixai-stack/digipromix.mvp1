@@ -20,6 +20,12 @@ export type CrawlJobStatus = 'queued' | 'running' | 'completed' | 'failed'
 export interface Profile {
   id: string
   full_name: string | null
+  business_name?: string | null
+  website_url?: string | null
+  industry?: string | null
+  city?: string | null
+  selling_point?: string | null
+  default_landing_page_url?: string | null
   avatar_url: string | null
   plan_type: PlanType
   value_per_lead: number
@@ -170,7 +176,7 @@ interface CrawlJobInsert { competitor_id: string; monitored_page_id?: string | n
 interface CrawlJobUpdate { status?: CrawlJobStatus; error_message?: string | null; started_at?: string | null; completed_at?: string | null }
 
 export type CampaignStatus   = 'draft' | 'active' | 'paused' | 'failed' | 'completed'
-export type LeadStatus       = 'new' | 'contacted' | 'qualified' | 'closed'
+export type LeadStatus       = 'new' | 'contacted' | 'qualified' | 'closed' | 'won' | 'lost'
 export type LandingTemplate  = 'default' | 'healthcare' | 'real-estate' | 'education' | 'local-services'
 
 // ── Client (multi-tenant / agency) ────────────────────────────────────────────

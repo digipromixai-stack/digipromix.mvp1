@@ -7,21 +7,25 @@ import {
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
 import { useLeads, useUpdateLeadStatus, useDeleteLead, useLeadStats, useLeadTrends } from '../hooks/useLeads'
+import { useValuePerLead } from '../hooks/useProfile'
 import { timeAgo } from '../lib/utils'
-import type { LeadStatus, LeadWithCampaign } from '../types/database.types'
+import type { LeadWithCampaign } from '../types/database.types'
 
-const STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; next: LeadStatus | null; nextLabel: string }> = {
-  new:        { label: 'New',       color: 'bg-indigo-tint text-primary',  next: 'contacted', nextLabel: 'Mark Contacted' },
-  contacted:  { label: 'Contacted', color: 'bg-orange-tint text-warning',  next: 'qualified', nextLabel: 'Mark Qualified' },
-  qualified:  { label: 'Qualified', color: 'bg-success/10 text-success',   next: 'closed',    nextLabel: 'Mark Closed'   },
-  closed:     { label: 'Closed',    color: 'bg-surface-container-low text-on-surface-variant', next: null, nextLabel: '' },
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  new:        { label: 'New',       color: 'bg-indigo-tint text-primary' },
+  contacted:  { label: 'Contacted', color: 'bg-orange-tint text-warning' },
+  won:        { label: 'Won',       color: 'bg-success/15 text-success' },
+  lost:       { label: 'Lost',      color: 'bg-red-tint text-danger' },
+  qualified:  { label: 'Qualified', color: 'bg-success/10 text-success' },
+  closed:     { label: 'Closed',    color: 'bg-surface-container-low text-on-surface-variant' },
 }
 
 function tierOf(score: number) { return score >= 70 ? 'hot' : score >= 40 ? 'medium' : 'low' }
 
-function potentialValue(lead: LeadWithCampaign) {
-  // Heuristic estimate derived from the AI conversion score, same convention used on the Dashboard.
-  return Math.round((lead.score ?? 0) * 1500)
+function potentialValue(lead: LeadWithCampaign, valuePerLead = 150) {
+  // Capped at the customer's own typical deal value, scaled by lead intent score (0.4–1.0x)
+  const quality = Math.min(1.0, Math.max(0.4, (lead.score ?? 50) / 100))
+  return Math.round(valuePerLead * quality)
 }
 
 function nextBestAction(lead: LeadWithCampaign): { label: string; icon: typeof PhoneCall; tone: 'solid' | 'success' | 'neutral' } {
@@ -66,6 +70,7 @@ function PriorityTile({ icon: Icon, iconBg, label, value, sublabel, subTone }: {
 function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
   const { mutate: updateStatus, isPending: updating } = useUpdateLeadStatus()
   const { mutate: deleteLead, isPending: deleting } = useDeleteLead()
+  const valuePerLead = useValuePerLead()
   const cfg = STATUS_CONFIG[lead.status] ?? STATUS_CONFIG.new
   const tier = tierOf(lead.score)
   const isHot = tier === 'hot'
@@ -90,7 +95,7 @@ function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-tint text-primary border border-primary/10">
                 <Flame size={9} /> Opportunity Score: {lead.score}
               </span>
-              <p className="font-mono text-sm font-bold text-success mt-1">${potentialValue(lead).toLocaleString()} Potential</p>
+              <p className="font-mono text-sm font-bold text-success mt-1">€{potentialValue(lead, valuePerLead).toLocaleString('de-DE')} Potential</p>
             </div>
           </div>
 
@@ -118,20 +123,39 @@ function PriorityLeadCard({ lead }: { lead: LeadWithCampaign }) {
           <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border-subtle">
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
             <span className="text-xs text-on-surface-variant">{timeAgo(lead.created_at)}</span>
-            <div className="flex items-center gap-1.5 ml-auto">
-              {cfg.next && (
+            <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+              {lead.status === 'new' && (
                 <button
-                  onClick={() => updateStatus({ id: lead.id, status: cfg.next! })}
+                  onClick={() => updateStatus({ id: lead.id, status: 'contacted' })}
                   disabled={updating}
-                  className="text-xs px-2.5 py-1 rounded-lg border border-success/30 text-success hover:bg-success/10 transition-colors font-medium"
+                  className="text-xs px-2.5 py-1 rounded-lg border border-warning/40 text-warning hover:bg-orange-tint transition-colors font-medium"
                 >
-                  {cfg.nextLabel}
+                  Mark Contacted
+                </button>
+              )}
+              {lead.status !== 'won' && (
+                <button
+                  onClick={() => updateStatus({ id: lead.id, status: 'won' })}
+                  disabled={updating}
+                  className="text-xs px-2.5 py-1 rounded-lg border border-success/40 text-success hover:bg-success/10 transition-colors font-medium"
+                >
+                  Mark Won
+                </button>
+              )}
+              {lead.status !== 'lost' && (
+                <button
+                  onClick={() => updateStatus({ id: lead.id, status: 'lost' })}
+                  disabled={updating}
+                  className="text-xs px-2.5 py-1 rounded-lg border border-danger/40 text-danger hover:bg-red-tint transition-colors font-medium"
+                >
+                  Mark Lost
                 </button>
               )}
               <button
                 onClick={() => { if (confirm('Delete this lead?')) deleteLead(lead.id) }}
                 disabled={deleting}
                 className="p-1.5 rounded-lg text-danger/40 hover:bg-red-tint hover:text-danger transition-colors"
+                title="Delete lead"
               >
                 <Trash2 size={12} />
               </button>

@@ -6,6 +6,15 @@ const STYLE_RE = /<style(?:\s[^>]*)?>[\s\S]*?<\/style>/gi
 const NOSCRIPT_RE = /<noscript(?:\s[^>]*)?>[\s\S]*?<\/noscript>/gi
 const SVG_RE = /<svg(?:\s[^>]*)?>[\s\S]*?<\/svg>/gi
 const COMMENT_RE = /<!--[\s\S]*?-->/g
+const HEADER_RE = /<header(?:\s[^>]*)?>[\s\S]*?<\/header>/gi
+const FOOTER_RE = /<footer(?:\s[^>]*)?>[\s\S]*?<\/footer>/gi
+const NAV_RE = /<nav(?:\s[^>]*)?>[\s\S]*?<\/nav>/gi
+const ASIDE_RE = /<aside(?:\s[^>]*)?>[\s\S]*?<\/aside>/gi
+const DIALOG_RE = /<dialog(?:\s[^>]*)?>[\s\S]*?<\/dialog>/gi
+
+const UI_NOISE_PATTERNS = [
+  /^(?:log\s*in|sign\s*in|sign\s*up|register|wishlist|cart|my\s*cart|checkout|track\s*order|my\s*account|help\s*center|contact\s*us|customer\s*care|about\s*us|privacy\s*policy|terms\s*of\s*service|all\s*rights\s*reserved)$/i,
+]
 
 const PRICE_REGEX = /(?:[\$€£¥][\d,]+\.?\d{0,2}|\d+[.,]\d{2}\s*(?:USD|EUR|GBP|CAD|AUD))/g
 
@@ -61,6 +70,11 @@ export function stripNoise(html: string): string {
     .replace(NOSCRIPT_RE, ' ')
     .replace(SVG_RE, ' ')
     .replace(COMMENT_RE, ' ')
+    .replace(HEADER_RE, ' ')
+    .replace(FOOTER_RE, ' ')
+    .replace(NAV_RE, ' ')
+    .replace(ASIDE_RE, ' ')
+    .replace(DIALOG_RE, ' ')
 }
 
 export function extractText(html: string): string {
@@ -89,7 +103,7 @@ export function extractNormalizedLines(html: string): string[] {
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"')
     .split('\n')
     .map((l) => l.replace(/\s+/g, ' ').trim())
-    .filter((l) => l.length > 2)
+    .filter((l) => l.length > 2 && !UI_NOISE_PATTERNS.some((p) => p.test(l)))
 }
 
 export function extractPrices(html: string): string[] {

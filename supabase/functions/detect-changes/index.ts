@@ -232,6 +232,41 @@ Deno.serve(async (req: Request) => {
     classification.is_coordinated = true
   }
 
+  // ── 7-Day Baseline Check for Promotions ───────────────────────────────────
+  // If flagged as a promotion, check if these exact promo keywords or offer
+  // were already detected on this monitored page in the last 7 days.
+  if (classification.change_type === 'promotion') {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: pastChanges } = await supabaseAdmin
+      .from('detected_changes')
+      .select('metadata')
+      .eq('monitored_page_id', monitored_page_id)
+      .eq('change_type', 'promotion')
+      .gte('detected_at', sevenDaysAgo)
+
+    if (pastChanges && pastChanges.length > 0) {
+      const pastKeywords = new Set<string>()
+      for (const pc of pastChanges) {
+        const kws = (pc.metadata as { promo_keywords?: string[] })?.promo_keywords ?? []
+        for (const kw of kws) pastKeywords.add(kw.toLowerCase())
+      }
+      const currentKws = classification.promo_keywords ?? []
+      const trulyNewKws = currentKws.filter(k => !pastKeywords.has(k.toLowerCase()))
+
+      // If all detected promo keywords are already part of the 7-day baseline,
+      // downgrade to minor content change so we don't spam false-positive alerts
+      if (trulyNewKws.length === 0) {
+        classification.change_type = 'content_change'
+        classification.severity = 'low'
+        classification.title = `Content update on ${(() => { try { return new URL(page.url).hostname } catch { return page.url } })()}`
+        classification.description = `Minor text update (promotional baseline unchanged from past 7 days).`
+        classification.promo_keywords = []
+      } else {
+        classification.promo_keywords = trulyNewKws
+      }
+    }
+  }
+
   // Generate diff — store to Storage only when both snapshots have HTML available
   const diff     = bestDiff(beforeLines, afterLines)
   const diffText = formatDiffAsText(diff)
@@ -294,27 +329,42 @@ Deno.serve(async (req: Request) => {
   const shouldAlert = alertOn.includes(classification.change_type)
 
   if (shouldAlert) {
+    // Throttle email alerts: maximum 1 email alert per competitor per day
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data: recentSameCompAlerts } = await supabaseAdmin
+      .from('detected_changes')
+      .select('id')
+      .eq('competitor_id', competitorId)
+      .eq('user_id', userId)
+      .gte('detected_at', oneDayAgo)
+      .neq('id', change.id)
+      .limit(1)
+
+    const canSendEmail = (recentSameCompAlerts?.length ?? 0) === 0
+
     const alertsToInsert = []
     if (prefs?.dashboard_alerts !== false) {
       alertsToInsert.push({ user_id: userId, change_id: change.id, channel: 'dashboard', status: 'pending' })
     }
-    if (prefs?.email_alerts !== false) {
+    if (prefs?.email_alerts !== false && canSendEmail) {
       alertsToInsert.push({ user_id: userId, change_id: change.id, channel: 'email', status: 'pending' })
     }
     if (alertsToInsert.length > 0) {
       await supabaseAdmin.from('alerts').insert(alertsToInsert)
     }
 
-    // Trigger email send (fire and forget)
-    const emailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email-alert`
-    fetch(emailUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization':  `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-        'Content-Type':   'application/json',
-      },
-      body: JSON.stringify({ change_id: change.id }),
-    }).catch(console.error)
+    if (canSendEmail && prefs?.email_alerts !== false) {
+      // Trigger email send (fire and forget)
+      const emailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email-alert`
+      fetch(emailUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization':  `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type':   'application/json',
+        },
+        body: JSON.stringify({ change_id: change.id }),
+      }).catch(console.error)
+    }
   }
 
   return jsonResponse({

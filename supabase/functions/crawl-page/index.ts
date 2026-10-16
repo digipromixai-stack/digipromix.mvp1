@@ -40,12 +40,14 @@ const ENCODER          = new TextEncoder()
 // For these, we route through scrape.do which uses residential proxies +
 // real browser rendering, bypassing bot detection.
 const ANTI_BOT_DOMAINS = [
-  'flipkart.com',
-  'amazon.com', 'amazon.in',
+  'immobilienscout24.de', 'immowelt.de',
+  'zalando.de', 'zalando.com',
+  'otto.de', 'mediamarkt.de', 'saturn.de',
+  'amazon.de', 'amazon.com', 'amazon.in',
+  'flipkart.com', 'myntra.com',
   'alibaba.com', 'aliexpress.com',
   'instagram.com', 'facebook.com',
   'linkedin.com',
-  'zalando.com', 'myntra.com',
 ]
 
 function needsScrapeDo(url: string): boolean {
@@ -66,15 +68,17 @@ async function fetchViaScrapeDoApi(url: string, apiKey: string): Promise<
   try {
     // render=true → headless Chromium renders JavaScript (essential for SPAs)
     // superProxy=true → residential rotating proxies (bypasses IP-level blocks)
-    // geoCode=in → Indian residential IP (for Flipkart / Myntra regional content)
+    // geoCode=de → German residential IP for accurate German pricing and localization
     const hostname = new URL(url).hostname
+    const isGerman = /zalando|immobilienscout24|immowelt|otto|mediamarkt|saturn/.test(hostname) || hostname.endsWith('.de')
     const isIndian = /flipkart|myntra|bigbasket|jio|snapdeal/.test(hostname)
+    const geoCode = isGerman ? 'de' : (isIndian ? 'in' : undefined)
     const params = new URLSearchParams({
       token:       apiKey,
       url,
       render:      'true',
       superProxy:  'true',
-      ...(isIndian ? { geoCode: 'in' } : {}),
+      ...(geoCode ? { geoCode } : {}),
     })
     const res = await fetch(`https://api.scrape.do?${params.toString()}`, {
       signal: AbortSignal.timeout(25_000),   // scrape.do rendering can take up to 20s

@@ -16,6 +16,13 @@ import type { Profile, AlertPreferences, ChangeType } from '../types/database.ty
 
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
+  business_name: z.string().optional().or(z.literal('')),
+  website_url: z.string().optional().or(z.literal('')),
+  industry: z.string().optional().or(z.literal('')),
+  city: z.string().optional().or(z.literal('')),
+  selling_point: z.string().optional().or(z.literal('')),
+  default_landing_page_url: z.string().optional().or(z.literal('')),
+  value_per_lead: z.number().min(1, 'Value must be at least 1 €').optional(),
 })
 type ProfileFormData = z.infer<typeof profileSchema>
 
@@ -76,17 +83,35 @@ export function SettingsPage() {
   })
 
   useEffect(() => {
-    if (profile) reset({ full_name: profile.full_name ?? '' })
+    if (profile) reset({
+      full_name: profile.full_name ?? '',
+      business_name: profile.business_name ?? '',
+      website_url: profile.website_url ?? '',
+      industry: profile.industry ?? '',
+      city: profile.city ?? '',
+      selling_point: profile.selling_point ?? '',
+      default_landing_page_url: profile.default_landing_page_url ?? '',
+      value_per_lead: profile.value_per_lead ?? 80,
+    })
   }, [profile, reset])
 
   const updateProfile = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      const { error } = await supabase.from('profiles').update({ full_name: data.full_name }).eq('id', user!.id)
+      const { error } = await supabase.from('profiles').update({
+        full_name: data.full_name,
+        business_name: data.business_name || null,
+        website_url: data.website_url || null,
+        industry: data.industry || null,
+        city: data.city || null,
+        selling_point: data.selling_point || null,
+        default_landing_page_url: data.default_landing_page_url || null,
+        value_per_lead: data.value_per_lead ?? 80,
+      }).eq('id', user!.id)
       if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['profile'] })
-      toast('Profile updated', 'success')
+      toast('Business profile updated', 'success')
     },
   })
 
@@ -137,17 +162,89 @@ export function SettingsPage() {
       </div>
 
       <Card>
-        <CardHeader><h2 className="text-sm font-semibold text-gray-900">Profile</h2></CardHeader>
+        <CardHeader>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Business Profile</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Used by the AI engine to generate branded counter-campaigns and accurate revenue projections.
+            </p>
+          </div>
+        </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit((d) => updateProfile.mutate(d))} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Your name"
+                id="full_name"
+                error={errors.full_name?.message}
+                {...register('full_name')}
+              />
+              <Input label="Email" id="email" value={user?.email ?? ''} disabled />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Business / Brand name"
+                id="business_name"
+                placeholder="e.g. Berliner Immobilien GmbH"
+                error={errors.business_name?.message}
+                {...register('business_name')}
+              />
+              <Input
+                label="Website URL"
+                id="website_url"
+                placeholder="https://your-company.de"
+                error={errors.website_url?.message}
+                {...register('website_url')}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Industry"
+                id="industry"
+                placeholder="e.g. Real Estate, E-Commerce, Healthcare"
+                error={errors.industry?.message}
+                {...register('industry')}
+              />
+              <Input
+                label="City / Location"
+                id="city"
+                placeholder="e.g. Berlin, Germany"
+                error={errors.city?.message}
+                {...register('city')}
+              />
+            </div>
+
             <Input
-              label="Full name"
-              id="full_name"
-              error={errors.full_name?.message}
-              {...register('full_name')}
+              label="Core selling point (one sentence)"
+              id="selling_point"
+              placeholder="e.g. Transparent property sales in Berlin with zero hidden broker fees."
+              error={errors.selling_point?.message}
+              {...register('selling_point')}
             />
-            <Input label="Email" id="email" value={user?.email ?? ''} disabled />
-            <Button type="submit" loading={isSubmitting || updateProfile.isPending}>Save profile</Button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Default landing page URL"
+                id="default_landing_page_url"
+                placeholder="https://your-company.de/angebot"
+                error={errors.default_landing_page_url?.message}
+                {...register('default_landing_page_url')}
+              />
+              <Input
+                label="Value per lead / customer (€)"
+                id="value_per_lead"
+                type="number"
+                min={1}
+                step={1}
+                placeholder="80"
+                error={errors.value_per_lead?.message}
+                {...register('value_per_lead', { valueAsNumber: true })}
+              />
+            </div>
+
+            <Button type="submit" loading={isSubmitting || updateProfile.isPending}>Save business profile</Button>
           </form>
         </CardContent>
       </Card>
@@ -212,10 +309,6 @@ export function SettingsPage() {
             />
             <span className="text-sm text-gray-700">Enable WhatsApp lead alerts</span>
           </label>
-          <div className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3 space-y-1">
-            <p className="font-medium text-gray-600">Requires Twilio WhatsApp API:</p>
-            <p>Set <code className="font-mono">TWILIO_ACCOUNT_SID</code>, <code className="font-mono">TWILIO_AUTH_TOKEN</code>, and <code className="font-mono">TWILIO_WHATSAPP_NUMBER</code> in Supabase Vault (as <code className="font-mono">twilio_account_sid</code> etc.) or Edge Function secrets.</p>
-          </div>
           <Button onClick={() => updatePrefs.mutate()} loading={updatePrefs.isPending}>
             Save WhatsApp settings
           </Button>
@@ -255,67 +348,6 @@ export function SettingsPage() {
             Open Google Ads Conversions →
           </a>
           <p className="text-[10px] text-gray-400">Once set up, share your Conversion ID with us and we'll wire it into your campaigns automatically.</p>
-        </CardContent>
-      </Card>
-
-      {/* ── Signal Intelligence API Keys ─────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <h2 className="text-sm font-semibold text-gray-900">Signal Intelligence — API Keys</h2>
-          <p className="text-xs text-gray-400 mt-0.5">These keys power the Opportunity Radar. Add them in Supabase → Settings → Edge Function Secrets.</p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[
-            {
-              name: 'SERPAPI_KEY',
-              label: 'SerpAPI (Google Trends — premium)',
-              status: 'optional',
-              desc: 'Without this, Trends uses the free RSS fallback (less accurate). Get a free key at',
-              link: 'https://serpapi.com',
-              linkLabel: 'serpapi.com',
-              impact: 'Better keyword-level growth %',
-            },
-            {
-              name: 'META_APP_ACCESS_TOKEN',
-              label: 'Meta Ad Library token',
-              status: 'required',
-              desc: 'Required for competitor ad volume signals. Get from',
-              link: 'https://developers.facebook.com/tools/explorer',
-              linkLabel: 'Facebook Graph Explorer',
-              impact: 'AD_VOLUME_SPIKE, NEW_CREATIVE, OFFER_REPEAT signals',
-            },
-            {
-              name: 'GEMINI_API_KEY',
-              label: 'Gemini API (AI enrichment)',
-              status: 'required',
-              desc: 'Used for opportunity title generation and vector embeddings. Get free key at',
-              link: 'https://aistudio.google.com/app/apikey',
-              linkLabel: 'Google AI Studio',
-              impact: 'AI-generated opportunity titles + RAG memory',
-            },
-          ].map(k => (
-            <div key={k.name} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <code className="text-xs font-mono font-bold text-gray-800">{k.name}</code>
-                  <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${
-                    k.status === 'required' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'
-                  }`}>{k.status}</span>
-                </div>
-                <p className="text-xs text-gray-500 mt-0.5">{k.label}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {k.desc}{' '}
-                  <a href={k.link} target="_blank" rel="noreferrer" className="text-primary hover:underline">{k.linkLabel}</a>
-                </p>
-                <p className="text-[10px] text-gray-400 mt-0.5 italic">Enables: {k.impact}</p>
-              </div>
-            </div>
-          ))}
-          <div className="text-xs text-on-surface-variant bg-indigo-tint border border-primary/10 rounded-lg p-3">
-            <p className="font-medium text-primary mb-1">How to add secrets</p>
-            <p>Supabase Dashboard → Project Settings → Edge Functions → Secrets → Add new secret</p>
-            <p className="mt-1">Or via CLI: <code className="font-mono bg-primary-container px-1 rounded">supabase secrets set KEY=value --project-ref kvsjzsmlcycgfoazfunb</code></p>
-          </div>
         </CardContent>
       </Card>
 

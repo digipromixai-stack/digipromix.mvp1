@@ -23,7 +23,7 @@ export function useAdIntegrations() {
       const { data, error } = await supabase
         .from('ad_integrations')
         .select('id, user_id, platform, account_id, account_name, page_id, page_name, token_expires_at, currency, is_active, created_at, updated_at')
-        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as AdIntegration[]
     },
@@ -51,17 +51,29 @@ export function minDailyForCurrency(currency: string | null | undefined): number
 
 export function useMetaIntegration() {
   const { data: integrations = [], ...rest } = useAdIntegrations()
+  const metaIntegration = integrations.find(i => i.platform === 'meta') ?? null
+  const isExpired = metaIntegration
+    ? !metaIntegration.is_active || (!!metaIntegration.token_expires_at && new Date(metaIntegration.token_expires_at).getTime() <= Date.now())
+    : false
   return {
     ...rest,
-    metaIntegration: integrations.find(i => i.platform === 'meta') ?? null,
+    metaIntegration,
+    isExpired,
+    isConnected: !!metaIntegration && !isExpired,
   }
 }
 
 export function useGoogleAdsIntegration() {
   const { data: integrations = [], ...rest } = useAdIntegrations()
+  const googleIntegration = integrations.find(i => i.platform === 'google') ?? null
+  const isExpired = googleIntegration
+    ? !googleIntegration.is_active || (!!googleIntegration.token_expires_at && new Date(googleIntegration.token_expires_at).getTime() <= Date.now())
+    : false
   return {
     ...rest,
-    googleIntegration: integrations.find(i => i.platform === 'google') ?? null,
+    googleIntegration,
+    isExpired,
+    isConnected: !!googleIntegration && !isExpired,
   }
 }
 

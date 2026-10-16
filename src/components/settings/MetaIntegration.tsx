@@ -34,7 +34,7 @@ const META_SCOPES = [
 ].join(',')
 
 export function MetaIntegration() {
-  const { metaIntegration, isLoading } = useMetaIntegration()
+  const { metaIntegration, isExpired, isLoading } = useMetaIntegration()
   const invalidate = useInvalidateIntegrations()
   const { toast } = useToast()
   const [disconnecting, setDisconnecting] = useState(false)
@@ -69,7 +69,7 @@ export function MetaIntegration() {
   const tokenExpiry = metaIntegration?.token_expires_at
     ? new Date(metaIntegration.token_expires_at)
     : null
-  const isExpiringSoon = tokenExpiry && tokenExpiry.getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000
+  const isExpiringSoon = !isExpired && tokenExpiry && tokenExpiry.getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000
 
   if (isLoading) return null
 
@@ -89,27 +89,43 @@ export function MetaIntegration() {
       <CardContent className="space-y-4">
         {metaIntegration ? (
           <>
-            {/* Connected state */}
-            <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
-              <CheckCircle2 size={16} className="text-green-500 shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-green-800">Connected</p>
-                <p className="text-xs text-green-700 mt-0.5 truncate">
-                  Ad account: <span className="font-mono">{metaIntegration.account_name ?? metaIntegration.account_id}</span>
-                </p>
-                {metaIntegration.page_name && (
-                  <p className="text-xs text-green-700 truncate">
-                    Page: {metaIntegration.page_name}
+            {isExpired ? (
+              /* Expired state */
+              <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-red-800">Expired — reconnect</p>
+                  <p className="text-xs text-red-700 mt-0.5 truncate">
+                    Ad account: <span className="font-mono">{metaIntegration.account_name ?? metaIntegration.account_id}</span>
                   </p>
-                )}
-                {tokenExpiry && (
-                  <p className={`text-xs mt-1 ${isExpiringSoon ? 'text-yellow-700' : 'text-green-600'}`}>
-                    Token expires {tokenExpiry.toLocaleDateString()}
-                    {isExpiringSoon && ' — reconnect soon'}
+                  <p className="text-xs text-red-600 mt-1">
+                    Meta access token has expired. Please reconnect your account to resume launching ads.
                   </p>
-                )}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Connected state */
+              <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
+                <CheckCircle2 size={16} className="text-green-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-green-800">Connected</p>
+                  <p className="text-xs text-green-700 mt-0.5 truncate">
+                    Ad account: <span className="font-mono">{metaIntegration.account_name ?? metaIntegration.account_id}</span>
+                  </p>
+                  {metaIntegration.page_name && (
+                    <p className="text-xs text-green-700 truncate">
+                      Page: {metaIntegration.page_name}
+                    </p>
+                  )}
+                  {tokenExpiry && (
+                    <p className={`text-xs mt-1 ${isExpiringSoon ? 'text-yellow-700' : 'text-green-600'}`}>
+                      Token expires {tokenExpiry.toLocaleDateString('de-DE')}
+                      {isExpiringSoon && ' — reconnect soon'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {isExpiringSoon && (
               <div className="flex items-center gap-2 p-2.5 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-700">
@@ -119,8 +135,13 @@ export function MetaIntegration() {
             )}
 
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" onClick={connect} className="flex-1">
-                Reconnect / Switch account
+              <Button
+                variant={isExpired ? 'danger' : 'secondary'}
+                size="sm"
+                onClick={connect}
+                className={isExpired ? 'flex-1 bg-red-600 hover:bg-red-700 text-white' : 'flex-1'}
+              >
+                {isExpired ? 'Reconnect account' : 'Reconnect / Switch account'}
               </Button>
               <Button
                 variant="ghost"

@@ -11,12 +11,13 @@ import type { Competitor } from '../../types/database.types'
 
 const INDUSTRIES = [
   { value: '', label: 'Select industry...' },
-  { value: 'SaaS', label: 'SaaS' },
-  { value: 'E-commerce', label: 'E-commerce' },
-  { value: 'Finance', label: 'Finance' },
-  { value: 'Healthcare', label: 'Healthcare' },
-  { value: 'Marketing', label: 'Marketing' },
-  { value: 'Education', label: 'Education' },
+  { value: 'Real Estate', label: 'Real Estate (Immobilien)' },
+  { value: 'E-commerce', label: 'E-commerce & Retail' },
+  { value: 'Local Services', label: 'Local Services (Handwerk & Dienstleistung)' },
+  { value: 'Healthcare', label: 'Healthcare & Medical' },
+  { value: 'SaaS', label: 'SaaS & Software' },
+  { value: 'Finance', label: 'Finance & Insurance' },
+  { value: 'Education', label: 'Education & Training' },
   { value: 'Other', label: 'Other' },
 ]
 
@@ -68,14 +69,14 @@ export function CompetitorForm({ open, onClose, competitor }: CompetitorFormProp
         <Input
           label="Company name"
           id="name"
-          placeholder="Acme Corp"
+          placeholder="e.g. Immowelt or Zalando"
           error={errors.name?.message}
           {...register('name')}
         />
         <Input
           label="Website URL"
           id="website_url"
-          placeholder="https://acme.com"
+          placeholder="https://example.de"
           error={errors.website_url?.message}
           {...register('website_url')}
         />

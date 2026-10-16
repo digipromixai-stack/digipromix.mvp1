@@ -109,7 +109,7 @@ const FEATURES = [
 const PRICING = [
   {
     name: 'Starter',
-    price: '$29',
+    price: '29 €',
     period: '/mo',
     desc: 'Perfect for small businesses monitoring 1–3 competitors.',
     features: [
@@ -125,7 +125,7 @@ const PRICING = [
   },
   {
     name: 'Growth',
-    price: '$79',
+    price: '79 €',
     period: '/mo',
     desc: 'For growth-focused teams who need real-time competitive intelligence.',
     features: [
@@ -143,7 +143,7 @@ const PRICING = [
   },
   {
     name: 'Agency',
-    price: '$199',
+    price: '199 €',
     period: '/mo',
     desc: 'Built for agencies managing multiple client accounts.',
     features: [
@@ -325,7 +325,7 @@ export function MarketingPage() {
                   </div>
                   <div className="bg-surface-container-low rounded-lg p-2">
                     <p className="text-on-surface-variant mb-1">Budget</p>
-                    <p className="font-semibold text-on-surface">$15/day · Google Ads</p>
+                    <p className="font-semibold text-on-surface">15 €/day · Google Ads</p>
                   </div>
                 </div>
               </div>

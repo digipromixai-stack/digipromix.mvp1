@@ -221,7 +221,7 @@ export function DashboardPage() {
   const confLevel  = topOpportunity ? confidenceLevel(topOpportunity.confidence) : null
   const scoreReasons = topOpportunity ? opportunityScoreReasons(topOpportunity) : []
   const expLeads   = topOpportunity?.expected_leads ?? 0
-  const oppRevenue = expLeads > 0 ? `$${(expLeads * valuePerLead).toLocaleString()}` : '—'
+  const oppRevenue = expLeads > 0 ? `${(expLeads * valuePerLead).toLocaleString('de-DE')} €` : '—'
   // recommended_budget is a DAILY figure (see score-opportunities: expected_leads is derived
   // from recommended_budget × 7 days of spend) — the weekly spend backing expLeads is ×7, not ×4.
   const weeklySpend = topOpportunity?.recommended_budget != null ? topOpportunity.recommended_budget * 7 : 0
@@ -297,11 +297,11 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-3.5 mb-5">
             <KpiTile
               label="Est. Revenue"
-              value={`$${potentialRevenue.toLocaleString()}`}
+              value={`${potentialRevenue.toLocaleString('de-DE')} €`}
               icon={Target}
               tone="primary"
               source="estimated"
-              info={<>Total AI-estimated leads across your {openOpps} open opportunities ({openOppLeads}) × your configured Value Per Lead (${valuePerLead}, set in Settings). Becomes Actual Revenue once campaigns generate real results.</>}
+              info={<>Total AI-estimated leads across your {openOpps} open opportunities ({openOppLeads}) × your configured Value Per Lead ({valuePerLead} €, set in Settings). Becomes Actual Revenue once campaigns generate real results.</>}
             />
             {openOppLeads > 0 ? (
               <KpiTile
@@ -309,7 +309,7 @@ export function DashboardPage() {
                 value={openOppLeads}
                 icon={Users}
                 source="benchmark"
-                info={<>Sum of AI-estimated leads across your {openOpps} open opportunities, from industry benchmark cost-per-click, competitor activity, and search demand. Matches the Est. Revenue tile (leads × ${valuePerLead}). Becomes Actual Leads once campaigns run.</>}
+                info={<>Sum of AI-estimated leads across your {openOpps} open opportunities, from industry benchmark cost-per-click, competitor activity, and search demand. Matches the Est. Revenue tile (leads × {valuePerLead} €). Becomes Actual Leads once campaigns run.</>}
               />
             ) : (
               <KpiTile
@@ -458,7 +458,7 @@ export function DashboardPage() {
                   <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
                     Estimated Revenue
                     <InfoTooltip title="How Estimated Revenue is calculated">
-                      Estimated Leads ({expLeads || '—'}) × your configured Value Per Lead (${valuePerLead}).
+                      Estimated Leads ({expLeads || '—'}) × your configured Value Per Lead ({valuePerLead} €).
                       Estimated Leads are based on industry benchmarks, competitor activity, and search demand.
                       Once your campaigns generate real results, this becomes Actual Revenue.
                     </InfoTooltip>

@@ -99,7 +99,7 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
             <div key={t.label} className={`grid grid-cols-3 px-2 py-2 border-b border-border-subtle last:border-0 ${t.active ? 'bg-indigo-tint' : ''}`}>
               <span className={`flex items-center gap-1.5 ${t.active ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.active ? 'bg-primary' : 'bg-gray-400'}`} />
-                ${t.budget}/day
+                {t.budget} €/day
               </span>
               <span className={`text-center ${t.active ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>{leadsFor(t.budget)}</span>
               <span className="text-right text-[10px] text-on-surface-variant">{t.tag}</span>
@@ -301,12 +301,12 @@ function OpportunityCard({
           <p className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center gap-1">
             Estimated Revenue
             <InfoTooltip title="How Estimated Revenue is calculated">
-              Estimated Leads ({opp.expected_leads ?? '—'}) × your configured Value Per Lead (${valuePerLead}).
+              Estimated Leads ({opp.expected_leads ?? '—'}) × your configured Value Per Lead ({valuePerLead} €).
               Becomes Actual Revenue once campaigns generate real results.
             </InfoTooltip>
           </p>
           <p className="font-mono text-lg font-bold text-on-surface">
-            {estRevenueValue != null ? `$${estRevenueValue.toLocaleString()}` : '—'}
+            {estRevenueValue != null ? `${estRevenueValue.toLocaleString('de-DE')} €` : '—'}
           </p>
           <SourceTag source="estimated" className="mt-1.5" />
         </div>

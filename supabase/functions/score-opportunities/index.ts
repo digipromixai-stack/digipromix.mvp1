@@ -42,19 +42,19 @@ function json(body: unknown, status = 200) {
 // ── Scoring weights ─────────────────────────────────────────────────────────
 
 const CHANGE_TYPE_WEIGHT: Record<string, number> = {
-  campaign_launch:  30,
-  promotion:        25,
-  price_change:     25,
-  new_landing_page: 20,
-  banner_change:    15,
-  new_blog_post:    10,
-  content_change:    5,
+  campaign_launch:  25,
+  promotion:        20,
+  price_change:     18,
+  new_landing_page: 14,
+  banner_change:    10,
+  new_blog_post:     6,
+  content_change:    3,
 }
 
 const SEVERITY_WEIGHT: Record<string, number> = {
-  high:   40,
-  medium: 25,
-  low:    10,
+  high:   22,
+  medium: 12,
+  low:     5,
 }
 
 // Industry CPC + conversion baselines now live in _shared/heuristic-forecast.ts
@@ -74,14 +74,14 @@ const SEVERITY_WEIGHT: Record<string, number> = {
 // trivial. The feed is labeled a "benchmark estimate" in the UI accordingly.
 
 // Recency factor: 0.0 (just-detected, very recent) → 1.0 (>= 48h old)
-// Recent signals get up to +20 points; old signals get 0.
+// Recent signals get up to +10 points; old signals get 0.
 function recencyBonus(detectedAt: string): number {
   const ageMs    = Date.now() - new Date(detectedAt).getTime()
   const ageHours = Math.max(0, ageMs / (1000 * 60 * 60))
-  if (ageHours <= 1)  return 20
-  if (ageHours <= 6)  return 15
-  if (ageHours <= 24) return 10
-  if (ageHours <= 48) return 5
+  if (ageHours <= 1)  return 10
+  if (ageHours <= 6)  return 7
+  if (ageHours <= 24) return 4
+  if (ageHours <= 48) return 2
   return 0
 }
 
@@ -606,16 +606,16 @@ Deno.serve(async (req) => {
       const recency      = recencyBonus(change.detected_at as string)
 
       // NEW: page-type weight (homepage / pricing changes matter more)
-      const pageWeight   = PAGE_TYPE_WEIGHT[(page?.page_type ?? 'custom').toLowerCase()] ?? 4
+      const pageWeight   = PAGE_TYPE_WEIGHT[(page?.page_type ?? 'custom').toLowerCase()] ?? 3
 
       // NEW: signal-density bonus from real metadata
       const promoCodes   = Array.isArray(meta.promo_codes) ? (meta.promo_codes as string[]).length : 0
-      const promoBonus   = Math.min(8, promoCodes * 3)          // 0..8
+      const promoBonus   = Math.min(6, promoCodes * 2)          // 0..6
       const priceAfter   = Array.isArray(meta.price_after) ? (meta.price_after as string[]).length : 0
-      const priceBonus   = Math.min(6, priceAfter * 2)          // 0..6
+      const priceBonus   = Math.min(4, priceAfter * 2)          // 0..4
 
       // NEW: sibling bonus — multiple changes on same competitor same day
-      const siblingBonus = Math.min(10, siblings.length * 4)
+      const siblingBonus = Math.min(8, siblings.length * 3)
 
       // Tiny deterministic per-competitor jitter so identical signals from
       // different competitors don't tie perfectly. Hash-based so it's stable
@@ -671,15 +671,28 @@ Deno.serve(async (req) => {
       const expectedLeads    = Math.max(0, Math.round(expectedLeadsRaw))
       const cpl              = expectedLeads > 0 ? Math.round((recBudget * 7 / expectedLeads) * 100) / 100 : 0
 
+      // Estimated leads range (Task 7 requirement)
+      const leadsMin = Math.max(1, Math.round(expectedLeads * 0.7))
+      const leadsMax = Math.max(leadsMin + 1, Math.round(expectedLeads * 1.3))
+      const expectedLeadsRange = `${leadsMin}–${leadsMax}`
+
       // ── Confidence (0..1) ────────────────────────────────────────────
-      let confidence = 0.40
-      if (industry)                       confidence += 0.15
-      if (change.severity === 'high')     confidence += 0.15
-      if (meta.is_coordinated === true)   confidence += 0.10
-      if (campaignSig > 50)               confidence += 0.10
-      if (recency >= 15)                  confidence += 0.05
-      if (siblings.length >= 2)           confidence += 0.05
-      confidence = Math.min(0.95, confidence + vectorConfidenceDelta + cs.confidenceDelta)
+      // Per Task 7: Confidence "High" (>=0.70) ONLY when 2 or more independent
+      // signals agree (competitor change + search trend + ad activity).
+      const hasSearchSignal = cs.signalTypes.some(t => t.includes('SEARCH') || t.includes('KEYWORD'))
+      const hasAdSignal = cs.signalTypes.some(t => t.includes('AD_VOLUME') || t.includes('CREATIVE') || t.includes('OFFER_REPEAT'))
+      const independentSignals = 1 + (hasSearchSignal ? 1 : 0) + (hasAdSignal ? 1 : 0)
+
+      let confidence = 0.35
+      if (independentSignals >= 2) {
+        // Multi-signal corroborated: High confidence (0.70 - 0.95)
+        const bonus = (independentSignals >= 3 ? 0.15 : 0.05) + cs.confidenceDelta + vectorConfidenceDelta
+        confidence = Math.min(0.95, Math.max(0.70, 0.70 + bonus))
+      } else {
+        // Single signal source only: Capped at Medium (max 0.60)
+        confidence = 0.35 + (change.severity === 'high' ? 0.15 : 0.05) + (meta.is_coordinated === true ? 0.05 : 0)
+        confidence = Math.min(0.60, Math.max(0.25, confidence))
+      }
 
       // ── LLM-enriched title + recommended_action (§6) ────────────────
       // Only call Gemini for opps above the enrichment threshold; fall back
@@ -805,6 +818,9 @@ Deno.serve(async (req) => {
           llm_enriched:               llmUsed,
           competitor_activity_7d:     competitorActivity7d,
           cpc_prediction:             cpcPred,
+          leads_min:                  leadsMin,
+          leads_max:                  leadsMax,
+          leads_range:                expectedLeadsRange,
         },
       })
     }

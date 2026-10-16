@@ -4,7 +4,7 @@ import {
   Rocket, Loader2, Copy, Check, Zap, Globe, Share2,
   Search, CheckCircle2, ChevronDown, ChevronUp, X,
   ExternalLink, Link2, DollarSign, Layout, Sparkles, Shield,
-  Pencil, Save, Plus, RotateCcw,
+  Pencil, Save, Plus, RotateCcw, AlertTriangle,
 } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -12,6 +12,7 @@ import { invokeFunction, supabase } from '../../lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMetaIntegration, useGoogleAdsIntegration, minDailyForCurrency } from '../../hooks/useAdIntegrations'
 import { useClients } from '../../hooks/useClients'
+import { useProfile } from '../../hooks/useProfile'
 import type { Campaign, LandingTemplate } from '../../types/database.types'
 import type { DetectedChangeWithCompetitor } from '../../types/database.types'
 import { confidenceLevel } from '../ui/MetricMeta'
@@ -94,11 +95,50 @@ function Field({ label, value, multiline }: { label: string; value: string; mult
   )
 }
 
+function validateAdCopy(
+  c: { headline?: string | null; ad_copy?: string | null; offer?: string | null; social_copy?: string | null },
+  competitorName?: string | null
+): { valid: boolean; reason?: string } {
+  const fields = [c.headline, c.ad_copy, c.offer, c.social_copy].filter(Boolean) as string[]
+
+  const placeholderPatterns = [
+    /\byourbrand\b/i,
+    /\[?(?:your[_\s-]?brand|brand[_\s-]?name|company[_\s-]?name)\]?/i,
+    /exclusive limited[- ]time offer/i,
+    /\[insert\b/i,
+    /\bplaceholder\b/i,
+  ]
+
+  for (const text of fields) {
+    for (const pat of placeholderPatterns) {
+      if (pat.test(text)) return { valid: false, reason: 'placeholder' }
+    }
+    if (/new promotional content/i.test(text)) {
+      return { valid: false, reason: 'promo_noise' }
+    }
+  }
+
+  if (competitorName && competitorName.trim().length >= 3) {
+    const cleanComp = competitorName.replace(/\b(gmbh|ag|inc|ltd|ug|corp|llc|co)\b/gi, '').trim()
+    if (cleanComp.length >= 3) {
+      const compRegex = new RegExp(`\\b${cleanComp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+      for (const text of fields) {
+        if (compRegex.test(text)) {
+          return { valid: false, reason: 'competitor_name' }
+        }
+      }
+    }
+  }
+
+  return { valid: true }
+}
+
 export function CampaignModal({ change, open, onClose, opportunityHint, counterHint }: Props) {
   const qc = useQueryClient()
   const { metaIntegration }    = useMetaIntegration()
   const { googleIntegration }  = useGoogleAdsIntegration()
   const { data: clients = [] } = useClients()
+  const { data: profile }      = useProfile()
 
   const [step, setStep]               = useState<Step>('generate')
   const [loading, setLoading]         = useState(false)
@@ -217,6 +257,10 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
   }
 
   const generate = async () => {
+    if (!profile?.business_name && !profile?.full_name) {
+      setError('Please complete your business profile in Settings first before generating campaigns.')
+      return
+    }
     setLoading(true); setError(null)
     try {
       const { data, error: fnError } = await invokeFunction<{
@@ -262,6 +306,14 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
     if (!campaign) return
 
     // ── Client-side validation before hitting any edge function ──────────
+    // Validate clean ad text before launch (Task 11)
+    const compName = campaign.competitor_name || change.competitors?.name
+    const copyCheck = validateAdCopy(campaign, compName)
+    if (!copyCheck.valid) {
+      setError('Please edit your ad text before launching.')
+      return
+    }
+
     // A launch happens when channel selected AND (managed mode OR self mode with connected integration)
     const metaWillLaunch =
       selectedChannels.includes('meta') &&
@@ -301,10 +353,11 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
         (selectedChannels.includes('google') && launchModes.google === 'managed')
 
       // Save status + channels + template + budget + client + launch mode + publish landing page
+      // Day 1 Task 1: Always created as 'paused' by default — never live / active until user confirms
       await supabase
         .from('campaigns')
         .update({
-          status: 'active',
+          status: 'paused',
           channels: selectedChannels,
           landing_page_url: landingUrl || null,
           published: true,
@@ -406,7 +459,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">{counterHint.primaryText}</p>
               </div>
               <div className="flex items-center gap-2 pt-1 border-t border-primary/10">
-                <span className="text-[10px] font-mono font-semibold text-primary">${counterHint.budget}/day</span>
+                <span className="text-[10px] font-mono font-semibold text-primary">{counterHint.budget} €/day</span>
                 <span className="text-gray-300">·</span>
                 <span className="text-[10px] text-primary font-semibold">{counterHint.channels.map(c => c === 'meta' ? 'Meta' : 'Google').join(' + ')}</span>
                 <span className="ml-auto text-[9px] text-on-surface-variant italic">AI will enrich this →</span>
@@ -430,7 +483,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 {opportunityHint.recommended_budget != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Recommended budget</div>
-                    <div className="text-sm font-bold text-gray-900">${opportunityHint.recommended_budget}/day</div>
+                    <div className="text-sm font-bold text-gray-900">{opportunityHint.recommended_budget} €/day</div>
                   </div>
                 )}
                 {opportunityHint.expected_leads != null && (
@@ -442,19 +495,34 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 {opportunityHint.estimated_cpc != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPC</div>
-                    <div className="text-sm font-bold text-gray-900">${opportunityHint.estimated_cpc.toFixed(2)}</div>
+                    <div className="text-sm font-bold text-gray-900">{opportunityHint.estimated_cpc.toFixed(2)} €</div>
                   </div>
                 )}
                 {opportunityHint.estimated_cpl != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPL</div>
-                    <div className="text-sm font-bold text-gray-900">${opportunityHint.estimated_cpl.toFixed(2)}</div>
+                    <div className="text-sm font-bold text-gray-900">{opportunityHint.estimated_cpl.toFixed(2)} €</div>
                   </div>
                 )}
               </div>
               <p className="text-[11px] text-violet-700 mt-2">
                 These are heuristic projections from the AI Opportunity Radar. Actual numbers depend on creative quality + targeting.
               </p>
+            </div>
+          )}
+
+          {!profile?.business_name && (
+            <div className="flex items-start gap-2.5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+              <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Complete your business profile</p>
+                <p className="text-amber-700 mt-0.5">
+                  Your business name and details are needed so the AI writes branded ads with your real company name instead of placeholders.
+                </p>
+                <Link to="/settings" className="inline-block mt-1.5 font-semibold text-primary underline">
+                  Complete profile in Settings →
+                </Link>
+              </div>
             </div>
           )}
 
@@ -504,13 +572,13 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 {campaign.predicted_cpc != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPC</div>
-                    <div className="text-sm font-bold text-gray-900">${campaign.predicted_cpc.toFixed(2)}</div>
+                    <div className="text-sm font-bold text-gray-900">{campaign.predicted_cpc.toFixed(2)} €</div>
                   </div>
                 )}
                 {campaign.predicted_cpl != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. cost/lead</div>
-                    <div className="text-sm font-bold text-gray-900">${campaign.predicted_cpl.toFixed(2)}</div>
+                    <div className="text-sm font-bold text-gray-900">{campaign.predicted_cpl.toFixed(2)} €</div>
                   </div>
                 )}
               </div>
@@ -792,7 +860,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 </p>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">
-                    {currency ?? '$'}
+                    {currency ?? '€'}
                   </span>
                   <input
                     type="number"
@@ -1056,7 +1124,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
               <p className="text-xs text-red-600">
                 Campaign ID: <code className="font-mono">{googleResult.google_campaign_id}</code>
               </p>
-              <p className="text-xs text-green-600 mt-1">Status: <span className="font-semibold">ENABLED</span> — running now. Pause or delete anytime from Campaigns.</p>
+              <p className="text-xs text-amber-700 mt-1">Status: <span className="font-semibold">PAUSED</span> — created in paused mode. Activate it from Campaigns when ready to spend.</p>
               <a
                 href="https://ads.google.com/aw/campaigns"
                 target="_blank"

@@ -7,6 +7,7 @@ import {
   Settings, BarChart, LayoutList, Columns, Mail,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Modal } from '../components/ui/Modal'
 import { useToast } from '../components/ui/Toast'
 import { Spinner } from '../components/ui/Spinner'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -21,6 +22,67 @@ import { useCampaignMetrics } from '../hooks/useCampaignMetrics'
 import { timeAgo } from '../lib/utils'
 import { SourceTag } from '../components/ui/MetricMeta'
 import type { Campaign, CampaignStatus } from '../types/database.types'
+
+function GoLiveModal({
+  campaign,
+  onClose,
+  onConfirm,
+  isPending,
+}: {
+  campaign: Campaign
+  onClose: () => void
+  onConfirm: () => void
+  isPending: boolean
+}) {
+  const platforms = [
+    campaign.google_campaign_id || campaign.channels?.includes('google') ? 'Google Ads' : null,
+    campaign.meta_campaign_id || campaign.channels?.includes('meta') ? 'Meta Ads' : null,
+  ].filter(Boolean)
+  const platformStr = platforms.length > 0 ? platforms.join(' & ') : 'Google/Meta'
+  const budgetStr = campaign.daily_budget ? `${campaign.daily_budget} €` : 'your configured daily limit'
+
+  return (
+    <Modal open={true} onClose={onClose} title="Confirm Campaign Activation" size="md">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-xl border border-amber-200">
+          <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
+          <div>
+            <h4 className="text-sm font-bold text-amber-900 mb-1">Live Ad Spend Warning</h4>
+            <p className="text-xs text-amber-800 leading-relaxed">
+              Campaign will go live on <strong>{platformStr}</strong> with a daily budget limit of <strong>{budgetStr}</strong>. Confirm?
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-surface-container-low rounded-xl p-3 space-y-1 text-xs text-on-surface-variant">
+          <p><span className="font-semibold text-on-surface">Campaign:</span> {campaign.campaign_name}</p>
+          {campaign.headline && <p><span className="font-semibold text-on-surface">Headline:</span> {campaign.headline}</p>}
+          <p><span className="font-semibold text-on-surface">Daily Budget:</span> {campaign.daily_budget ? `${campaign.daily_budget} €/day` : 'Not set'}</p>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="px-3 py-1.5 rounded-lg border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container-low transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors disabled:opacity-50"
+          >
+            <Rocket size={13} />
+            {isPending ? 'Activating…' : 'Confirm & Go Live'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 const STATUS_CONFIG: Record<CampaignStatus, { label: string; color: string; icon: React.ElementType }> = {
   draft:     { label: 'Draft',     color: 'bg-surface-container text-on-surface-variant', icon: FileEdit       },
@@ -309,7 +371,7 @@ function MetricsPanel({ campaignId }: { campaignId: string }) {
     <div className="mt-2">
       <div className="grid grid-cols-4 gap-1.5">
         {[
-          { label: 'Spend',       value: `$${m.total_spend.toFixed(2)}`, color: 'text-on-surface' },
+          { label: 'Spend',       value: `${m.total_spend.toFixed(2)} €`, color: 'text-on-surface' },
           { label: 'Clicks',      value: fmt(m.total_clicks),             color: 'text-primary' },
           { label: 'Impressions', value: fmt(m.total_impressions),        color: 'text-on-surface-variant' },
           { label: 'CTR',         value: m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '—', color: 'text-success' },
@@ -345,7 +407,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
     }, {
       onSuccess: () => {
         setEditing(false)
-        toast(campaign.meta_campaign_id ? `Budget updated to $${n}/day — synced to Meta` : `Budget updated to $${n}/day`, 'success')
+        toast(campaign.meta_campaign_id ? `Budget updated to ${n} €/day — synced to Meta` : `Budget updated to ${n} €/day`, 'success')
       },
       onError: (e) => toast(`Budget update failed: ${(e as Error).message}`, 'error'),
     })
@@ -355,7 +417,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
     return (
       <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface">
         <DollarSign size={10} />
-        {campaign.daily_budget ? `$${campaign.daily_budget}/day` : 'Set budget'}
+        {campaign.daily_budget ? `${campaign.daily_budget} €/day` : 'Set budget'}
         <Pencil size={9} className="ml-0.5" />
       </button>
     )
@@ -363,7 +425,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-on-surface-variant">$</span>
+      <span className="text-xs text-on-surface-variant">€</span>
       <input
         type="number" min={1} value={value}
         onChange={e => setValue(e.target.value)}
@@ -380,7 +442,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
 
 // ── List-view campaign card (unchanged behavior, retoned) ─────────────────────
 
-function CampaignCard({ campaign }: { campaign: Campaign }) {
+function CampaignCard({ campaign, onActivate }: { campaign: Campaign; onActivate: (c: Campaign) => void }) {
   const { mutate: updateStatus, isPending: updatingStatus } = useUpdateCampaignStatus()
   const { mutate: deleteCampaign, isPending: deleting } = useDeleteCampaign()
   const [showMetrics, setShowMetrics] = useState(false)
@@ -483,7 +545,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                 )}
                 {(campaign.status === 'draft' || campaign.status === 'paused') && (
                   <button
-                    onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+                    onClick={() => onActivate(campaign)}
                     disabled={updatingStatus}
                     className="text-xs px-2.5 py-1 rounded-lg border border-success/30 text-success hover:bg-emerald-50 transition-colors disabled:opacity-50"
                   >{updatingStatus ? '...' : campaign.status === 'draft' ? 'Activate' : 'Resume'}</button>
@@ -532,7 +594,7 @@ const KANBAN_ICON_BG: Record<string, string> = {
   email:  'bg-orange-tint text-warning',
 }
 
-function KanbanCard({ campaign }: { campaign: Campaign }) {
+function KanbanCard({ campaign, onActivate }: { campaign: Campaign; onActivate: (c: Campaign) => void }) {
   const { mutate: updateStatus, isPending } = useUpdateCampaignStatus()
   const primaryChannel = campaign.channels[0]
   const ChannelIcon = primaryChannel ? (CHANNEL_ICONS[primaryChannel] ?? Globe) : Rocket
@@ -560,12 +622,12 @@ function KanbanCard({ campaign }: { campaign: Campaign }) {
 
       <div className="flex items-center justify-between">
         <span className="text-sm font-bold text-on-surface">
-          {campaign.daily_budget ? `$${campaign.daily_budget}/day` : '$0'}
+          {campaign.daily_budget ? `${campaign.daily_budget} €/day` : '0 €'}
         </span>
         <div className="flex gap-1">
           {campaign.status === 'draft' && (
             <button
-              onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+              onClick={() => onActivate(campaign)}
               disabled={isPending}
               className="text-[10px] font-bold px-2 py-1 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
             >Activate</button>
@@ -579,7 +641,7 @@ function KanbanCard({ campaign }: { campaign: Campaign }) {
           )}
           {campaign.status === 'paused' && (
             <button
-              onClick={() => updateStatus({ id: campaign.id, status: 'active', googleCampaignId: campaign.google_campaign_id, metaCampaignId: campaign.meta_campaign_id })}
+              onClick={() => onActivate(campaign)}
               disabled={isPending}
               className="text-[10px] font-bold px-2 py-1 rounded-lg bg-indigo-tint text-primary hover:opacity-80 transition-colors disabled:opacity-50"
             >Resume</button>
@@ -599,7 +661,7 @@ const KANBAN_COLS: { status: CampaignStatus; label: string; dot: string; countTe
   { status: 'completed', label: 'Completed', dot: 'bg-primary',    countText: 'text-primary' },
 ]
 
-function KanbanBoard({ campaigns }: { campaigns: Campaign[] }) {
+function KanbanBoard({ campaigns, onActivate }: { campaigns: Campaign[]; onActivate: (c: Campaign) => void }) {
   return (
     <div className="flex gap-3.5 overflow-x-auto pb-4 -mx-1 px-1">
       {KANBAN_COLS.map(col => {
@@ -619,7 +681,7 @@ function KanbanBoard({ campaigns }: { campaigns: Campaign[] }) {
                   <p className="text-[10px] text-on-surface-variant/60 font-semibold">No {col.label.toLowerCase()} campaigns</p>
                 </div>
               ) : (
-                colCampaigns.map(c => <KanbanCard key={c.id} campaign={c} />)
+                colCampaigns.map(c => <KanbanCard key={c.id} campaign={c} onActivate={onActivate} />)
               )}
             </div>
           </div>
@@ -634,6 +696,30 @@ export function CampaignsPage() {
   const [filter, setFilter] = useState<CampaignStatus | 'all'>('all')
   const [view, setView] = useState<'list' | 'kanban'>('kanban')
   const [searchQuery, setSearchQuery] = useState('')
+  const [activatingCampaign, setActivatingCampaign] = useState<Campaign | null>(null)
+  const { mutate: updateStatus, isPending: activating } = useUpdateCampaignStatus()
+  const { toast } = useToast()
+
+  const handleConfirmGoLive = () => {
+    if (!activatingCampaign) return
+    updateStatus(
+      {
+        id: activatingCampaign.id,
+        status: 'active',
+        googleCampaignId: activatingCampaign.google_campaign_id,
+        metaCampaignId: activatingCampaign.meta_campaign_id,
+      },
+      {
+        onSuccess: () => {
+          toast('Campaign activated and running', 'success')
+          setActivatingCampaign(null)
+        },
+        onError: (e) => {
+          toast(`Activation failed: ${(e as Error).message}`, 'error')
+        },
+      }
+    )
+  }
 
   const searched = searchQuery.trim()
     ? campaigns.filter(c => c.campaign_name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -694,7 +780,7 @@ export function CampaignsPage() {
             description="Go to Counter Campaign, find a competitor signal and launch your first AI counter-campaign."
           />
         ) : (
-          <KanbanBoard campaigns={searched} />
+          <KanbanBoard campaigns={searched} onActivate={setActivatingCampaign} />
         )
       ) : (
         <>
@@ -722,10 +808,19 @@ export function CampaignsPage() {
             />
           ) : (
             <div className="max-w-3xl mx-auto space-y-3">
-              {filtered.map(c => <CampaignCard key={c.id} campaign={c} />)}
+              {filtered.map(c => <CampaignCard key={c.id} campaign={c} onActivate={setActivatingCampaign} />)}
             </div>
           )}
         </>
+      )}
+
+      {activatingCampaign && (
+        <GoLiveModal
+          campaign={activatingCampaign}
+          onClose={() => setActivatingCampaign(null)}
+          onConfirm={handleConfirmGoLive}
+          isPending={activating}
+        />
       )}
     </div>
   )

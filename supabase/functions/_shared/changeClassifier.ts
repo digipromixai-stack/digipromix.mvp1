@@ -100,25 +100,17 @@ export function classifyChange(
   }
 
   // ── Tier 2: Promotion ────────────────────────────────────────────────────
+  // Must have actual promo keywords (or promo code) — never create empty promo keywords
   const promoKeywords = detectPromotionKeywords(newLinesText)
-  if (campaignScore >= 35 || promoKeywords.length >= 2) {
+  if (promoKeywords.length > 0) {
+    const isMajor = campaignScore >= 35 || promoKeywords.length >= 2
     return {
       change_type: 'promotion',
-      severity: 'high',
+      severity: isMajor ? 'high' : 'medium',
       title: `Promotion detected on ${hostname}`,
       description: `New promotional content: "${promoKeywords.slice(0, 3).join('", "')}"`,
       promo_keywords: promoKeywords,
       campaign_score: campaignScore,
-    }
-  }
-  // Single promo keyword also counts (original behaviour)
-  if (promoKeywords.length > 0) {
-    return {
-      change_type: 'promotion',
-      severity: 'high',
-      title: `Promotion detected on ${hostname}`,
-      description: `New promotional content found: "${promoKeywords[0]}"`,
-      promo_keywords: promoKeywords,
     }
   }
 
