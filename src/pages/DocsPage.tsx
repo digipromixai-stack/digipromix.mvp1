@@ -56,7 +56,6 @@ const SECTIONS: Section[] = [
       { id: 'google-ads', label: 'Google Ads Launch' },
       { id: 'meta-ads', label: 'Meta Ads Launch' },
       { id: 'landing-pages', label: 'Landing Pages' },
-      { id: 'lead-tracking', label: 'Lead Tracking & Attribution' },
     ],
   },
   {
@@ -622,79 +621,6 @@ export function DocsPage() {
             <p className="text-sm text-gray-500">
               Each page includes the AI-generated headline, body copy, CTA button, and a lead capture form. Submissions are saved to the <strong>Leads</strong> section of your dashboard.
             </p>
-          </section>
-
-          {/* ═══ LEAD TRACKING & ATTRIBUTION ═════════════════════════════ */}
-          <section id="lead-tracking" data-doc-section className="mb-16 scroll-mt-20">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Lead Tracking & Attribution</h2>
-            <p className="text-gray-500 mb-6">
-              Track exactly which competitor counter-campaign, ad group, and keyword generated each customer inquiry, while maintaining full GDPR compliance.
-            </p>
-
-            {/* 1. UTM Tagging */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">1. Automated UTM Query Tagging</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Whenever DigiPromix launches a counter-campaign to Google Ads or Meta Ads, it automatically appends standardized UTM tracking parameters to your landing page destination URLs.
-              </p>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs font-mono text-gray-700 mb-3 break-all">
-                https://yourwebsite.de/lp/angebote?<strong>utm_source</strong>=google&amp;<strong>utm_medium</strong>=cpc&amp;<strong>utm_campaign</strong>={'{campaignid}'}&amp;<strong>utm_term</strong>={'{keyword}'}&amp;<strong>utm_content</strong>={'{adgroupid}'}
-              </div>
-              <div className="space-y-1.5 text-xs text-gray-600 mb-4">
-                <p>• <strong>Exact Attribution:</strong> When a prospect submits the lead form, DigiPromix extracts the UTM tags and binds them to the new lead record in your database.</p>
-                <p>• <strong>Zero Manual Configuration:</strong> No need to build tracking URLs manually — the campaign launch engine handles dynamic tag injection automatically.</p>
-              </div>
-            </div>
-
-            {/* 2. Consent Mode v2 */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">2. Google Consent Mode v2 Cookie Banner</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Under the European Union Digital Markets Act (DMA) and German GDPR requirements, Google and Meta require websites to collect explicit consent before loading advertising and measurement cookies.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <div className="border border-emerald-200 bg-emerald-50/50 rounded-lg p-3.5">
-                  <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide mb-1">When Accepted</p>
-                  <p className="text-xs text-emerald-900">
-                    Consent signals (`ad_storage: granted`, `ad_user_data: granted`, `ad_personalization: granted`) are sent to Google Ads and Meta. Smart Bidding and conversion tracking operate at full fidelity.
-                  </p>
-                </div>
-                <div className="border border-gray-200 bg-gray-50 rounded-lg p-3.5">
-                  <p className="text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">When Declined</p>
-                  <p className="text-xs text-gray-600">
-                    All advertising cookies remain blocked. The landing page functions normally without tracking, keeping the business 100% compliant with German privacy regulations.
-                  </p>
-                </div>
-              </div>
-              <Callout type="tip">
-                Every DigiPromix public landing page (`/lp/:slug`) includes this banner by default, shielding your ad accounts from compliance penalties or suspension.
-              </Callout>
-            </div>
-
-            {/* 3. Won / Lost Status Pipeline */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">3. Won / Lost Sales Pipeline</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                The Leads Dashboard provides a full sales lifecycle to track inquiries from initial contact to closed revenue.
-              </p>
-              <div className="space-y-2 mb-4">
-                {[
-                  ['New', 'Inquiry just submitted via landing page or ad extension. AI calculates initial intent score.'],
-                  ['Contacted', 'Outreach initiated via phone, WhatsApp, or email.'],
-                  ['Qualified', 'Prospect has confirmed budget, timeline, and purchase intent.'],
-                  ['Won', 'Deal closed and revenue earned. Updates campaign ROI metrics and trains the AI model.'],
-                  ['Lost', 'Prospect chose a competitor or declined. Used by the AI engine to refine messaging and targeting.'],
-                ].map(([status, desc]) => (
-                  <div key={status} className="flex gap-2.5 text-xs text-gray-600 p-2.5 rounded-lg border border-gray-100 bg-white">
-                    <span className="font-bold text-gray-800 min-w-[75px]">{status}</span>
-                    <span>— {desc}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500">
-                Marking leads as <strong>Won</strong> or <strong>Lost</strong> feeds real-world financial data back into DigiPromix, allowing the platform to calculate your true Return on Ad Spend (ROAS) and optimize future counter-campaigns.
-              </p>
-            </div>
           </section>
 
           {/* ═══ ALERT PREFERENCES ═════════════════════════════════════ */}
