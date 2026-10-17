@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS ad_integrations (
   UNIQUE(user_id, platform)
 );
 
+DROP TRIGGER IF EXISTS ad_integrations_updated_at ON ad_integrations;
 CREATE TRIGGER ad_integrations_updated_at
   BEFORE UPDATE ON ad_integrations
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();

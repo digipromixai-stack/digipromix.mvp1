@@ -46,6 +46,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS ad_integrations_updated_at ON ad_integrations;
 CREATE TRIGGER ad_integrations_updated_at
   BEFORE UPDATE ON ad_integrations
   FOR EACH ROW EXECUTE FUNCTION update_ad_integrations_updated_at();
