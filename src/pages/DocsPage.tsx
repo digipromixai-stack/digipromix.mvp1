@@ -561,9 +561,9 @@ export function DocsPage() {
             <p className="text-sm font-semibold text-gray-700 mb-3">What gets created in Google Ads:</p>
             <div className="space-y-2 mb-5">
               {[
-                ['Campaign Budget', 'Daily budget you set (default $10/day)'],
+                ['Campaign Budget', 'Daily budget you set (default 10 €/day)'],
                 ['Search Campaign', 'PAUSED, manual CPC, Search network only'],
-                ['Ad Group', 'PAUSED, $1 default CPC bid'],
+                ['Ad Group', 'PAUSED, 1 € default CPC bid'],
                 ['Responsive Search Ad', '3 headlines (≤30 chars), 2 descriptions (≤90 chars)'],
                 ['Keywords', 'Up to 20 broad-match keywords from AI output'],
               ].map(([name, desc]) => (
