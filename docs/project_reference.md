@@ -367,3 +367,25 @@ const VALUE_PER_LEAD = 150   // $150 assumed value per lead
 - WhatsApp alerts in `submit-lead` need Twilio secrets set (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER)
 - `campaign_embeddings` / RAG fully schema-ready but vector retrieval performance not tested at scale
 - Meta budget field uses account currency — `minDailyForCurrency(currency)` handles min; zero-decimal currencies (JPY, KRW) handled
+
+---
+
+## Lead Tracking & Attribution (October 2026 / Pilot Release)
+
+### 1. Automated UTM Query Tagging
+- Generated ad links automatically append: `?utm_source={google|meta}&utm_medium=cpc&utm_campaign={campaignid}&utm_term={keyword}&utm_content={adgroupid}`.
+- Handled in `launch-google-ads-campaign` via `trackingUrlTemplate`.
+- Extracted on landing pages (`LandingPage.tsx`) and stored on lead creation (`submit-lead`).
+- Enables exact attribution: connects revenue and closed deals directly back to specific competitor counter-campaigns.
+
+### 2. Google Consent Mode v2 Cookie Banner
+- Required by Google & Meta in the EU under the Digital Markets Act (DMA) and German GDPR.
+- Implemented in `src/components/ui/CookieConsent.tsx` and integrated on `/lp/:slug` routes.
+- Defers all ad cookies until explicit "Accept"; honors "Decline" without ad tracking.
+- Protects customer ad accounts from DMA non-compliance suspensions.
+
+### 3. Won / Lost Sales Pipeline
+- Migration `019_lead_status_won_lost.sql` expanded `leads_status_check` constraint:
+  `status IN ('new', 'contacted', 'qualified', 'closed', 'won', 'lost')`.
+- Allows sales reps/business owners to mark leads as **Won** (revenue confirmed) or **Lost** in `LeadsPage.tsx`.
+- Enables true Return on Ad Spend (ROAS) analytics and trains the AI decision engine on profitable vs. low-intent competitors.
