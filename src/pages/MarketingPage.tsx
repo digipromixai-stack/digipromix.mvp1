@@ -670,6 +670,7 @@ export function MarketingPage() {
               <Link to="/docs" className="hover:text-on-surface-variant transition-colors">Docs</Link>
               <Link to="/privacy" className="hover:text-on-surface-variant transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-on-surface-variant transition-colors">Terms of Service</Link>
+              <Link to="/impressum" className="hover:text-on-surface-variant transition-colors">Impressum</Link>
               <Link to="/login" className="hover:text-on-surface-variant transition-colors">Sign in</Link>
               <Link to="/register" className="hover:text-on-surface-variant transition-colors">Sign up</Link>
             </div>

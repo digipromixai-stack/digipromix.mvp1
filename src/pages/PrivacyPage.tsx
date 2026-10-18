@@ -225,6 +225,7 @@ export function PrivacyPage() {
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <Link to="/privacy" className="hover:text-gray-700">Privacy</Link>
             <Link to="/terms" className="hover:text-gray-700">Terms</Link>
+            <Link to="/impressum" className="hover:text-gray-700">Impressum</Link>
             <Link to="/docs" className="hover:text-gray-700">Docs</Link>
           </div>
         </div>

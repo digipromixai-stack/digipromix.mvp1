@@ -32,6 +32,7 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { MarketingPage } from './pages/MarketingPage'
 import { DocsPage } from './pages/DocsPage'
 import { PrivacyPage } from './pages/PrivacyPage'
+import { ImpressumPage } from './pages/ImpressumPage'
 import { TermsPage } from './pages/TermsPage'
 import { CookieConsent } from './components/ui/CookieConsent'
 
@@ -107,6 +108,7 @@ function AppRoutes() {
       <Route path="/docs" element={<DocsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
+      <Route path="/impressum" element={<ImpressumPage />} />
 
       {/* Auth routes */}
       <Route path="/login" element={<LoginPage />} />
