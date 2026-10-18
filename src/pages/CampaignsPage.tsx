@@ -18,7 +18,7 @@ import {
   useDismissRecommendation,
   type AiRecommendationWithCampaign,
 } from '../hooks/useAiRecommendations'
-import { useCampaignMetrics } from '../hooks/useCampaignMetrics'
+import { useCampaignMetrics, useRefreshCampaignMetrics } from '../hooks/useCampaignMetrics'
 import { timeAgo } from '../lib/utils'
 import { SourceTag } from '../components/ui/MetricMeta'
 import type { Campaign, CampaignStatus } from '../types/database.types'
@@ -355,6 +355,8 @@ function AiRecommendationsPanel() {
 
 function MetricsPanel({ campaign }: { campaign: Campaign }) {
   const { data: m } = useCampaignMetrics(campaign.id)
+  const { mutate: refreshMetrics, isPending: refreshing } = useRefreshCampaignMetrics()
+  const { toast } = useToast()
   const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n))
 
   const isMeta = !!campaign.meta_campaign_id
@@ -388,6 +390,24 @@ function MetricsPanel({ campaign }: { campaign: Campaign }) {
           <span className="text-[10px] text-on-surface-variant">Updated {timeAgo(latestDate)}</span>
         ) : (
           <span className="text-[10px] text-on-surface-variant">Synced with {platformLabel} API</span>
+        )}
+        {(isMeta || isGoogle) && (
+          <button
+            type="button"
+            disabled={refreshing}
+            title={`Fetch the latest impressions, clicks, spend and CTR from ${platformLabel} now`}
+            onClick={() => refreshMetrics(campaign.id, {
+              onSuccess: (r) => toast(
+                r.metrics_ingested ? `Metrics refreshed from ${platformLabel}` : `${platformLabel} returned no delivery data yet for this campaign`,
+                r.metrics_ingested ? 'success' : 'info',
+              ),
+              onError: (e) => toast(`Refresh failed: ${(e as Error).message}`, 'error'),
+            })}
+            className="ml-auto flex items-center gap-1 text-[10px] font-semibold text-primary hover:underline disabled:opacity-50"
+          >
+            <RefreshCw size={10} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Refreshing…' : `Refresh from ${isMeta && !isGoogle ? 'Meta' : isGoogle && !isMeta ? 'Google' : 'platforms'}`}
+          </button>
         )}
       </div>
     </div>

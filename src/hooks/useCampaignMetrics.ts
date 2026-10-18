@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -23,6 +23,34 @@ export interface CampaignMetricsSummary {
   avg_cpc:           number | null
   rows:              CampaignMetricRow[]
   has_data:          boolean
+}
+
+/** Pulls fresh insights from the ad platform(s) for one campaign on demand. */
+export function useRefreshCampaignMetrics() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (campaignId: string) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Not authenticated')
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/optimize-campaigns`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campaign_id: campaignId }),
+        },
+      )
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Refresh failed')
+      const firstErr = (data.errors as Array<{ error: string }> | undefined)?.[0]
+      if (firstErr) throw new Error(firstErr.error)
+      return data as { metrics_ingested?: number }
+    },
+    onSuccess: (_d, campaignId) => {
+      qc.invalidateQueries({ queryKey: ['campaign_metrics', campaignId] })
+      qc.invalidateQueries({ queryKey: ['ai_recommendations'] })
+    },
+  })
 }
 
 export function useCampaignMetrics(campaignId: string | undefined) {

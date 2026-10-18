@@ -79,8 +79,8 @@ async function fetchMetaInsights(
     + `&access_token=${encodeURIComponent(accessToken)}`
 
   const res = await fetch(url)
-  if (!res.ok) throw new Error(`Meta insights ${res.status}`)
-  const body = await res.json() as { data?: Array<Record<string, unknown>> }
+  const body = await res.json() as { data?: Array<Record<string, unknown>>; error?: { message?: string } }
+  if (!res.ok) throw new Error(`Meta insights ${res.status}: ${body.error?.message ?? 'unknown error'}`)
   return (body.data ?? []).map((row) => {
     const actions = (row.actions as Array<{ action_type: string; value: string }> | undefined) ?? []
     const conv = Number(actions.find((a) => a.action_type === 'offsite_conversion')?.value ?? 0)
@@ -275,6 +275,23 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}))
     const onlyCampaign = (body as { campaign_id?: string }).campaign_id ?? null
+
+    // Single-campaign refresh is user-initiated ("Refresh from Meta" button):
+    // require a valid user JWT that owns the campaign. The cron path (no
+    // campaign_id) stays internal.
+    if (onlyCampaign) {
+      const userClient = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
+      )
+      const { data: { user } } = await userClient.auth.getUser()
+      if (!user) return json({ error: 'Unauthorized' }, 401)
+      const { data: owned } = await admin.from('campaigns').select('id')
+        .eq('id', onlyCampaign).eq('user_id', user.id).maybeSingle()
+      if (!owned) return json({ error: 'Campaign not found' }, 404)
+    }
+
     const lookbackDays = Math.min(60, Math.max(7, Number((body as { lookback_days?: number }).lookback_days) || OPT_LOOKBACK_DAYS))
 
     // ── Pull active campaigns that have a launched platform ID ───────────
