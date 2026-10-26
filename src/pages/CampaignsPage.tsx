@@ -601,7 +601,7 @@ function CampaignCard({ campaign, onActivate }: { campaign: Campaign; onActivate
           {showMetrics && (
             <div className="mt-3 pt-3 border-t border-border-subtle">
               <p className="text-[10px] uppercase tracking-wide text-on-surface-variant font-semibold mb-1.5 flex items-center gap-1">
-                <BarChart2 size={10} /> Performance (last 30 days · updated nightly)
+                <BarChart2 size={10} /> Performance (last 30 days · updated nightly or on refresh)
               </p>
               <MetricsPanel campaign={campaign} />
             </div>
