@@ -748,8 +748,11 @@ export function CampaignsPage() {
     )
   }
 
-  const searched = searchQuery.trim()
-    ? campaigns.filter(c => c.campaign_name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const q = searchQuery.trim().toLowerCase()
+  const searched = q
+    ? campaigns.filter(c =>
+        [c.campaign_name, c.headline, c.competitor_name, c.status, ...(c.channels ?? [])]
+          .some(v => (v ?? '').toLowerCase().includes(q)))
     : campaigns
   const filtered = filter === 'all' ? searched : searched.filter(c => c.status === filter)
 
@@ -786,10 +789,20 @@ export function CampaignsPage() {
           <input
             type="text"
             placeholder="Search campaigns…"
+            aria-label="Search campaigns by name, headline, competitor, channel or status"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="border border-outline-variant bg-surface-card rounded-xl pl-9 pr-3 py-2 text-sm w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            onKeyDown={e => { if (e.key === 'Escape') setSearchQuery('') }}
+            className="border border-outline-variant bg-surface-card rounded-xl pl-9 pr-8 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
+            ><X size={14} /></button>
+          )}
         </div>
       </div>
 
@@ -830,8 +843,8 @@ export function CampaignsPage() {
           ) : filtered.length === 0 ? (
             <EmptyState
               icon={Rocket}
-              title={filter === 'all' ? 'No campaigns yet' : `No ${filter} campaigns`}
-              description={filter === 'all' ? 'Go to Counter Campaign, find a competitor signal and click "Launch counter-campaign" to generate your first AI campaign.' : undefined}
+              title={q ? `No campaigns match "${searchQuery.trim()}"` : filter === 'all' ? 'No campaigns yet' : `No ${filter} campaigns`}
+              description={q ? 'Try a different word, or clear the search.' : filter === 'all' ? 'Go to Counter Campaign, find a competitor signal and click "Launch counter-campaign" to generate your first AI campaign.' : undefined}
             />
           ) : (
             <div className="max-w-3xl mx-auto space-y-3">

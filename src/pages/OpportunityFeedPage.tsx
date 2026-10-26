@@ -501,7 +501,7 @@ export function OpportunityFeedPage() {
               onClick={() => setFilterOpen(v => !v)}
               className="border border-outline-variant bg-surface-card hover:bg-surface-container-low rounded-xl px-4 py-2 text-sm font-bold flex items-center gap-1.5 text-on-surface-variant"
             >
-              <Filter size={14} /> Filter
+              <Search size={14} /> {searchQuery.trim() ? `Search: "${searchQuery.trim().slice(0, 14)}"` : 'Search'}
             </button>
             {filterOpen && (
               <div className="absolute right-0 mt-2 w-64 bg-surface-card border border-border-subtle rounded-xl shadow-soft-lg p-3 z-10">
@@ -513,6 +513,7 @@ export function OpportunityFeedPage() {
                     placeholder="Search opportunities…"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setFilterOpen(false) }}
                     className="border border-outline-variant bg-surface-container-low rounded-lg pl-9 pr-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </label>

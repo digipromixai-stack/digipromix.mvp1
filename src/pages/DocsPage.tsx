@@ -211,6 +211,9 @@ export function DocsPage() {
     items: s.items.filter(i => i.label.toLowerCase().includes(query.toLowerCase())),
   })).filter(s => s.items.length > 0)
 
+  // Called as a function (not rendered as <Sidebar />): a component defined inside
+  // DocsPage is a new type every render, so the search input would remount and
+  // lose focus after each keystroke.
   const Sidebar = () => (
     <aside className="w-64 shrink-0 flex flex-col gap-1">
       {/* Search */}
@@ -288,7 +291,7 @@ export function DocsPage() {
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
           <div className="absolute left-0 top-14 bottom-0 w-72 bg-white border-r border-gray-100 overflow-y-auto p-4">
-            <Sidebar />
+            {Sidebar()}
           </div>
         </div>
       )}
@@ -297,7 +300,7 @@ export function DocsPage() {
 
         {/* ── Desktop sidebar ─────────────────────────────────────────── */}
         <div className="hidden lg:block sticky top-20 h-[calc(100vh-5rem)] overflow-y-auto pb-8">
-          <Sidebar />
+          {Sidebar()}
         </div>
 
         {/* ── Content ─────────────────────────────────────────────────── */}
