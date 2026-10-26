@@ -171,9 +171,13 @@ Deno.serve(async (req) => {
         return json({ error: acctData.error.message ?? 'Meta error fetching campaign' }, 400)
       }
 
-      // Convert to cents (Meta expects smallest currency unit).
-      // We use 100× as a safe default for most currencies; for USD/EUR/GBP this is correct.
-      const dailyBudgetCents = Math.round(daily_budget * 100)
+      // Convert to Meta's smallest currency unit. Same rule as launch-meta-campaign:
+      // zero-decimal currencies are sent as-is, everything else ×100.
+      const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW', 'VND', 'IDR'])
+      const acctCurrency = (integration.currency as string | null) ?? 'USD'
+      const dailyBudgetCents = ZERO_DECIMAL_CURRENCIES.has(acctCurrency)
+        ? Math.round(daily_budget)
+        : Math.round(daily_budget * 100)
 
       const updateRes = await metaPost(`/${metaCampaignId}`, token, {
         daily_budget: dailyBudgetCents,

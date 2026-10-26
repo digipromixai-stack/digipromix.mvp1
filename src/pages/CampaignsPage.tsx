@@ -19,6 +19,7 @@ import {
   type AiRecommendationWithCampaign,
 } from '../hooks/useAiRecommendations'
 import { useCampaignMetrics, useRefreshCampaignMetrics } from '../hooks/useCampaignMetrics'
+import { useCampaignCurrencySymbol } from '../hooks/useAdIntegrations'
 import { timeAgo } from '../lib/utils'
 import { SourceTag } from '../components/ui/MetricMeta'
 import type { Campaign, CampaignStatus } from '../types/database.types'
@@ -39,7 +40,8 @@ function GoLiveModal({
     campaign.meta_campaign_id || campaign.channels?.includes('meta') ? 'Meta Ads' : null,
   ].filter(Boolean)
   const platformStr = platforms.length > 0 ? platforms.join(' & ') : 'Google/Meta'
-  const budgetStr = campaign.daily_budget ? `${campaign.daily_budget} €` : 'your configured daily limit'
+  const sym = useCampaignCurrencySymbol(campaign)
+  const budgetStr = campaign.daily_budget ? `${sym}${campaign.daily_budget}` : 'your configured daily limit'
 
   return (
     <Modal open={true} onClose={onClose} title="Confirm Campaign Activation" size="md">
@@ -57,7 +59,7 @@ function GoLiveModal({
         <div className="bg-surface-container-low rounded-xl p-3 space-y-1 text-xs text-on-surface-variant">
           <p><span className="font-semibold text-on-surface">Campaign:</span> {campaign.campaign_name}</p>
           {campaign.headline && <p><span className="font-semibold text-on-surface">Headline:</span> {campaign.headline}</p>}
-          <p><span className="font-semibold text-on-surface">Daily Budget:</span> {campaign.daily_budget ? `${campaign.daily_budget} €/day` : 'Not set'}</p>
+          <p><span className="font-semibold text-on-surface">Daily Budget:</span> {campaign.daily_budget ? `${sym}${campaign.daily_budget}/day` : 'Not set'}</p>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
@@ -363,7 +365,8 @@ function MetricsPanel({ campaign }: { campaign: Campaign }) {
   const isGoogle = !!campaign.google_campaign_id
   const platformLabel = [isMeta && 'Meta Ads', isGoogle && 'Google Ads'].filter(Boolean).join(' + ') || 'Ad Platform'
 
-  const spend = m?.has_data ? `${m.total_spend.toFixed(2)} €` : '0.00 €'
+  const sym = useCampaignCurrencySymbol(campaign)
+  const spend = m?.has_data ? `${sym}${m.total_spend.toFixed(2)}` : `${sym}0.00`
   const clicks = m?.has_data ? fmt(m.total_clicks) : '0'
   const impressions = m?.has_data ? fmt(m.total_impressions) : '0'
   const ctr = m?.has_data && m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '0.0%'
@@ -419,6 +422,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
   const [value, setValue] = useState(String(campaign.daily_budget ?? ''))
   const { mutate: updateBudget, isPending } = useUpdateCampaignBudget()
   const { toast } = useToast()
+  const sym = useCampaignCurrencySymbol(campaign)
 
   const save = () => {
     const n = Number(value)
@@ -429,7 +433,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
     }, {
       onSuccess: () => {
         setEditing(false)
-        toast(campaign.meta_campaign_id ? `Budget updated to ${n} €/day — synced to Meta` : `Budget updated to ${n} €/day`, 'success')
+        toast(campaign.meta_campaign_id ? `Budget updated to ${sym}${n}/day — synced to Meta` : `Budget updated to ${sym}${n}/day`, 'success')
       },
       onError: (e) => toast(`Budget update failed: ${(e as Error).message}`, 'error'),
     })
@@ -439,7 +443,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
     return (
       <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface">
         <DollarSign size={10} />
-        {campaign.daily_budget ? `${campaign.daily_budget} €/day` : 'Set budget'}
+        {campaign.daily_budget ? `${sym}${campaign.daily_budget}/day` : 'Set budget'}
         <Pencil size={9} className="ml-0.5" />
       </button>
     )
@@ -447,7 +451,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-on-surface-variant">€</span>
+      <span className="text-xs text-on-surface-variant">{sym}</span>
       <input
         type="number" min={1} value={value}
         onChange={e => setValue(e.target.value)}
@@ -618,6 +622,7 @@ const KANBAN_ICON_BG: Record<string, string> = {
 
 function KanbanCard({ campaign, onActivate }: { campaign: Campaign; onActivate: (c: Campaign) => void }) {
   const { mutate: updateStatus, isPending } = useUpdateCampaignStatus()
+  const sym = useCampaignCurrencySymbol(campaign)
   const primaryChannel = campaign.channels[0]
   const ChannelIcon = primaryChannel ? (CHANNEL_ICONS[primaryChannel] ?? Globe) : Rocket
   const iconBg = primaryChannel ? (KANBAN_ICON_BG[primaryChannel] ?? 'bg-indigo-tint text-primary') : 'bg-indigo-tint text-primary'
@@ -644,7 +649,7 @@ function KanbanCard({ campaign, onActivate }: { campaign: Campaign; onActivate: 
 
       <div className="flex items-center justify-between">
         <span className="text-sm font-bold text-on-surface">
-          {campaign.daily_budget ? `${campaign.daily_budget} €/day` : '0 €'}
+          {campaign.daily_budget ? `${sym}${campaign.daily_budget}/day` : `${sym}0`}
         </span>
         <div className="flex gap-1">
           {campaign.status === 'draft' && (

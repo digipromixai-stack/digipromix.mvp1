@@ -63,6 +63,30 @@ export function useMetaIntegration() {
   }
 }
 
+/** "INR" → "₹", "EUR" → "€". Falls back to the code itself if Intl has no symbol. */
+export function currencySymbol(currency: string | null | undefined): string {
+  if (!currency) return '€'
+  try {
+    const part = new Intl.NumberFormat('en', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+      .formatToParts(0).find(p => p.type === 'currency')
+    return part?.value ?? currency
+  } catch {
+    return currency
+  }
+}
+
+/**
+ * Currency symbol for a campaign's amounts (budget, spend). Meta campaigns are
+ * charged in the connected ad account's currency, so show that instead of a
+ * hard-coded "€". Non-Meta campaigns keep the € default.
+ */
+export function useCampaignCurrencySymbol(campaign: { meta_campaign_id?: string | null }): string {
+  const { metaIntegration } = useMetaIntegration()
+  return campaign.meta_campaign_id && metaIntegration?.currency
+    ? currencySymbol(metaIntegration.currency)
+    : '€'
+}
+
 export function useGoogleAdsIntegration() {
   const { data: integrations = [], ...rest } = useAdIntegrations()
   const googleIntegration = integrations.find(i => i.platform === 'google') ?? null
