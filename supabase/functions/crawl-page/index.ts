@@ -260,12 +260,13 @@ async function fetchWithRetry(
     if (conditional.etag)         headers['If-None-Match']     = conditional.etag
     if (conditional.lastModified) headers['If-Modified-Since'] = conditional.lastModified
 
+    // Timer covers headers AND body: a server that trickles the body would
+    // otherwise hang the function past the scheduler's 90s expiry.
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), CRAWL_TIMEOUT_MS)
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), CRAWL_TIMEOUT_MS)
       const t0 = Date.now()
       const response = await fetch(url, { headers, signal: controller.signal, redirect: 'follow' })
-      clearTimeout(timeout)
       const fetchMs = Date.now() - t0
 
       if (response.status === 304) {
@@ -305,6 +306,8 @@ async function fetchWithRetry(
     } catch (err) {
       lastError = err instanceof Error ? err.message : 'Fetch failed'
       if (attempt < retries) continue
+    } finally {
+      clearTimeout(timeout)
     }
   }
 
@@ -322,9 +325,14 @@ Deno.serve(async (req) => {
 
   // All initial DB ops in parallel (now includes markRunning)
   const startedAt = new Date().toISOString()
+  // The running-check must exclude our own job: it is marked 'running' in the
+  // same batch, and if that update lands first we'd skip ourselves and leave
+  // the job stuck in 'running' until schedule-crawls expires it.
+  let runningQuery = supabaseAdmin.from('crawl_jobs')
+    .select('id').eq('monitored_page_id', monitored_page_id).eq('status', 'running')
+  if (crawl_job_id) runningQuery = runningQuery.neq('id', crawl_job_id)
   const [runningJobRes, pageRes, lastSnapshotRes] = await Promise.all([
-    supabaseAdmin.from('crawl_jobs')
-      .select('id').eq('monitored_page_id', monitored_page_id).eq('status', 'running').limit(1).maybeSingle(),
+    runningQuery.limit(1).maybeSingle(),
     supabaseAdmin.from('monitored_pages')
       .select('*, competitors(user_id)').eq('id', monitored_page_id).maybeSingle(),
     supabaseAdmin.from('page_snapshots')
@@ -336,7 +344,15 @@ Deno.serve(async (req) => {
       : Promise.resolve(),
   ])
 
-  if (runningJobRes.data) return jsonResponse({ skipped: true, reason: 'already_running' })
+  if (runningJobRes.data) {
+    if (crawl_job_id) {
+      await supabaseAdmin.from('crawl_jobs').update({
+        status: 'failed', error_message: 'Skipped: another crawl of this page is running',
+        completed_at: new Date().toISOString(),
+      }).eq('id', crawl_job_id)
+    }
+    return jsonResponse({ skipped: true, reason: 'already_running' })
+  }
 
   const page = pageRes.data
   if (!page) return jsonResponse({ error: 'Page not found' }, 404)

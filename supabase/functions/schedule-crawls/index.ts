@@ -111,30 +111,70 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Failed to create jobs' }, 500)
   }
 
-  // ── Dispatch crawl-page for each job (truly fire-and-forget) ──────────────
-  // crawl-page does a real HTTP fetch that can take >20s. We do NOT await the
-  // response — we just kick off the request and trust the platform to deliver
-  // it. crawl-page itself updates the crawl_jobs row when it finishes.
-  // The schedule-crawls cron also expires jobs that stay in 'running'>5min.
+  // ── Dispatch crawl-page with bounded concurrency ──────────────────────────
+  // Firing every job at once (~50/tick) overran the platform's concurrent
+  // invocation limit: many requests never reached crawl-page and the jobs
+  // expired as "queued but never dispatched". A small worker pool keeps the
+  // load steady, and a rejected dispatch is recorded on the job instead of
+  // being silently lost. The whole pool runs after we return, via waitUntil.
   const crawlUrl   = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crawl-page`
   const authHeader = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+  const DISPATCH_CONCURRENCY = 8
 
-  for (const job of jobs) {
-    // Intentionally not awaited — fire and forget. EdgeRuntime.waitUntil keeps
-    // the request alive after we return.
-    const p = fetch(crawlUrl, {
-      method: 'POST',
-      headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        monitored_page_id: job.monitored_page_id,
-        crawl_job_id:      job.id,
-      }),
-    }).catch((err) => console.error(`Dispatch failed for job ${job.id}:`, err))
+  const markDispatchFailed = (jobId: string, reason: string) =>
+    supabaseAdmin.from('crawl_jobs').update({
+      status: 'failed',
+      error_message: `Dispatch failed: ${reason}`.slice(0, 300),
+      completed_at: new Date().toISOString(),
+    }).eq('id', jobId).eq('status', 'queued')
 
-    // Detach from main response promise but keep alive on Edge Runtime
-    // @ts-expect-error EdgeRuntime is Supabase-specific, not typed in deno-edge
-    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(p)
+  // The Edge Runtime caps function-to-function calls per trace (~30/min) and
+  // throws "Rate limit exceeded for trace … Retry after Nms." — wait it out.
+  const MAX_DISPATCH_ATTEMPTS = 3
+
+  const dispatchOne = async (job: { id: string; monitored_page_id: string }) => {
+    for (let attempt = 1; attempt <= MAX_DISPATCH_ATTEMPTS; attempt++) {
+      try {
+        const res = await fetch(crawlUrl, {
+          method: 'POST',
+          headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            monitored_page_id: job.monitored_page_id,
+            crawl_job_id:      job.id,
+          }),
+        })
+        if (!res.ok) {
+          const text = await res.text().catch(() => '')
+          console.error(`Dispatch rejected for job ${job.id}: HTTP ${res.status} ${text.slice(0, 120)}`)
+          await markDispatchFailed(job.id, `HTTP ${res.status} ${text.slice(0, 120)}`)
+        } else {
+          await res.body?.cancel()
+        }
+        return
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        const retryAfter = message.match(/Retry after (\d+)\s*ms/i)
+        if (retryAfter && attempt < MAX_DISPATCH_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, Number(retryAfter[1]) + 1000))
+          continue
+        }
+        console.error(`Dispatch failed for job ${job.id}:`, err)
+        await markDispatchFailed(job.id, message)
+        return
+      }
+    }
   }
+
+  const queue = [...jobs]
+  const pool = Promise.all(
+    Array.from({ length: Math.min(DISPATCH_CONCURRENCY, queue.length) }, async () => {
+      while (queue.length > 0) await dispatchOne(queue.shift()!)
+    }),
+  )
+
+  // @ts-expect-error EdgeRuntime is Supabase-specific, not typed in deno-edge
+  if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(pool)
+  else await pool
 
   console.log(`schedule-crawls: queued=${jobs.length} skipped_active=${activePageIds.size}`)
 
