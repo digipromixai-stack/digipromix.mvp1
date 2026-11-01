@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { Opportunity } from '../types/database.types'
 import { useValuePerLead } from '../hooks/useProfile'
+import { formatLeadsRange } from '../lib/economics'
 import { SourceTag, InfoTooltip, confidenceLevel, confidenceTone, type DataSource } from '../components/ui/MetricMeta'
 
 // ── KPI tile (2x2 cluster) ──────────────────────────────────────────────────
@@ -397,7 +398,7 @@ export function DashboardPage() {
                       <span className="text-[10.5px] text-on-surface-variant">Est. revenue</span>
                     </div>
                     <div>
-                      <span className="font-mono text-[15px] font-semibold block text-on-surface">{expLeads || '—'}</span>
+                      <span className="font-mono text-[15px] font-semibold block text-on-surface">{formatLeadsRange(expLeads)}</span>
                       <span className="text-[10.5px] text-on-surface-variant">Est. leads</span>
                     </div>
                     <div>

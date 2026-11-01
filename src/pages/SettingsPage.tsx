@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MetaIntegration } from '../components/settings/MetaIntegration'
 import { GoogleAdsIntegration } from '../components/settings/GoogleAdsIntegration'
+import { useLiveIntegrationCheck } from '../hooks/useAdIntegrations'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -20,6 +21,7 @@ const profileSchema = z.object({
   website_url: z.string().optional().or(z.literal('')),
   industry: z.string().optional().or(z.literal('')),
   city: z.string().optional().or(z.literal('')),
+  main_offer: z.string().optional().or(z.literal('')),
   selling_point: z.string().optional().or(z.literal('')),
   default_landing_page_url: z.string().optional().or(z.literal('')),
   value_per_lead: z.number().min(1, 'Value must be at least 1 €').optional(),
@@ -36,6 +38,7 @@ const ALERT_TYPES: { value: ChangeType; label: string }[] = [
 ]
 
 export function SettingsPage() {
+  useLiveIntegrationCheck()
   const { user, businessId } = useAuth()
   const { toast } = useToast()
   const qc = useQueryClient()
@@ -89,6 +92,7 @@ export function SettingsPage() {
       website_url: profile.website_url ?? '',
       industry: profile.industry ?? '',
       city: profile.city ?? '',
+      main_offer: profile.main_offer ?? '',
       selling_point: profile.selling_point ?? '',
       default_landing_page_url: profile.default_landing_page_url ?? '',
       value_per_lead: profile.value_per_lead ?? 80,
@@ -103,6 +107,7 @@ export function SettingsPage() {
         website_url: data.website_url || null,
         industry: data.industry || null,
         city: data.city || null,
+        main_offer: data.main_offer || null,
         selling_point: data.selling_point || null,
         default_landing_page_url: data.default_landing_page_url || null,
         value_per_lead: data.value_per_lead ?? 80,
@@ -215,6 +220,14 @@ export function SettingsPage() {
                 {...register('city')}
               />
             </div>
+
+            <Input
+              label="Main offer"
+              id="main_offer"
+              placeholder="e.g. Free property valuation within 48 hours"
+              error={errors.main_offer?.message}
+              {...register('main_offer')}
+            />
 
             <Input
               label="Core selling point (one sentence)"

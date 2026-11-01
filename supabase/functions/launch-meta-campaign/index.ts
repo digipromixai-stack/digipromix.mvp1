@@ -19,6 +19,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { META_GRAPH as GRAPH, DEFAULT_COUNTRIES, DEFAULT_AGE_MIN, DEFAULT_AGE_MAX } from '../_shared/config.ts'
+import { checkAdCopy, adCopyErrorMessage } from '../_shared/adCopyCheck.ts'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -36,6 +37,7 @@ interface MetaErrorBody {
   error_user_title?: string
   error_user_msg?:   string
   fbtrace_id?:     string
+  error_data?:     unknown
 }
 
 function formatMetaError(err: MetaErrorBody | undefined): { msg: string; tokenExpired: boolean; pendingAction: boolean; detail: string } {
@@ -44,12 +46,17 @@ function formatMetaError(err: MetaErrorBody | undefined): { msg: string; tokenEx
   // code 31 = "pending action required" — Meta has flagged the ad account
   // and requires the owner to verify it manually in Ads Manager. No code fix
   // can bypass this; only the account owner can resolve it.
-  const pendingAction = err.code === 31 || err.error_subcode === 3858385
+  // subcode 1359188 = ad account has no valid payment method. Meta refuses to
+  // create any campaign (even PAUSED) until one is added in Billing.
+  const paymentRequired = err.error_subcode === 1359188
+  const pendingAction = err.code === 31 || err.error_subcode === 3858385 || paymentRequired
   // Prefer the user-friendly Meta-provided messages when available
   const userMsg = err.error_user_msg ?? err.error_user_title
   let msg: string
   if (tokenExpired) {
     msg = 'Meta access token expired. Please reconnect your Meta account in Settings.'
+  } else if (paymentRequired) {
+    msg = 'Meta requires a payment method on this ad account before it will create campaigns, even paused ones. Add one in Meta Billing & payments — nothing is charged while the campaign stays paused.'
   } else if (pendingAction) {
     // Meta's own message (often translated for the account locale) is fine —
     // just prepend a one-line action so the user knows where to go.
@@ -62,6 +69,9 @@ function formatMetaError(err: MetaErrorBody | undefined): { msg: string; tokenEx
     err.error_subcode ? `subcode=${err.error_subcode}` : null,
     err.fbtrace_id  ? `trace=${err.fbtrace_id}`       : null,
     err.message     ? `raw="${err.message}"`           : null,
+    err.error_user_title ? `title="${err.error_user_title}"` : null,
+    err.error_user_msg   ? `user_msg="${err.error_user_msg}"` : null,
+    err.error_data  ? `data=${JSON.stringify(err.error_data)}` : null,
   ].filter(Boolean).join(' ')
   return { msg, tokenExpired, pendingAction, detail }
 }
@@ -209,6 +219,13 @@ Deno.serve(async (req) => {
       .from('campaigns').select('*').eq('id', campaign_id).eq('user_id', user.id).single()
     if (campErr || !campaign) return json({ error: 'Campaign not found' }, 404)
 
+    const copyProblems = await checkAdCopy(admin, user.id, campaign)
+    if (copyProblems.length > 0) {
+      const msg = adCopyErrorMessage(copyProblems)
+      await admin.from('campaigns').update({ meta_error: msg }).eq('id', campaign_id)
+      return json({ error: msg, problems: copyProblems }, 422)
+    }
+
     // Fetch Meta integration
     const { data: integration, error: intErr } = await admin
       .from('ad_integrations').select('*')
@@ -342,6 +359,8 @@ Deno.serve(async (req) => {
         geo_locations: { countries: targetCountries },
         age_min: targetAgeMin,
         age_max: targetAgeMax,
+        // Meta requires this flag explicitly on newer API versions; 0 = keep our targeting as-is
+        targeting_automation: { advantage_audience: 0 },
       },
       status: 'PAUSED',
     })
@@ -385,6 +404,9 @@ Deno.serve(async (req) => {
     const message = (campaign.social_copy ?? campaign.ad_copy ?? campaign.headline) as string
     const creative = await metaPost(`/${accountId}/adcreatives`, token, {
       name: `${campaign.campaign_name} – Creative`,
+      // Appended by Meta to every click so submit-lead can attribute the lead.
+      // utm_campaign carries our campaign id so the lead links back to it.
+      url_tags: `utm_source=facebook&utm_medium=paid_social&utm_campaign=${campaign_id}&utm_content={{ad.id}}`,
       object_story_spec: {
         page_id: pageId,
         link_data: {

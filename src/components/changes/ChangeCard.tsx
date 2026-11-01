@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ExternalLink, GitCompare, Tag, DollarSign, FileText, BookOpen,
+  ExternalLink, GitCompare, Tag, Euro, FileText, BookOpen,
   Megaphone, Edit3, ArrowRight, PlusCircle, MinusCircle, Rocket,
   TrendingDown, TrendingUp, Zap, Eye, ChevronRight, Crosshair,
 } from 'lucide-react'
@@ -24,7 +24,7 @@ const TYPE_CONFIG: Record<ChangeType, {
 }> = {
   campaign_launch: { icon: Rocket,    iconBg: 'bg-orange-50', iconColor: 'text-orange-500', border: 'border-l-orange-400', accent: 'bg-orange-50 border-orange-200', label: 'Campaign Launch' },
   promotion:       { icon: Tag,       iconBg: 'bg-red-50',    iconColor: 'text-red-500',    border: 'border-l-red-400',    accent: 'bg-red-50 border-red-200',    label: 'Promotion' },
-  price_change:    { icon: DollarSign,iconBg: 'bg-yellow-50', iconColor: 'text-yellow-600', border: 'border-l-yellow-400', accent: 'bg-yellow-50 border-yellow-200',label: 'Price Change' },
+  price_change:    { icon: Euro,iconBg: 'bg-yellow-50', iconColor: 'text-yellow-600', border: 'border-l-yellow-400', accent: 'bg-yellow-50 border-yellow-200',label: 'Price Change' },
   new_landing_page:{ icon: FileText,  iconBg: 'bg-blue-50',   iconColor: 'text-blue-500',   border: 'border-l-blue-400',   accent: 'bg-blue-50 border-blue-200',   label: 'New Landing Page' },
   new_blog_post:   { icon: BookOpen,  iconBg: 'bg-green-50',  iconColor: 'text-green-600',  border: 'border-l-green-400',  accent: 'bg-green-50 border-green-200', label: 'New Blog Post' },
   banner_change:   { icon: Megaphone, iconBg: 'bg-purple-50', iconColor: 'text-purple-500', border: 'border-l-purple-400', accent: 'bg-purple-50 border-purple-200',label: 'Banner Change' },
@@ -40,7 +40,7 @@ function PriceChangeDetail({ before, after, detail }: { before: string[]; after:
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-        <DollarSign size={13} />
+        <Euro size={13} />
         Price Changed
       </div>
 

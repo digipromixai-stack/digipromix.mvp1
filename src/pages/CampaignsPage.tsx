@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Rocket, Search, Globe, Share2, Trash2, Play, Pause,
   CheckCircle2, FileEdit, TrendingUp, Plus, Users, Link2, ExternalLink, Copy,
-  AlertTriangle, TrendingDown, ZapOff, DollarSign, Sparkles, RefreshCw,
+  AlertTriangle, TrendingDown, ZapOff, Euro, Sparkles, RefreshCw,
   Target, Brain, X, Check, ChevronDown, ChevronUp, BarChart2, Pencil,
   Settings, BarChart, LayoutList, Columns, Mail,
 } from 'lucide-react'
@@ -20,7 +20,7 @@ import {
 } from '../hooks/useAiRecommendations'
 import { useCampaignMetrics, useRefreshCampaignMetrics } from '../hooks/useCampaignMetrics'
 import { useCampaignCurrencySymbol } from '../hooks/useAdIntegrations'
-import { timeAgo } from '../lib/utils'
+import { timeAgo, formatDecimal } from '../lib/utils'
 import { SourceTag } from '../components/ui/MetricMeta'
 import type { Campaign, CampaignStatus } from '../types/database.types'
 
@@ -135,7 +135,7 @@ const ACTION_META: Record<string, {
   ad_fatigue:         { icon: ZapOff,       label: 'Ad Fatigue',          color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200' },
   pause_campaign:     { icon: Pause,        label: 'Pause Suggested',     color: 'text-yellow-700', bg: 'bg-yellow-50',  border: 'border-yellow-200', applyLabel: 'Pause now' },
   scale_campaign:     { icon: TrendingUp,   label: 'Scale Up',            color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
-  adjust_budget:      { icon: DollarSign,   label: 'Adjust Budget',       color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
+  adjust_budget:      { icon: Euro,   label: 'Adjust Budget',       color: 'text-blue-700',   bg: 'bg-blue-50',    border: 'border-blue-200'   },
   change_creative:    { icon: Sparkles,     label: 'Refresh Creative',    color: 'text-violet-700', bg: 'bg-violet-50',  border: 'border-violet-200' },
   change_audience:    { icon: Users,        label: 'Change Audience',     color: 'text-indigo-700', bg: 'bg-indigo-50',  border: 'border-indigo-200' },
   reactivate:         { icon: RefreshCw,    label: 'Reactivate',          color: 'text-green-700',  bg: 'bg-green-50',   border: 'border-green-200'  },
@@ -359,17 +359,17 @@ function MetricsPanel({ campaign }: { campaign: Campaign }) {
   const { data: m } = useCampaignMetrics(campaign.id)
   const { mutate: refreshMetrics, isPending: refreshing } = useRefreshCampaignMetrics()
   const { toast } = useToast()
-  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n))
+  const fmt = (n: number) => n >= 1000 ? `${formatDecimal(n / 1000, 1)}k` : String(Math.round(n))
 
   const isMeta = !!campaign.meta_campaign_id
   const isGoogle = !!campaign.google_campaign_id
   const platformLabel = [isMeta && 'Meta Ads', isGoogle && 'Google Ads'].filter(Boolean).join(' + ') || 'Ad Platform'
 
   const sym = useCampaignCurrencySymbol(campaign)
-  const spend = m?.has_data ? `${sym}${m.total_spend.toFixed(2)}` : `${sym}0.00`
+  const spend = `${formatDecimal(m?.has_data ? m.total_spend : 0)} ${sym}`
   const clicks = m?.has_data ? fmt(m.total_clicks) : '0'
   const impressions = m?.has_data ? fmt(m.total_impressions) : '0'
-  const ctr = m?.has_data && m.avg_ctr != null ? `${m.avg_ctr.toFixed(1)}%` : '0.0%'
+  const ctr = `${formatDecimal(m?.has_data && m.avg_ctr != null ? m.avg_ctr : 0, 1)} %`
   const latestDate = m?.rows[0]?.date
 
   return (
@@ -442,7 +442,7 @@ function BudgetEdit({ campaign }: { campaign: Campaign }) {
   if (!editing) {
     return (
       <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs text-on-surface-variant hover:text-on-surface">
-        <DollarSign size={10} />
+        <Euro size={10} />
         {campaign.daily_budget ? `${sym}${campaign.daily_budget}/day` : 'Set budget'}
         <Pencil size={9} className="ml-0.5" />
       </button>

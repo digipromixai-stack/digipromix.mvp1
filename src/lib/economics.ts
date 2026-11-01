@@ -5,7 +5,7 @@
 // (set in Settings) always takes precedence when available.
 export const DEFAULT_VALUE_PER_LEAD = 100
 
-// Per-industry CPC + conversion-rate baselines (USD). Kept in sync with
+// Per-industry CPC + conversion-rate baselines (EUR). Kept in sync with
 // supabase/functions/predict-budget/index.ts's INDUSTRY_CPC table — that one
 // can't be imported here (Deno edge function vs. Vite frontend), so this is a
 // deliberate mirror, not an independent guess. Update both if either changes.
@@ -38,4 +38,46 @@ export function industryBaseline(industry: string | null | undefined) {
   if (!industry) return INDUSTRY_CPC.default
   const key = industry.toLowerCase().trim()
   return INDUSTRY_CPC[key] ?? INDUSTRY_CPC.default
+}
+
+// ── Shared signal economics ────────────────────────────────────────────────
+// Every page (Command Center, Opportunities, Counter Campaign) shows the
+// numbers score-opportunities stored on the opportunity — never a page-local
+// recalculation — so one signal reads the same everywhere.
+
+/** Same ±30% band score-opportunities stores as metadata.leads_range. */
+export function leadsRange(expected: number): { min: number; max: number } {
+  const min = Math.max(1, Math.round(expected * 0.7))
+  const max = Math.max(min + 1, Math.round(expected * 1.3))
+  return { min, max }
+}
+
+export function formatLeadsRange(expected: number | null | undefined): string {
+  if (expected == null || expected <= 0) return '—'
+  const { min, max } = leadsRange(expected)
+  return `${min}–${max}`
+}
+
+export interface SignalEconomics {
+  leads:        number
+  leadsLabel:   string        // e.g. "7–13"
+  cpc:          number | null // €
+  cpl:          number | null // €
+  weeklyBudget: number | null // € (recommended_budget is daily)
+  value:        number        // € — expected leads × value per lead
+}
+
+export function opportunityEconomics(
+  opp: { expected_leads: number | null; estimated_cpc: number | null; estimated_cpl: number | null; recommended_budget: number | null },
+  valuePerLead: number,
+): SignalEconomics {
+  const leads = opp.expected_leads ?? 0
+  return {
+    leads,
+    leadsLabel:   formatLeadsRange(leads),
+    cpc:          opp.estimated_cpc,
+    cpl:          opp.estimated_cpl ?? (leads > 0 && opp.recommended_budget ? (opp.recommended_budget * 7) / leads : null),
+    weeklyBudget: opp.recommended_budget != null ? opp.recommended_budget * 7 : null,
+    value:        leads * valuePerLead,
+  }
 }

@@ -10,8 +10,14 @@ export function timeAgo(date: string | Date) {
   return formatDistanceToNow(new Date(date), { addSuffix: true })
 }
 
+// German date format: 18.10.2026 14:30
 export function formatDate(date: string | Date) {
-  return format(new Date(date), 'MMM d, yyyy HH:mm')
+  return format(new Date(date), 'dd.MM.yyyy HH:mm')
+}
+
+/** German number format with fixed decimals: 1234.5 → "1.234,50" */
+export function formatDecimal(n: number, decimals = 2) {
+  return n.toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
 export function formatUrl(url: string) {

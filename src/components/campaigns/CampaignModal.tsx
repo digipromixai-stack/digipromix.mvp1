@@ -3,16 +3,17 @@ import { Link } from 'react-router-dom'
 import {
   Rocket, Loader2, Copy, Check, Zap, Globe, Share2,
   Search, CheckCircle2, ChevronDown, ChevronUp, X,
-  ExternalLink, Link2, DollarSign, Layout, Sparkles, Shield,
+  ExternalLink, Link2, Euro, Layout, Sparkles, Shield,
   Pencil, Save, Plus, RotateCcw, AlertTriangle,
 } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { invokeFunction, supabase } from '../../lib/supabase'
+import { formatDecimal } from '../../lib/utils'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMetaIntegration, useGoogleAdsIntegration, minDailyForCurrency } from '../../hooks/useAdIntegrations'
 import { useClients } from '../../hooks/useClients'
-import { useProfile } from '../../hooks/useProfile'
+import { useProfile, isProfileComplete } from '../../hooks/useProfile'
 import type { Campaign, LandingTemplate } from '../../types/database.types'
 import type { DetectedChangeWithCompetitor } from '../../types/database.types'
 import { confidenceLevel } from '../ui/MetricMeta'
@@ -257,8 +258,8 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
   }
 
   const generate = async () => {
-    if (!profile?.business_name && !profile?.full_name) {
-      setError('Please complete your business profile in Settings first before generating campaigns.')
+    if (!isProfileComplete(profile)) {
+      setError('Please complete your business profile (name, website, industry, city, main offer, selling point) in Settings before generating campaigns.')
       return
     }
     setLoading(true); setError(null)
@@ -504,13 +505,13 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 {opportunityHint.estimated_cpc != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPC</div>
-                    <div className="text-sm font-bold text-gray-900">{opportunityHint.estimated_cpc.toFixed(2)} €</div>
+                    <div className="text-sm font-bold text-gray-900">{formatDecimal(opportunityHint.estimated_cpc)} €</div>
                   </div>
                 )}
                 {opportunityHint.estimated_cpl != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPL</div>
-                    <div className="text-sm font-bold text-gray-900">{opportunityHint.estimated_cpl.toFixed(2)} €</div>
+                    <div className="text-sm font-bold text-gray-900">{formatDecimal(opportunityHint.estimated_cpl)} €</div>
                   </div>
                 )}
               </div>
@@ -520,7 +521,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
             </div>
           )}
 
-          {!profile?.business_name && (
+          {!isProfileComplete(profile) && (
             <div className="flex items-start gap-2.5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
               <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
               <div>
@@ -581,13 +582,13 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
                 {campaign.predicted_cpc != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. CPC</div>
-                    <div className="text-sm font-bold text-gray-900">{campaign.predicted_cpc.toFixed(2)} €</div>
+                    <div className="text-sm font-bold text-gray-900">{formatDecimal(campaign.predicted_cpc)} €</div>
                   </div>
                 )}
                 {campaign.predicted_cpl != null && (
                   <div className="bg-white/70 rounded-lg p-2 text-center">
                     <div className="text-[9px] uppercase tracking-wide text-gray-400 mb-0.5">Est. cost/lead</div>
-                    <div className="text-sm font-bold text-gray-900">{campaign.predicted_cpl.toFixed(2)} €</div>
+                    <div className="text-sm font-bold text-gray-900">{formatDecimal(campaign.predicted_cpl)} €</div>
                   </div>
                 )}
               </div>
@@ -863,7 +864,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
             return (
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-                  <DollarSign size={11} /> Daily budget {isRequired
+                  <Euro size={11} /> Daily budget {isRequired
                     ? <span className="text-red-500 font-normal normal-case">(required for Meta launch)</span>
                     : <span className="font-normal normal-case">(optional)</span>}
                 </p>
@@ -1151,7 +1152,7 @@ export function CampaignModal({ change, open, onClose, opportunityHint, counterH
           {googleResult?.mode === 'managed' && googleResult.billing?.required && googleResult.billing.url && (
             <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 text-left">
               <div className="flex items-center gap-2 text-amber-900 font-bold text-sm mb-1.5">
-                <DollarSign size={16} className="text-amber-600" /> Action required: Add billing to activate ads
+                <Euro size={16} className="text-amber-600" /> Action required: Add billing to activate ads
               </div>
               <p className="text-xs text-amber-800 leading-relaxed mb-3">
                 Your DigiPromix-managed Google Ads sub-account is provisioned (ID:{' '}

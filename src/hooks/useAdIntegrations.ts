@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
+import { supabase, invokeFunction } from '../lib/supabase'
 
 export interface AdIntegration {
   id: string
@@ -90,15 +90,36 @@ export function useCampaignCurrencySymbol(campaign: { meta_campaign_id?: string 
 export function useGoogleAdsIntegration() {
   const { data: integrations = [], ...rest } = useAdIntegrations()
   const googleIntegration = integrations.find(i => i.platform === 'google') ?? null
-  const isExpired = googleIntegration
-    ? !googleIntegration.is_active || (!!googleIntegration.token_expires_at && new Date(googleIntegration.token_expires_at).getTime() <= Date.now())
-    : false
+  // token_expires_at is the 1-hour access token, which is refreshed on demand —
+  // only the live check (check-integrations → is_active) says whether the
+  // refresh token itself still works.
+  const isExpired = googleIntegration ? !googleIntegration.is_active : false
   return {
     ...rest,
     googleIntegration,
     isExpired,
     isConnected: !!googleIntegration && !isExpired,
   }
+}
+
+/**
+ * Asks Meta and Google live whether the stored tokens still work (instead of
+ * trusting the stored flag), then refreshes the integration list so Settings
+ * shows the true status. Runs once per mount of the calling page.
+ */
+export function useLiveIntegrationCheck() {
+  const qc = useQueryClient()
+  return useQuery({
+    queryKey: ['ad_integrations_live_check'],
+    queryFn: async () => {
+      const { data, error } = await invokeFunction<Record<string, { status: string; detail?: string }>>('check-integrations', {})
+      if (error) throw error
+      await qc.invalidateQueries({ queryKey: ['ad_integrations'] })
+      return data ?? {}
+    },
+    staleTime: 60_000,
+    retry: false,
+  })
 }
 
 export function useInvalidateIntegrations() {

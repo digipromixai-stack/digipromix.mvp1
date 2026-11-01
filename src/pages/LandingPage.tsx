@@ -11,6 +11,7 @@ import {
   User, Mail, Phone, MessageSquare, Star, Gift,
 } from 'lucide-react'
 import { supabase, invokeFunction } from '../lib/supabase'
+import { initAdTracking, trackLeadConversion } from '../lib/adTracking'
 import type { Campaign, LandingTemplate } from '../types/database.types'
 
 type PageState = 'loading' | 'ready' | 'submitting' | 'success' | 'not_found'
@@ -356,6 +357,8 @@ export function LandingPage() {
   const attribution    = useAttribution()
   const isReturning    = useReturnVisitor(slug)
 
+  useEffect(() => { initAdTracking() }, [])
+
   useEffect(() => {
     if (!slug) { setState('not_found'); return }
     supabase
@@ -390,6 +393,7 @@ export function LandingPage() {
       ...attribution,
     })
     if (error) { setFormError('Something went wrong. Please try again.'); setState('ready'); return }
+    trackLeadConversion()
     setState('success')
   }
 

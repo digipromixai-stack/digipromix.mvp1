@@ -106,12 +106,31 @@ Deno.serve(async (req) => {
 
     if (changeError || !change) return jsonResponse({ error: 'Change not found', detail: changeError?.message }, 404)
 
-    // Fetch the user's brand name so the AI writes real copy, not "YourBrand"
+    // The business profile drives the copy — campaigns can't be generated until
+    // it is filled in (set up after sign-up, editable in Settings).
     const { data: profileRow } = await supabase
-      .from('profiles').select('business_name, full_name').eq('id', user.id).single()
-    const brandName = (profileRow?.business_name as string | null)?.trim()
-      || (profileRow?.full_name as string | null)?.trim()
-      || 'your brand'
+      .from('profiles')
+      .select('business_name, website_url, industry, city, main_offer, selling_point, default_landing_page_url, value_per_lead')
+      .eq('id', user.id).single()
+    const p = (profileRow ?? {}) as Record<string, string | number | null>
+    const missing = ([
+      ['business_name', 'business name'], ['website_url', 'website'], ['industry', 'industry'],
+      ['city', 'city'], ['main_offer', 'main offer'], ['selling_point', 'selling point'],
+    ] as const).filter(([k]) => !String(p[k] ?? '').trim()).map(([, label]) => label)
+    if (missing.length > 0) {
+      return jsonResponse({ error: `Complete your business profile first (missing: ${missing.join(', ')}).`, missing }, 412)
+    }
+    const brandName    = String(p.business_name).trim()
+    const ownIndustry  = String(p.industry).trim()
+    const city         = String(p.city).trim()
+    const mainOffer    = String(p.main_offer).trim()
+    const sellingPoint = String(p.selling_point).trim()
+    // German-market businesses get German copy
+    const isGerman = (() => {
+      try { return /\.(de|at|ch)$/i.test(new URL(/^https?:\/\//.test(String(p.website_url)) ? String(p.website_url) : `https://${p.website_url}`).hostname) }
+      catch { return false }
+    })()
+    const language = isGerman ? 'German (Deutsch, formal "Sie")' : 'English'
 
     const competitor = change.competitors as { name: string; website_url: string; industry: string | null }
     const meta = change.metadata as Record<string, unknown> | null
@@ -120,7 +139,7 @@ Deno.serve(async (req) => {
     const promoKeywords = (meta?.promo_keywords as string[] | undefined)?.join(', ') ?? ''
     const addedContent  = (meta?.added_content  as string[] | undefined)?.slice(0, 3).join(' | ') ?? ''
     const campaignScore = meta?.campaign_score ?? 0
-    const industry      = competitor.industry?.toLowerCase() ?? 'general'
+    const industry      = ownIndustry.toLowerCase() || competitor.industry?.toLowerCase() || 'general'
 
     const templateMap: Record<string, string> = {
       healthcare: 'healthcare', medical: 'healthcare', dental: 'healthcare', pharmacy: 'healthcare',
@@ -200,9 +219,17 @@ STRICT LEGAL RULES — you MUST follow all of these:
 5. Focus entirely on ${brandName}'s own strengths, value, and offer.
 6. Copy must comply with FTC guidelines and general advertising law.
 7. Use the brand name "${brandName}" naturally throughout the copy — NEVER write placeholder text like "YourBrand", "[Brand]", or "[Your Company]".
+8. Write ALL customer-facing text (everything except "competitor_offer_extracted" and "offer_justification") in ${language}.
+9. Never use generic filler like "exclusive limited-time offer" — build the offer from the business's real main offer below.
+
+About the business (this is who the campaign is for — use it):
+- Brand: ${brandName}
+- Industry: ${ownIndustry}
+- City / area served: ${city}
+- Main offer: ${mainOffer}
+- Selling point: ${sellingPoint}
 
 Market context (use only to understand the opportunity — do NOT copy or reference):
-- Brand: ${brandName}
 - Industry: ${industry}
 - Market event type: ${change.change_type}
 - Opportunity signal: ${change.title}

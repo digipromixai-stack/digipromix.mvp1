@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Sparkles, TrendingUp, Target, DollarSign, Zap,
+  Sparkles, TrendingUp, Target, Euro, Zap,
   ArrowRight, Filter, Search, X, Loader2,
   ChevronDown, ChevronUp, Clock,
 } from 'lucide-react'
@@ -23,6 +23,7 @@ import type { Opportunity, DetectedChangeWithCompetitor } from '../types/databas
 import { SourceTag, InfoTooltip, confidenceLevel, confidenceTone } from '../components/ui/MetricMeta'
 import { opportunityScoreReasons, humanizeAction } from './DashboardPage'
 import { useValuePerLead } from '../hooks/useProfile'
+import { formatLeadsRange } from '../lib/economics'
 
 // ── Signal source badge ───────────────────────────────────────────────────────
 // Shows where this opportunity came from: Google Trends, Meta Ads, or a
@@ -85,7 +86,7 @@ function BudgetTiers({ opp }: { opp: Opportunity }) {
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-1 text-[11px] text-on-surface-variant hover:text-on-surface transition-colors"
       >
-        <DollarSign size={11} />
+        <Euro size={11} />
         Budget scenarios
         {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
       </button>
@@ -119,7 +120,7 @@ function OpportunityTrendChart({ opportunities }: { opportunities: Opportunity[]
       const d = new Date()
       d.setHours(0, 0, 0, 0)
       d.setDate(d.getDate() - (6 - i))
-      return { date: d, label: d.toLocaleDateString(undefined, { weekday: 'short' }), count: 0 }
+      return { date: d, label: d.toLocaleDateString('de-DE', { weekday: 'short' }), count: 0 }
     })
     for (const opp of opportunities) {
       const created = new Date(opp.created_at)
@@ -324,7 +325,7 @@ function OpportunityCard({
       </div>
 
       <div className="flex items-center justify-between text-xs text-on-surface-variant mb-3 pt-3 pb-1 border-t border-dashed border-border-subtle">
-        <span>Estimated Leads <strong className="text-on-surface">{opp.expected_leads ?? '—'}</strong></span>
+        <span>Estimated Leads <strong className="text-on-surface">{formatLeadsRange(opp.expected_leads)}</strong></span>
         <span>Estimated ROI <strong className="text-success">{roiMultiplier != null ? `${roiMultiplier}x` : '—'}</strong></span>
       </div>
 

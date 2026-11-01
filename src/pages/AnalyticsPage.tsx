@@ -83,7 +83,7 @@ function CompetitorTab({ days }: { days: number }) {
       const s = startOfDay(day).toISOString()
       const e = new Date(startOfDay(day).getTime() + 86400000).toISOString()
       const dayChanges = changes.filter((c) => c.detected_at >= s && c.detected_at < e)
-      const row: Record<string, unknown> = { date: format(day, 'MMM d'), total: dayChanges.length }
+      const row: Record<string, unknown> = { date: format(day, 'dd.MM.'), total: dayChanges.length }
       Object.keys(CHANGE_COLORS).forEach((t) => { row[t] = dayChanges.filter((c) => c.change_type === t).length })
       return row
     })
@@ -283,7 +283,7 @@ function CampaignsLeadsTab({ days }: { days: number }) {
       const s = startOfDay(day).toISOString()
       const e = new Date(startOfDay(day).getTime() + 86400000).toISOString()
       return {
-        date:  format(day, 'MMM d'),
+        date:  format(day, 'dd.MM.'),
         leads: leads.filter(l => l.created_at >= s && l.created_at < e).length,
       }
     })

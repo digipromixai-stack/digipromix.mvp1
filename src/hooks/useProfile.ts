@@ -16,6 +16,17 @@ export function useProfile() {
   })
 }
 
+// Fields the business profile set-up requires before campaigns can be
+// generated. Keep in sync with the check in supabase/functions/generate-campaign.
+export const REQUIRED_PROFILE_FIELDS = [
+  'business_name', 'website_url', 'industry', 'city', 'main_offer', 'selling_point',
+] as const
+
+export function isProfileComplete(profile: Profile | null | undefined): boolean {
+  if (!profile) return false
+  return REQUIRED_PROFILE_FIELDS.every(k => String(profile[k] ?? '').trim().length > 0)
+}
+
 // Convenience hook for pages that only need the ROI/revenue estimate input —
 // falls back to the app default until the user sets their own value in Settings.
 export function useValuePerLead(): number {

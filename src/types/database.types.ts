@@ -25,6 +25,7 @@ export interface Profile {
   industry?: string | null
   city?: string | null
   selling_point?: string | null
+  main_offer?: string | null
   default_landing_page_url?: string | null
   avatar_url: string | null
   plan_type: PlanType

@@ -20,15 +20,14 @@ export function CookieConsent() {
 
   if (!visible) return null
 
-  const accept = () => {
-    localStorage.setItem(STORAGE_KEY, 'accepted')
+  // adTracking listens for this event to load ad tags only after consent
+  const choose = (value: 'accepted' | 'declined') => {
+    localStorage.setItem(STORAGE_KEY, value)
+    window.dispatchEvent(new Event('digipromix:consent'))
     setVisible(false)
   }
-
-  const decline = () => {
-    localStorage.setItem(STORAGE_KEY, 'declined')
-    setVisible(false)
-  }
+  const accept  = () => choose('accepted')
+  const decline = () => choose('declined')
 
   return (
     <div
@@ -40,8 +39,8 @@ export function CookieConsent() {
       <div className="max-w-4xl mx-auto bg-surface-card text-on-surface rounded-2xl shadow-soft-lg px-4 py-3 sm:px-5 sm:py-4 flex items-center gap-3 sm:gap-4 flex-wrap pointer-events-auto border border-border-subtle">
         <Cookie size={18} className="text-primary shrink-0" />
         <p className="flex-1 text-sm text-on-surface-variant min-w-[200px] leading-relaxed">
-          We use cookies to keep you signed in and understand how you use DigiPromix AI.
-          No ad tracking.{' '}
+          We use necessary cookies to keep you signed in. If you accept, campaign pages also use
+          Google Ads and Meta measurement to count enquiries from ads. Nothing loads until you accept.{' '}
           <a href="/privacy" className="text-primary hover:text-on-primary-container underline underline-offset-2 transition-colors">
             Privacy policy
           </a>

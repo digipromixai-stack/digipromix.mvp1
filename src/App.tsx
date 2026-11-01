@@ -10,6 +10,8 @@ import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
+import { OnboardingPage } from './pages/auth/OnboardingPage'
+import { useProfile, isProfileComplete } from './hooks/useProfile'
 import { DashboardPage } from './pages/DashboardPage'
 import { OpportunityFeedPage } from './pages/OpportunityFeedPage'
 import { CompetitorsPage } from './pages/CompetitorsPage'
@@ -98,6 +100,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Business owners finish the profile set-up before using the app. Invited
+// team members work in the owner's business, so their own profile is skipped.
+function RequireBusinessProfile({ children }: { children: React.ReactNode }) {
+  const { user, businessId } = useAuth()
+  const { data: profile, isLoading } = useProfile()
+  if (isLoading) return <PageSpinner />
+  const isOwner = !businessId || businessId === user?.id
+  if (isOwner && !isProfileComplete(profile)) return <Navigate to="/onboarding" replace />
+  return <>{children}</>
+}
+
 function AppRoutes() {
   const { session, loading } = useAuth()
   if (loading) return <PageSpinner />
@@ -118,6 +131,7 @@ function AppRoutes() {
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/auth/meta/callback" element={<MetaCallbackPage />} />
       <Route path="/auth/google-ads/callback" element={<GoogleAdsCallbackPage />} />
+      <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
       {/* Public landing page — no auth */}
       <Route path="/lp/:slug" element={<LandingPage />} />
 
@@ -125,7 +139,9 @@ function AppRoutes() {
       <Route
         element={
           <ProtectedRoute>
-            <AppLayout />
+            <RequireBusinessProfile>
+              <AppLayout />
+            </RequireBusinessProfile>
           </ProtectedRoute>
         }
       >

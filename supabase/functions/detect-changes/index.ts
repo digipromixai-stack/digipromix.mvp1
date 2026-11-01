@@ -263,8 +263,18 @@ Deno.serve(async (req: Request) => {
         classification.promo_keywords = []
       } else {
         classification.promo_keywords = trulyNewKws
+        classification.description = `New promotional content: "${trulyNewKws.slice(0, 3).join('", "')}"`
       }
     }
+  }
+
+  // Never record a promotion without keywords (would read: New promotional content: "")
+  if (classification.change_type === 'promotion' && (classification.promo_keywords ?? []).filter(k => k.trim()).length === 0) {
+    classification.change_type = 'content_change'
+    classification.severity = 'low'
+    classification.title = `Content update on ${(() => { try { return new URL(page.url).hostname } catch { return page.url } })()}`
+    classification.description = 'Minor text update.'
+    classification.promo_keywords = []
   }
 
   // Generate diff — store to Storage only when both snapshots have HTML available
@@ -329,31 +339,33 @@ Deno.serve(async (req: Request) => {
   const shouldAlert = alertOn.includes(classification.change_type)
 
   if (shouldAlert) {
-    // Throttle email alerts: maximum 1 email alert per competitor per day
+    // Maximum one alert per competitor per day. Counted on real alerts (not on
+    // detected_changes, where a minor content edit would block a real promo).
+    // Further changes that day are still stored in detected_changes and show
+    // on the competitor timeline — they just don't raise another alert.
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const { data: recentSameCompAlerts } = await supabaseAdmin
-      .from('detected_changes')
-      .select('id')
-      .eq('competitor_id', competitorId)
+      .from('alerts')
+      .select('id, detected_changes!inner(competitor_id)')
       .eq('user_id', userId)
-      .gte('detected_at', oneDayAgo)
-      .neq('id', change.id)
+      .eq('detected_changes.competitor_id', competitorId)
+      .gte('created_at', oneDayAgo)
       .limit(1)
 
-    const canSendEmail = (recentSameCompAlerts?.length ?? 0) === 0
+    const canAlert = (recentSameCompAlerts?.length ?? 0) === 0
 
     const alertsToInsert = []
-    if (prefs?.dashboard_alerts !== false) {
+    if (canAlert && prefs?.dashboard_alerts !== false) {
       alertsToInsert.push({ user_id: userId, change_id: change.id, channel: 'dashboard', status: 'pending' })
     }
-    if (prefs?.email_alerts !== false && canSendEmail) {
+    if (canAlert && prefs?.email_alerts !== false) {
       alertsToInsert.push({ user_id: userId, change_id: change.id, channel: 'email', status: 'pending' })
     }
     if (alertsToInsert.length > 0) {
       await supabaseAdmin.from('alerts').insert(alertsToInsert)
     }
 
-    if (canSendEmail && prefs?.email_alerts !== false) {
+    if (canAlert && prefs?.email_alerts !== false) {
       // Trigger email send (fire and forget)
       const emailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email-alert`
       fetch(emailUrl, {

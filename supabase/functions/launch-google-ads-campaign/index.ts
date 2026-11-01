@@ -20,6 +20,7 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 import { GOOGLE_ADS_API as ADS_API, CAMPAIGN_DURATION_DAYS, CPC_BUDGET_RATIO, CPC_HARD_CAP_USD, KEYWORD_LIMIT } from '../_shared/config.ts'
+import { checkAdCopy, adCopyErrorMessage } from '../_shared/adCopyCheck.ts'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -30,13 +31,14 @@ function json(body: unknown, status = 200) {
 
 // ── Text helpers ──────────────────────────────────────────────────────────────
 
-/** Strip non-ASCII and Google-rejected chars, collapse whitespace */
+/** Strip control chars and emoji (Google rejects them), collapse whitespace.
+ *  Letters outside ASCII are kept — German copy needs ä, ö, ü, ß and €. */
 function sanitize(s: string): string {
   return String(s ?? '')
     .replace(/[–—]/g, '-')
     .replace(/['']/g, "'")
     .replace(/[""]/g, '"')
-    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/[\p{Cc}\p{Cf}\p{Extended_Pictographic}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -366,6 +368,13 @@ Deno.serve(async (req) => {
       .from('campaigns').select('*')
       .eq('id', campaign_id).eq('user_id', user.id).single()
     if (campErr || !campaign) return json({ error: 'Campaign not found' }, 404)
+
+    const copyProblems = await checkAdCopy(admin, user.id, campaign)
+    if (copyProblems.length > 0) {
+      const msg = adCopyErrorMessage(copyProblems)
+      await admin.from('campaigns').update({ google_error: msg }).eq('id', campaign_id)
+      return json({ error: msg, problems: copyProblems }, 422)
+    }
 
     // Fetch Google integration
     const { data: integration, error: intErr } = await admin

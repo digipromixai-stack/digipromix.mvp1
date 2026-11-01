@@ -214,7 +214,9 @@ Deno.serve(async (req) => {
         email,
         phone,
         message,
-        source:        'landing_page',
+        // Ad channel when the visitor came from a tagged ad (facebook / google),
+        // otherwise the landing page itself
+        source:        utm_source ? String(utm_source).toLowerCase().slice(0, 40) : 'landing_page',
         // Legacy (still read by some UI surfaces)
         score,
         score_type,

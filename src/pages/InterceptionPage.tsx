@@ -9,9 +9,10 @@ import { CampaignModal } from '../components/campaigns/CampaignModal'
 import { useDetectedChanges } from '../hooks/useDetectedChanges'
 import { useCampaigns } from '../hooks/useCampaigns'
 import { timeAgo } from '../lib/utils'
-import type { Campaign, DetectedChangeWithCompetitor } from '../types/database.types'
+import type { Campaign, DetectedChangeWithCompetitor, Opportunity } from '../types/database.types'
 import { SourceTag, InfoTooltip } from '../components/ui/MetricMeta'
-import { industryBaseline } from '../lib/economics'
+import { opportunityEconomics } from '../lib/economics'
+import { useOpportunities } from '../hooks/useOpportunities'
 import { useValuePerLead } from '../hooks/useProfile'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -82,10 +83,12 @@ type SignalFilter = 'all' | 'high' | 'price_change' | 'promotion' | 'campaign_la
 function CampaignSignalRow({
   change,
   activeCampaign,
+  opportunity,
   onCounter,
 }: {
   change: DetectedChangeWithCompetitor
   activeCampaign: Campaign | null
+  opportunity: Opportunity | null
   onCounter: () => void
 }) {
   const sev  = SEV[change.severity] ?? SEV.low
@@ -98,11 +101,9 @@ function CampaignSignalRow({
   const headline = activeCampaign?.headline ?? genHeadlines(change)[0]
 
   const valuePerLead = useValuePerLead()
-  const budget = change.severity === 'high' ? 180 : change.severity === 'medium' ? 140 : 100
-  const { cpc, conversionRate } = industryBaseline(industry)
-  const weekly = budget * 7
-  const leads  = Math.max(1, Math.round((weekly / cpc) * conversionRate))
-  const revenue = leads * valuePerLead
+  // Numbers come from the scored opportunity for this signal, so they match
+  // Opportunities and Command Center exactly. Unscored signals show "—".
+  const econ = opportunity ? opportunityEconomics(opportunity, valuePerLead) : null
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 bg-surface-card border border-border-subtle rounded-2xl p-5 shadow-soft hover:shadow-soft-md transition-shadow">
@@ -152,29 +153,30 @@ function CampaignSignalRow({
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
               Est. Leads
               <InfoTooltip title="How Estimated Leads are calculated">
-                (Weekly budget {weekly} € ÷ industry benchmark CPC {cpc.toFixed(2)} €) × {(conversionRate * 100).toFixed(1)}% benchmark conversion rate for {industry}.
-                Becomes Actual Leads once the campaign runs.
+                {econ
+                  ? <>Range around the opportunity score's estimate ({econ.leads}) for a weekly budget of {econ.weeklyBudget?.toLocaleString('de-DE') ?? '—'} € in {industry}. Same figure as on the Opportunities page. Becomes Actual Leads once the campaign runs.</>
+                  : <>This signal has not been scored as an opportunity yet, so there is no estimate.</>}
               </InfoTooltip>
             </p>
-            <p className="font-mono text-sm font-bold text-on-surface">{leads}</p>
+            <p className="font-mono text-sm font-bold text-on-surface">{econ?.leadsLabel ?? '—'}</p>
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
               Est. Revenue
               <InfoTooltip title="How Estimated Revenue is calculated">
-                Estimated Leads ({leads}) × your configured Value Per Lead ({valuePerLead} €, set in Settings).
+                Estimated Leads ({econ?.leads ?? '—'}) × your configured Value Per Lead ({valuePerLead} €, set in Settings).
               </InfoTooltip>
             </p>
-            <p className="font-mono text-sm font-bold text-on-surface">{revenue.toLocaleString('de-DE')} €</p>
+            <p className="font-mono text-sm font-bold text-on-surface">{econ ? `${econ.value.toLocaleString('de-DE')} €` : '—'}</p>
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-0.5 flex items-center gap-1">
               Avg. CPC
               <InfoTooltip title="Where Avg. CPC comes from">
-                Industry benchmark cost-per-click for {industry}.
+                Estimated cost-per-click from the opportunity score (industry benchmark for {industry}, adjusted for this signal).
               </InfoTooltip>
             </p>
-            <p className="font-mono text-sm font-bold text-on-surface">{cpc.toFixed(2)} €</p>
+            <p className="font-mono text-sm font-bold text-on-surface">{econ?.cpc != null ? `${econ.cpc.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` : '—'}</p>
           </div>
         </div>
         <SourceTag source="benchmark" className="mt-2" />
@@ -225,6 +227,19 @@ export function InterceptionPage() {
 
   const { data: changes = [], isLoading } = useDetectedChanges({ limit: 100 })
   const { data: campaigns = [] }          = useCampaigns()
+  const { data: opportunities = [] }      = useOpportunities({ limit: 200 })
+
+  // score-opportunities links each opportunity to its source change (and to
+  // sibling changes it was grouped with)
+  const opportunityByChangeId = useMemo(() => {
+    const map = new Map<string, Opportunity>()
+    for (const o of opportunities) {
+      const meta = (o.metadata ?? {}) as { source_change_id?: string; sibling_change_ids?: string[] }
+      for (const id of meta.sibling_change_ids ?? []) if (!map.has(id)) map.set(id, o)
+      if (meta.source_change_id) map.set(meta.source_change_id, o)
+    }
+    return map
+  }, [opportunities])
 
   const campaignByChangeId = useMemo(() => {
     const map = new Map<string, Campaign>()
@@ -303,6 +318,7 @@ export function InterceptionPage() {
               key={c.id}
               change={c}
               activeCampaign={campaignByChangeId.get(c.id) ?? null}
+              opportunity={opportunityByChangeId.get(c.id) ?? null}
               onCounter={() => handleLaunch(c)}
             />
           ))}

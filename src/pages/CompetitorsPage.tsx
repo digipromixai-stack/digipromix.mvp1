@@ -44,11 +44,10 @@ function threatTone(aggression: number) {
   return { label: 'Low risk', pill: 'bg-primary-container text-on-primary-container' }
 }
 function churnRisk(aggression: number, high7d: number, hasMajor: boolean) {
-  // Do NOT show scary churn percentage when changes are just small content updates
+  // Only a level, never a percentage: we have no customer-loss data, so a
+  // "XX%" would be invented. Nothing is shown for small content updates.
   if (!hasMajor || high7d === 0) return null
-  const prob = Math.min(90, Math.round(aggression * 0.7 + high7d * 5))
-  const label = prob >= 70 ? 'HIGH' : prob >= 40 ? 'MEDIUM' : 'LOW'
-  return { prob, label }
+  return { label: aggression >= 70 ? 'HIGH' : aggression >= 35 ? 'MEDIUM' : 'LOW' }
 }
 function whyText(name: string, intel: IntelStats) {
   if (intel.total7d === 0) {
@@ -123,8 +122,8 @@ function CompetitorCard({ competitor, intel }: { competitor: Competitor; intel: 
 
         <div className="grid grid-cols-3 gap-3 mb-3">
           <div>
-            <p className="text-[10.5px] text-on-surface-variant mb-1">Aggression Score</p>
-            <p className="font-mono text-[14.5px] font-semibold text-on-surface">{aggression.toFixed(0)} / 100</p>
+            <p className="text-[10.5px] text-on-surface-variant mb-1">Activity Score</p>
+            <p className="font-mono text-[14.5px] font-semibold text-on-surface">{hasMajor ? `${aggression.toFixed(0)} / 100` : 'Low'}</p>
           </div>
           <div className="min-w-0">
             <p className="text-[10.5px] text-on-surface-variant mb-1">Active Promotion</p>
@@ -141,7 +140,7 @@ function CompetitorCard({ competitor, intel }: { competitor: Competitor; intel: 
             <span className="shrink-0">{isHigh ? '⚠️' : 'ℹ️'}</span>
             <span>
               {churn ? (
-                <><strong>Probability of losing customers: {churn.label} ({churn.prob}%).</strong>{' '}</>
+                <><strong>Competitive pressure: {churn.label}.</strong>{' '}</>
               ) : (
                 <><strong>Market activity:</strong>{' '}</>
               )}
